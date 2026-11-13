@@ -1,0 +1,2082 @@
+{
+ "n": 2000,
+ "seed": 7,
+ "assumptions": {
+  "dialect_mix": {
+   "Emirati": 0.3,
+   "Other Gulf": 0.15,
+   "Levantine": 0.15,
+   "Egyptian": 0.15,
+   "English": 0.25
+  },
+  "education_mix": {
+   "none": 0.1,
+   "primary": 0.2,
+   "secondary": 0.4,
+   "tertiary": 0.3
+  },
+  "status_prevalence_age50_75": {
+   "normal": 0.85,
+   "mci": 0.11,
+   "dementia": 0.04
+  },
+  "latent_mean_z": {
+   "normal": 0.0,
+   "mci": -1.1,
+   "dementia": -2.2
+  },
+  "annual_decline_z": {
+   "normal": [
+    -0.03,
+    0.05
+   ],
+   "mci_progressor": [
+    -0.6,
+    0.2
+   ],
+   "dementia": [
+    -0.9,
+    0.3
+   ]
+  },
+  "mci_progressor_share": 0.5,
+  "normal_incident_decline_per_year": 0.04,
+  "depression_prevalence": 0.12,
+  "depression_active_per_session": 0.5,
+  "depression_effect_z": -0.35,
+  "poor_sleep_per_session": 0.15,
+  "poor_sleep_effect_z": -0.15,
+  "illness_per_session": 0.05,
+  "illness_effect_z": -0.35,
+  "noisy_audio_per_session": 0.06,
+  "asr_bias_raw_fluency": {
+   "Emirati": 0.0,
+   "Other Gulf": -0.2,
+   "Levantine": -0.3,
+   "Egyptian": -0.6,
+   "English": 0.0
+  },
+  "schedule_weeks": [
+   0,
+   2,
+   12,
+   26,
+   52
+  ],
+  "repeat_after_check_again_weeks": 3,
+  "meaningful_decline_threshold_z": -0.5,
+  "usual_care": "single screen at week 0 and 52, education-blind norms, composite z <= -1.5 -> referral"
+ },
+ "summary": {
+  "overall": {
+   "n": 2000,
+   "completion_unaided": 0.923,
+   "test_retest_icc": 0.859,
+   "practice_effect_z": 0.295,
+   "n_retest_pairs": 1365,
+   "membrain": {
+    "n": 2000,
+    "tp": 246,
+    "fp": 168,
+    "fn": 50,
+    "tn": 1536,
+    "sensitivity": [
+     0.831,
+     0.784,
+     0.869
+    ],
+    "specificity": [
+     0.901,
+     0.886,
+     0.915
+    ],
+    "ppv": [
+     0.594,
+     0.546,
+     0.64
+    ],
+    "npv": [
+     0.968,
+     0.959,
+     0.976
+    ],
+    "referrals_per_confirmed": 1.68,
+    "false_referrals": 168
+   },
+   "usual_care": {
+    "n": 2000,
+    "tp": 181,
+    "fp": 217,
+    "fn": 115,
+    "tn": 1487,
+    "sensitivity": [
+     0.611,
+     0.555,
+     0.665
+    ],
+    "specificity": [
+     0.873,
+     0.856,
+     0.888
+    ],
+    "ppv": [
+     0.455,
+     0.407,
+     0.504
+    ],
+    "npv": [
+     0.928,
+     0.915,
+     0.94
+    ],
+    "referrals_per_confirmed": 2.2,
+    "false_referrals": 217
+   },
+   "baseline_stratified": {
+    "n": 2000,
+    "tp": 148,
+    "fp": 82,
+    "fn": 126,
+    "tn": 1644,
+    "sensitivity": [
+     0.54,
+     0.481,
+     0.598
+    ],
+    "specificity": [
+     0.952,
+     0.941,
+     0.962
+    ],
+    "ppv": [
+     0.643,
+     0.58,
+     0.703
+    ],
+    "npv": [
+     0.929,
+     0.916,
+     0.94
+    ],
+    "referrals_per_confirmed": 1.55,
+    "false_referrals": 82
+   },
+   "baseline_naive": {
+    "n": 2000,
+    "tp": 173,
+    "fp": 217,
+    "fn": 101,
+    "tn": 1509,
+    "sensitivity": [
+     0.631,
+     0.573,
+     0.686
+    ],
+    "specificity": [
+     0.874,
+     0.858,
+     0.889
+    ],
+    "ppv": [
+     0.444,
+     0.395,
+     0.493
+    ],
+    "npv": [
+     0.937,
+     0.924,
+     0.948
+    ],
+    "referrals_per_confirmed": 2.25,
+    "false_referrals": 217
+   },
+   "change_detection": {
+    "n": 1871,
+    "tp": 106,
+    "fp": 85,
+    "fn": 61,
+    "tn": 1619,
+    "sensitivity": [
+     0.635,
+     0.559,
+     0.704
+    ],
+    "specificity": [
+     0.95,
+     0.939,
+     0.959
+    ],
+    "ppv": [
+     0.555,
+     0.484,
+     0.624
+    ],
+    "npv": [
+     0.964,
+     0.954,
+     0.972
+    ],
+    "referrals_per_confirmed": 1.8,
+    "false_referrals": 85
+   }
+  },
+  "subgroups": {
+   "dialect": {
+    "Egyptian": {
+     "n": 325,
+     "completion_unaided": 0.91,
+     "test_retest_icc": 0.865,
+     "practice_effect_z": 0.255,
+     "n_retest_pairs": 216,
+     "membrain": {
+      "n": 325,
+      "tp": 48,
+      "fp": 25,
+      "fn": 7,
+      "tn": 245,
+      "sensitivity": [
+       0.873,
+       0.76,
+       0.937
+      ],
+      "specificity": [
+       0.907,
+       0.867,
+       0.936
+      ],
+      "ppv": [
+       0.658,
+       0.543,
+       0.756
+      ],
+      "npv": [
+       0.972,
+       0.944,
+       0.986
+      ],
+      "referrals_per_confirmed": 1.52,
+      "false_referrals": 25
+     },
+     "usual_care": {
+      "n": 325,
+      "tp": 33,
+      "fp": 36,
+      "fn": 22,
+      "tn": 234,
+      "sensitivity": [
+       0.6,
+       0.468,
+       0.719
+      ],
+      "specificity": [
+       0.867,
+       0.821,
+       0.902
+      ],
+      "ppv": [
+       0.478,
+       0.365,
+       0.594
+      ],
+      "npv": [
+       0.914,
+       0.873,
+       0.943
+      ],
+      "referrals_per_confirmed": 2.09,
+      "false_referrals": 36
+     },
+     "baseline_stratified": {
+      "n": 325,
+      "tp": 27,
+      "fp": 11,
+      "fn": 23,
+      "tn": 264,
+      "sensitivity": [
+       0.54,
+       0.404,
+       0.67
+      ],
+      "specificity": [
+       0.96,
+       0.93,
+       0.978
+      ],
+      "ppv": [
+       0.711,
+       0.552,
+       0.83
+      ],
+      "npv": [
+       0.92,
+       0.883,
+       0.946
+      ],
+      "referrals_per_confirmed": 1.41,
+      "false_referrals": 11
+     },
+     "baseline_naive": {
+      "n": 325,
+      "tp": 31,
+      "fp": 37,
+      "fn": 19,
+      "tn": 238,
+      "sensitivity": [
+       0.62,
+       0.482,
+       0.741
+      ],
+      "specificity": [
+       0.865,
+       0.82,
+       0.901
+      ],
+      "ppv": [
+       0.456,
+       0.343,
+       0.573
+      ],
+      "npv": [
+       0.926,
+       0.887,
+       0.952
+      ],
+      "referrals_per_confirmed": 2.19,
+      "false_referrals": 37
+     },
+     "change_detection": {
+      "n": 303,
+      "tp": 20,
+      "fp": 14,
+      "fn": 13,
+      "tn": 256,
+      "sensitivity": [
+       0.606,
+       0.437,
+       0.753
+      ],
+      "specificity": [
+       0.948,
+       0.915,
+       0.969
+      ],
+      "ppv": [
+       0.588,
+       0.422,
+       0.736
+      ],
+      "npv": [
+       0.952,
+       0.919,
+       0.972
+      ],
+      "referrals_per_confirmed": 1.7,
+      "false_referrals": 14
+     }
+    },
+    "Emirati": {
+     "n": 570,
+     "completion_unaided": 0.917,
+     "test_retest_icc": 0.851,
+     "practice_effect_z": 0.31,
+     "n_retest_pairs": 385,
+     "membrain": {
+      "n": 570,
+      "tp": 65,
+      "fp": 42,
+      "fn": 14,
+      "tn": 449,
+      "sensitivity": [
+       0.823,
+       0.724,
+       0.891
+      ],
+      "specificity": [
+       0.914,
+       0.886,
+       0.936
+      ],
+      "ppv": [
+       0.607,
+       0.513,
+       0.695
+      ],
+      "npv": [
+       0.97,
+       0.95,
+       0.982
+      ],
+      "referrals_per_confirmed": 1.65,
+      "false_referrals": 42
+     },
+     "usual_care": {
+      "n": 570,
+      "tp": 55,
+      "fp": 54,
+      "fn": 24,
+      "tn": 437,
+      "sensitivity": [
+       0.696,
+       0.588,
+       0.787
+      ],
+      "specificity": [
+       0.89,
+       0.859,
+       0.915
+      ],
+      "ppv": [
+       0.505,
+       0.412,
+       0.597
+      ],
+      "npv": [
+       0.948,
+       0.924,
+       0.965
+      ],
+      "referrals_per_confirmed": 1.98,
+      "false_referrals": 54
+     },
+     "baseline_stratified": {
+      "n": 570,
+      "tp": 40,
+      "fp": 22,
+      "fn": 37,
+      "tn": 471,
+      "sensitivity": [
+       0.519,
+       0.41,
+       0.627
+      ],
+      "specificity": [
+       0.955,
+       0.933,
+       0.97
+      ],
+      "ppv": [
+       0.645,
+       0.521,
+       0.753
+      ],
+      "npv": [
+       0.927,
+       0.901,
+       0.947
+      ],
+      "referrals_per_confirmed": 1.55,
+      "false_referrals": 22
+     },
+     "baseline_naive": {
+      "n": 570,
+      "tp": 53,
+      "fp": 54,
+      "fn": 24,
+      "tn": 439,
+      "sensitivity": [
+       0.688,
+       0.578,
+       0.781
+      ],
+      "specificity": [
+       0.89,
+       0.86,
+       0.915
+      ],
+      "ppv": [
+       0.495,
+       0.402,
+       0.589
+      ],
+      "npv": [
+       0.948,
+       0.924,
+       0.965
+      ],
+      "referrals_per_confirmed": 2.02,
+      "false_referrals": 54
+     },
+     "change_detection": {
+      "n": 529,
+      "tp": 22,
+      "fp": 21,
+      "fn": 16,
+      "tn": 470,
+      "sensitivity": [
+       0.579,
+       0.422,
+       0.721
+      ],
+      "specificity": [
+       0.957,
+       0.936,
+       0.972
+      ],
+      "ppv": [
+       0.512,
+       0.368,
+       0.654
+      ],
+      "npv": [
+       0.967,
+       0.947,
+       0.98
+      ],
+      "referrals_per_confirmed": 1.95,
+      "false_referrals": 21
+     }
+    },
+    "English": {
+     "n": 473,
+     "completion_unaided": 0.93,
+     "test_retest_icc": 0.867,
+     "practice_effect_z": 0.3,
+     "n_retest_pairs": 329,
+     "membrain": {
+      "n": 473,
+      "tp": 54,
+      "fp": 35,
+      "fn": 17,
+      "tn": 367,
+      "sensitivity": [
+       0.761,
+       0.65,
+       0.845
+      ],
+      "specificity": [
+       0.913,
+       0.881,
+       0.937
+      ],
+      "ppv": [
+       0.607,
+       0.503,
+       0.702
+      ],
+      "npv": [
+       0.956,
+       0.93,
+       0.972
+      ],
+      "referrals_per_confirmed": 1.65,
+      "false_referrals": 35
+     },
+     "usual_care": {
+      "n": 473,
+      "tp": 36,
+      "fp": 46,
+      "fn": 35,
+      "tn": 356,
+      "sensitivity": [
+       0.507,
+       0.393,
+       0.62
+      ],
+      "specificity": [
+       0.886,
+       0.851,
+       0.913
+      ],
+      "ppv": [
+       0.439,
+       0.337,
+       0.547
+      ],
+      "npv": [
+       0.91,
+       0.878,
+       0.935
+      ],
+      "referrals_per_confirmed": 2.28,
+      "false_referrals": 46
+     },
+     "baseline_stratified": {
+      "n": 473,
+      "tp": 32,
+      "fp": 17,
+      "fn": 28,
+      "tn": 396,
+      "sensitivity": [
+       0.533,
+       0.409,
+       0.654
+      ],
+      "specificity": [
+       0.959,
+       0.935,
+       0.974
+      ],
+      "ppv": [
+       0.653,
+       0.513,
+       0.771
+      ],
+      "npv": [
+       0.934,
+       0.906,
+       0.954
+      ],
+      "referrals_per_confirmed": 1.53,
+      "false_referrals": 17
+     },
+     "baseline_naive": {
+      "n": 473,
+      "tp": 35,
+      "fp": 46,
+      "fn": 25,
+      "tn": 367,
+      "sensitivity": [
+       0.583,
+       0.457,
+       0.699
+      ],
+      "specificity": [
+       0.889,
+       0.855,
+       0.915
+      ],
+      "ppv": [
+       0.432,
+       0.33,
+       0.541
+      ],
+      "npv": [
+       0.936,
+       0.908,
+       0.956
+      ],
+      "referrals_per_confirmed": 2.31,
+      "false_referrals": 46
+     },
+     "change_detection": {
+      "n": 445,
+      "tp": 24,
+      "fp": 16,
+      "fn": 19,
+      "tn": 386,
+      "sensitivity": [
+       0.558,
+       0.411,
+       0.696
+      ],
+      "specificity": [
+       0.96,
+       0.936,
+       0.975
+      ],
+      "ppv": [
+       0.6,
+       0.446,
+       0.737
+      ],
+      "npv": [
+       0.953,
+       0.928,
+       0.97
+      ],
+      "referrals_per_confirmed": 1.67,
+      "false_referrals": 16
+     }
+    },
+    "Levantine": {
+     "n": 326,
+     "completion_unaided": 0.919,
+     "test_retest_icc": 0.859,
+     "practice_effect_z": 0.28,
+     "n_retest_pairs": 217,
+     "membrain": {
+      "n": 326,
+      "tp": 40,
+      "fp": 36,
+      "fn": 10,
+      "tn": 240,
+      "sensitivity": [
+       0.8,
+       0.67,
+       0.888
+      ],
+      "specificity": [
+       0.87,
+       0.825,
+       0.904
+      ],
+      "ppv": [
+       0.526,
+       0.416,
+       0.635
+      ],
+      "npv": [
+       0.96,
+       0.928,
+       0.978
+      ],
+      "referrals_per_confirmed": 1.9,
+      "false_referrals": 36
+     },
+     "usual_care": {
+      "n": 326,
+      "tp": 32,
+      "fp": 41,
+      "fn": 18,
+      "tn": 235,
+      "sensitivity": [
+       0.64,
+       0.501,
+       0.759
+      ],
+      "specificity": [
+       0.851,
+       0.805,
+       0.889
+      ],
+      "ppv": [
+       0.438,
+       0.33,
+       0.552
+      ],
+      "npv": [
+       0.929,
+       0.89,
+       0.955
+      ],
+      "referrals_per_confirmed": 2.28,
+      "false_referrals": 41
+     },
+     "baseline_stratified": {
+      "n": 326,
+      "tp": 26,
+      "fp": 16,
+      "fn": 21,
+      "tn": 263,
+      "sensitivity": [
+       0.553,
+       0.412,
+       0.686
+      ],
+      "specificity": [
+       0.943,
+       0.909,
+       0.964
+      ],
+      "ppv": [
+       0.619,
+       0.468,
+       0.75
+      ],
+      "npv": [
+       0.926,
+       0.89,
+       0.951
+      ],
+      "referrals_per_confirmed": 1.62,
+      "false_referrals": 16
+     },
+     "baseline_naive": {
+      "n": 326,
+      "tp": 30,
+      "fp": 41,
+      "fn": 17,
+      "tn": 238,
+      "sensitivity": [
+       0.638,
+       0.495,
+       0.76
+      ],
+      "specificity": [
+       0.853,
+       0.807,
+       0.89
+      ],
+      "ppv": [
+       0.423,
+       0.315,
+       0.538
+      ],
+      "npv": [
+       0.933,
+       0.896,
+       0.958
+      ],
+      "referrals_per_confirmed": 2.37,
+      "false_referrals": 41
+     },
+     "change_detection": {
+      "n": 306,
+      "tp": 21,
+      "fp": 20,
+      "fn": 9,
+      "tn": 256,
+      "sensitivity": [
+       0.7,
+       0.521,
+       0.833
+      ],
+      "specificity": [
+       0.928,
+       0.891,
+       0.953
+      ],
+      "ppv": [
+       0.512,
+       0.365,
+       0.657
+      ],
+      "npv": [
+       0.966,
+       0.937,
+       0.982
+      ],
+      "referrals_per_confirmed": 1.95,
+      "false_referrals": 20
+     }
+    },
+    "Other Gulf": {
+     "n": 306,
+     "completion_unaided": 0.939,
+     "test_retest_icc": 0.855,
+     "practice_effect_z": 0.318,
+     "n_retest_pairs": 218,
+     "membrain": {
+      "n": 306,
+      "tp": 39,
+      "fp": 30,
+      "fn": 2,
+      "tn": 235,
+      "sensitivity": [
+       0.951,
+       0.839,
+       0.987
+      ],
+      "specificity": [
+       0.887,
+       0.843,
+       0.92
+      ],
+      "ppv": [
+       0.565,
+       0.448,
+       0.676
+      ],
+      "npv": [
+       0.992,
+       0.97,
+       0.998
+      ],
+      "referrals_per_confirmed": 1.77,
+      "false_referrals": 30
+     },
+     "usual_care": {
+      "n": 306,
+      "tp": 25,
+      "fp": 40,
+      "fn": 16,
+      "tn": 225,
+      "sensitivity": [
+       0.61,
+       0.457,
+       0.743
+      ],
+      "specificity": [
+       0.849,
+       0.801,
+       0.887
+      ],
+      "ppv": [
+       0.385,
+       0.276,
+       0.506
+      ],
+      "npv": [
+       0.934,
+       0.895,
+       0.959
+      ],
+      "referrals_per_confirmed": 2.6,
+      "false_referrals": 40
+     },
+     "baseline_stratified": {
+      "n": 306,
+      "tp": 23,
+      "fp": 16,
+      "fn": 17,
+      "tn": 250,
+      "sensitivity": [
+       0.575,
+       0.422,
+       0.715
+      ],
+      "specificity": [
+       0.94,
+       0.905,
+       0.963
+      ],
+      "ppv": [
+       0.59,
+       0.434,
+       0.729
+      ],
+      "npv": [
+       0.936,
+       0.9,
+       0.96
+      ],
+      "referrals_per_confirmed": 1.7,
+      "false_referrals": 16
+     },
+     "baseline_naive": {
+      "n": 306,
+      "tp": 24,
+      "fp": 39,
+      "fn": 16,
+      "tn": 227,
+      "sensitivity": [
+       0.6,
+       0.446,
+       0.737
+      ],
+      "specificity": [
+       0.853,
+       0.806,
+       0.891
+      ],
+      "ppv": [
+       0.381,
+       0.271,
+       0.504
+      ],
+      "npv": [
+       0.934,
+       0.896,
+       0.959
+      ],
+      "referrals_per_confirmed": 2.62,
+      "false_referrals": 39
+     },
+     "change_detection": {
+      "n": 288,
+      "tp": 19,
+      "fp": 14,
+      "fn": 4,
+      "tn": 251,
+      "sensitivity": [
+       0.826,
+       0.629,
+       0.93
+      ],
+      "specificity": [
+       0.947,
+       0.913,
+       0.968
+      ],
+      "ppv": [
+       0.576,
+       0.408,
+       0.728
+      ],
+      "npv": [
+       0.984,
+       0.96,
+       0.994
+      ],
+      "referrals_per_confirmed": 1.74,
+      "false_referrals": 14
+     }
+    }
+   },
+   "age_band": {
+    "50-59": {
+     "n": 811,
+     "completion_unaided": 0.947,
+     "test_retest_icc": 0.856,
+     "practice_effect_z": 0.324,
+     "n_retest_pairs": 617,
+     "membrain": {
+      "n": 811,
+      "tp": 62,
+      "fp": 63,
+      "fn": 18,
+      "tn": 668,
+      "sensitivity": [
+       0.775,
+       0.672,
+       0.853
+      ],
+      "specificity": [
+       0.914,
+       0.891,
+       0.932
+      ],
+      "ppv": [
+       0.496,
+       0.41,
+       0.582
+      ],
+      "npv": [
+       0.974,
+       0.959,
+       0.983
+      ],
+      "referrals_per_confirmed": 2.02,
+      "false_referrals": 63
+     },
+     "usual_care": {
+      "n": 811,
+      "tp": 46,
+      "fp": 92,
+      "fn": 34,
+      "tn": 639,
+      "sensitivity": [
+       0.575,
+       0.466,
+       0.677
+      ],
+      "specificity": [
+       0.874,
+       0.848,
+       0.896
+      ],
+      "ppv": [
+       0.333,
+       0.26,
+       0.416
+      ],
+      "npv": [
+       0.949,
+       0.93,
+       0.964
+      ],
+      "referrals_per_confirmed": 3.0,
+      "false_referrals": 92
+     },
+     "baseline_stratified": {
+      "n": 811,
+      "tp": 38,
+      "fp": 32,
+      "fn": 30,
+      "tn": 711,
+      "sensitivity": [
+       0.559,
+       0.441,
+       0.671
+      ],
+      "specificity": [
+       0.957,
+       0.94,
+       0.969
+      ],
+      "ppv": [
+       0.543,
+       0.427,
+       0.654
+      ],
+      "npv": [
+       0.96,
+       0.943,
+       0.971
+      ],
+      "referrals_per_confirmed": 1.84,
+      "false_referrals": 32
+     },
+     "baseline_naive": {
+      "n": 811,
+      "tp": 42,
+      "fp": 92,
+      "fn": 26,
+      "tn": 651,
+      "sensitivity": [
+       0.618,
+       0.499,
+       0.724
+      ],
+      "specificity": [
+       0.876,
+       0.851,
+       0.898
+      ],
+      "ppv": [
+       0.313,
+       0.241,
+       0.396
+      ],
+      "npv": [
+       0.962,
+       0.944,
+       0.974
+      ],
+      "referrals_per_confirmed": 3.19,
+      "false_referrals": 92
+     },
+     "change_detection": {
+      "n": 774,
+      "tp": 25,
+      "fp": 30,
+      "fn": 18,
+      "tn": 701,
+      "sensitivity": [
+       0.581,
+       0.433,
+       0.716
+      ],
+      "specificity": [
+       0.959,
+       0.942,
+       0.971
+      ],
+      "ppv": [
+       0.455,
+       0.33,
+       0.585
+      ],
+      "npv": [
+       0.975,
+       0.961,
+       0.984
+      ],
+      "referrals_per_confirmed": 2.2,
+      "false_referrals": 30
+     }
+    },
+    "60-69": {
+     "n": 800,
+     "completion_unaided": 0.932,
+     "test_retest_icc": 0.855,
+     "practice_effect_z": 0.278,
+     "n_retest_pairs": 550,
+     "membrain": {
+      "n": 800,
+      "tp": 108,
+      "fp": 71,
+      "fn": 22,
+      "tn": 599,
+      "sensitivity": [
+       0.831,
+       0.757,
+       0.886
+      ],
+      "specificity": [
+       0.894,
+       0.868,
+       0.915
+      ],
+      "ppv": [
+       0.603,
+       0.53,
+       0.672
+      ],
+      "npv": [
+       0.965,
+       0.947,
+       0.976
+      ],
+      "referrals_per_confirmed": 1.66,
+      "false_referrals": 71
+     },
+     "usual_care": {
+      "n": 800,
+      "tp": 80,
+      "fp": 91,
+      "fn": 50,
+      "tn": 579,
+      "sensitivity": [
+       0.615,
+       0.53,
+       0.695
+      ],
+      "specificity": [
+       0.864,
+       0.836,
+       0.888
+      ],
+      "ppv": [
+       0.468,
+       0.395,
+       0.543
+      ],
+      "npv": [
+       0.921,
+       0.897,
+       0.939
+      ],
+      "referrals_per_confirmed": 2.14,
+      "false_referrals": 91
+     },
+     "baseline_stratified": {
+      "n": 800,
+      "tp": 62,
+      "fp": 33,
+      "fn": 59,
+      "tn": 646,
+      "sensitivity": [
+       0.512,
+       0.424,
+       0.6
+      ],
+      "specificity": [
+       0.951,
+       0.933,
+       0.965
+      ],
+      "ppv": [
+       0.653,
+       0.553,
+       0.741
+      ],
+      "npv": [
+       0.916,
+       0.894,
+       0.935
+      ],
+      "referrals_per_confirmed": 1.53,
+      "false_referrals": 33
+     },
+     "baseline_naive": {
+      "n": 800,
+      "tp": 78,
+      "fp": 92,
+      "fn": 43,
+      "tn": 587,
+      "sensitivity": [
+       0.645,
+       0.556,
+       0.724
+      ],
+      "specificity": [
+       0.865,
+       0.837,
+       0.888
+      ],
+      "ppv": [
+       0.459,
+       0.386,
+       0.534
+      ],
+      "npv": [
+       0.932,
+       0.909,
+       0.949
+      ],
+      "referrals_per_confirmed": 2.18,
+      "false_referrals": 92
+     },
+     "change_detection": {
+      "n": 742,
+      "tp": 47,
+      "fp": 39,
+      "fn": 25,
+      "tn": 631,
+      "sensitivity": [
+       0.653,
+       0.538,
+       0.752
+      ],
+      "specificity": [
+       0.942,
+       0.921,
+       0.957
+      ],
+      "ppv": [
+       0.547,
+       0.442,
+       0.647
+      ],
+      "npv": [
+       0.962,
+       0.944,
+       0.974
+      ],
+      "referrals_per_confirmed": 1.83,
+      "false_referrals": 39
+     }
+    },
+    "70-75": {
+     "n": 389,
+     "completion_unaided": 0.852,
+     "test_retest_icc": 0.879,
+     "practice_effect_z": 0.254,
+     "n_retest_pairs": 198,
+     "membrain": {
+      "n": 389,
+      "tp": 76,
+      "fp": 34,
+      "fn": 10,
+      "tn": 269,
+      "sensitivity": [
+       0.884,
+       0.799,
+       0.936
+      ],
+      "specificity": [
+       0.888,
+       0.847,
+       0.919
+      ],
+      "ppv": [
+       0.691,
+       0.599,
+       0.77
+      ],
+      "npv": [
+       0.964,
+       0.935,
+       0.98
+      ],
+      "referrals_per_confirmed": 1.45,
+      "false_referrals": 34
+     },
+     "usual_care": {
+      "n": 389,
+      "tp": 55,
+      "fp": 34,
+      "fn": 31,
+      "tn": 269,
+      "sensitivity": [
+       0.64,
+       0.534,
+       0.733
+      ],
+      "specificity": [
+       0.888,
+       0.847,
+       0.919
+      ],
+      "ppv": [
+       0.618,
+       0.514,
+       0.712
+      ],
+      "npv": [
+       0.897,
+       0.857,
+       0.926
+      ],
+      "referrals_per_confirmed": 1.62,
+      "false_referrals": 34
+     },
+     "baseline_stratified": {
+      "n": 389,
+      "tp": 48,
+      "fp": 17,
+      "fn": 37,
+      "tn": 287,
+      "sensitivity": [
+       0.565,
+       0.459,
+       0.665
+      ],
+      "specificity": [
+       0.944,
+       0.912,
+       0.965
+      ],
+      "ppv": [
+       0.738,
+       0.62,
+       0.83
+      ],
+      "npv": [
+       0.886,
+       0.847,
+       0.916
+      ],
+      "referrals_per_confirmed": 1.35,
+      "false_referrals": 17
+     },
+     "baseline_naive": {
+      "n": 389,
+      "tp": 53,
+      "fp": 33,
+      "fn": 32,
+      "tn": 271,
+      "sensitivity": [
+       0.624,
+       0.517,
+       0.719
+      ],
+      "specificity": [
+       0.891,
+       0.851,
+       0.922
+      ],
+      "ppv": [
+       0.616,
+       0.511,
+       0.712
+      ],
+      "npv": [
+       0.894,
+       0.855,
+       0.924
+      ],
+      "referrals_per_confirmed": 1.62,
+      "false_referrals": 33
+     },
+     "change_detection": {
+      "n": 355,
+      "tp": 34,
+      "fp": 16,
+      "fn": 18,
+      "tn": 287,
+      "sensitivity": [
+       0.654,
+       0.518,
+       0.768
+      ],
+      "specificity": [
+       0.947,
+       0.916,
+       0.967
+      ],
+      "ppv": [
+       0.68,
+       0.542,
+       0.792
+      ],
+      "npv": [
+       0.941,
+       0.909,
+       0.962
+      ],
+      "referrals_per_confirmed": 1.47,
+      "false_referrals": 16
+     }
+    }
+   },
+   "education": {
+    "none": {
+     "n": 186,
+     "completion_unaided": 0.844,
+     "test_retest_icc": 0.861,
+     "practice_effect_z": 0.303,
+     "n_retest_pairs": 110,
+     "membrain": {
+      "n": 186,
+      "tp": 16,
+      "fp": 19,
+      "fn": 8,
+      "tn": 143,
+      "sensitivity": [
+       0.667,
+       0.467,
+       0.82
+      ],
+      "specificity": [
+       0.883,
+       0.824,
+       0.924
+      ],
+      "ppv": [
+       0.457,
+       0.305,
+       0.618
+      ],
+      "npv": [
+       0.947,
+       0.899,
+       0.973
+      ],
+      "referrals_per_confirmed": 2.19,
+      "false_referrals": 19
+     },
+     "usual_care": {
+      "n": 186,
+      "tp": 22,
+      "fp": 75,
+      "fn": 2,
+      "tn": 87,
+      "sensitivity": [
+       0.917,
+       0.742,
+       0.977
+      ],
+      "specificity": [
+       0.537,
+       0.46,
+       0.612
+      ],
+      "ppv": [
+       0.227,
+       0.155,
+       0.32
+      ],
+      "npv": [
+       0.978,
+       0.922,
+       0.994
+      ],
+      "referrals_per_confirmed": 4.41,
+      "false_referrals": 75
+     },
+     "baseline_stratified": {
+      "n": 186,
+      "tp": 13,
+      "fp": 12,
+      "fn": 9,
+      "tn": 152,
+      "sensitivity": [
+       0.591,
+       0.387,
+       0.767
+      ],
+      "specificity": [
+       0.927,
+       0.876,
+       0.958
+      ],
+      "ppv": [
+       0.52,
+       0.335,
+       0.7
+      ],
+      "npv": [
+       0.944,
+       0.897,
+       0.97
+      ],
+      "referrals_per_confirmed": 1.92,
+      "false_referrals": 12
+     },
+     "baseline_naive": {
+      "n": 186,
+      "tp": 22,
+      "fp": 73,
+      "fn": 0,
+      "tn": 91,
+      "sensitivity": [
+       1.0,
+       0.851,
+       1
+      ],
+      "specificity": [
+       0.555,
+       0.478,
+       0.629
+      ],
+      "ppv": [
+       0.232,
+       0.158,
+       0.326
+      ],
+      "npv": [
+       1.0,
+       0.959,
+       1
+      ],
+      "referrals_per_confirmed": 4.32,
+      "false_referrals": 73
+     },
+     "change_detection": {
+      "n": 174,
+      "tp": 5,
+      "fp": 7,
+      "fn": 7,
+      "tn": 155,
+      "sensitivity": [
+       0.417,
+       0.193,
+       0.68
+      ],
+      "specificity": [
+       0.957,
+       0.914,
+       0.979
+      ],
+      "ppv": [
+       0.417,
+       0.193,
+       0.68
+      ],
+      "npv": [
+       0.957,
+       0.914,
+       0.979
+      ],
+      "referrals_per_confirmed": 2.4,
+      "false_referrals": 7
+     }
+    },
+    "primary": {
+     "n": 391,
+     "completion_unaided": 0.917,
+     "test_retest_icc": 0.865,
+     "practice_effect_z": 0.304,
+     "n_retest_pairs": 261,
+     "membrain": {
+      "n": 391,
+      "tp": 47,
+      "fp": 29,
+      "fn": 7,
+      "tn": 308,
+      "sensitivity": [
+       0.87,
+       0.756,
+       0.936
+      ],
+      "specificity": [
+       0.914,
+       0.879,
+       0.939
+      ],
+      "ppv": [
+       0.618,
+       0.506,
+       0.719
+      ],
+      "npv": [
+       0.978,
+       0.955,
+       0.989
+      ],
+      "referrals_per_confirmed": 1.62,
+      "false_referrals": 29
+     },
+     "usual_care": {
+      "n": 391,
+      "tp": 43,
+      "fp": 67,
+      "fn": 11,
+      "tn": 270,
+      "sensitivity": [
+       0.796,
+       0.671,
+       0.882
+      ],
+      "specificity": [
+       0.801,
+       0.755,
+       0.84
+      ],
+      "ppv": [
+       0.391,
+       0.305,
+       0.484
+      ],
+      "npv": [
+       0.961,
+       0.931,
+       0.978
+      ],
+      "referrals_per_confirmed": 2.56,
+      "false_referrals": 67
+     },
+     "baseline_stratified": {
+      "n": 391,
+      "tp": 26,
+      "fp": 10,
+      "fn": 25,
+      "tn": 330,
+      "sensitivity": [
+       0.51,
+       0.377,
+       0.641
+      ],
+      "specificity": [
+       0.971,
+       0.947,
+       0.984
+      ],
+      "ppv": [
+       0.722,
+       0.56,
+       0.842
+      ],
+      "npv": [
+       0.93,
+       0.898,
+       0.952
+      ],
+      "referrals_per_confirmed": 1.38,
+      "false_referrals": 10
+     },
+     "baseline_naive": {
+      "n": 391,
+      "tp": 41,
+      "fp": 67,
+      "fn": 10,
+      "tn": 273,
+      "sensitivity": [
+       0.804,
+       0.675,
+       0.89
+      ],
+      "specificity": [
+       0.803,
+       0.757,
+       0.842
+      ],
+      "ppv": [
+       0.38,
+       0.294,
+       0.474
+      ],
+      "npv": [
+       0.965,
+       0.936,
+       0.981
+      ],
+      "referrals_per_confirmed": 2.63,
+      "false_referrals": 67
+     },
+     "change_detection": {
+      "n": 366,
+      "tp": 19,
+      "fp": 19,
+      "fn": 10,
+      "tn": 318,
+      "sensitivity": [
+       0.655,
+       0.473,
+       0.801
+      ],
+      "specificity": [
+       0.944,
+       0.914,
+       0.964
+      ],
+      "ppv": [
+       0.5,
+       0.348,
+       0.652
+      ],
+      "npv": [
+       0.97,
+       0.945,
+       0.983
+      ],
+      "referrals_per_confirmed": 2.0,
+      "false_referrals": 19
+     }
+    },
+    "secondary": {
+     "n": 792,
+     "completion_unaided": 0.933,
+     "test_retest_icc": 0.857,
+     "practice_effect_z": 0.302,
+     "n_retest_pairs": 558,
+     "membrain": {
+      "n": 792,
+      "tp": 95,
+      "fp": 66,
+      "fn": 23,
+      "tn": 608,
+      "sensitivity": [
+       0.805,
+       0.724,
+       0.866
+      ],
+      "specificity": [
+       0.902,
+       0.877,
+       0.922
+      ],
+      "ppv": [
+       0.59,
+       0.513,
+       0.663
+      ],
+      "npv": [
+       0.964,
+       0.946,
+       0.976
+      ],
+      "referrals_per_confirmed": 1.69,
+      "false_referrals": 66
+     },
+     "usual_care": {
+      "n": 792,
+      "tp": 71,
+      "fp": 58,
+      "fn": 47,
+      "tn": 616,
+      "sensitivity": [
+       0.602,
+       0.512,
+       0.685
+      ],
+      "specificity": [
+       0.914,
+       0.89,
+       0.933
+      ],
+      "ppv": [
+       0.55,
+       0.464,
+       0.634
+      ],
+      "npv": [
+       0.929,
+       0.907,
+       0.946
+      ],
+      "referrals_per_confirmed": 1.82,
+      "false_referrals": 58
+     },
+     "baseline_stratified": {
+      "n": 792,
+      "tp": 58,
+      "fp": 31,
+      "fn": 50,
+      "tn": 653,
+      "sensitivity": [
+       0.537,
+       0.443,
+       0.628
+      ],
+      "specificity": [
+       0.955,
+       0.936,
+       0.968
+      ],
+      "ppv": [
+       0.652,
+       0.548,
+       0.743
+      ],
+      "npv": [
+       0.929,
+       0.907,
+       0.946
+      ],
+      "referrals_per_confirmed": 1.53,
+      "false_referrals": 31
+     },
+     "baseline_naive": {
+      "n": 792,
+      "tp": 68,
+      "fp": 59,
+      "fn": 40,
+      "tn": 625,
+      "sensitivity": [
+       0.63,
+       0.536,
+       0.715
+      ],
+      "specificity": [
+       0.914,
+       0.89,
+       0.933
+      ],
+      "ppv": [
+       0.535,
+       0.449,
+       0.62
+      ],
+      "npv": [
+       0.94,
+       0.919,
+       0.956
+      ],
+      "referrals_per_confirmed": 1.87,
+      "false_referrals": 59
+     },
+     "change_detection": {
+      "n": 741,
+      "tp": 43,
+      "fp": 34,
+      "fn": 24,
+      "tn": 640,
+      "sensitivity": [
+       0.642,
+       0.522,
+       0.746
+      ],
+      "specificity": [
+       0.95,
+       0.93,
+       0.964
+      ],
+      "ppv": [
+       0.558,
+       0.447,
+       0.664
+      ],
+      "npv": [
+       0.964,
+       0.947,
+       0.976
+      ],
+      "referrals_per_confirmed": 1.79,
+      "false_referrals": 34
+     }
+    },
+    "tertiary": {
+     "n": 631,
+     "completion_unaided": 0.936,
+     "test_retest_icc": 0.859,
+     "practice_effect_z": 0.279,
+     "n_retest_pairs": 436,
+     "membrain": {
+      "n": 631,
+      "tp": 88,
+      "fp": 54,
+      "fn": 12,
+      "tn": 477,
+      "sensitivity": [
+       0.88,
+       0.802,
+       0.93
+      ],
+      "specificity": [
+       0.898,
+       0.87,
+       0.921
+      ],
+      "ppv": [
+       0.62,
+       0.538,
+       0.695
+      ],
+      "npv": [
+       0.975,
+       0.958,
+       0.986
+      ],
+      "referrals_per_confirmed": 1.61,
+      "false_referrals": 54
+     },
+     "usual_care": {
+      "n": 631,
+      "tp": 45,
+      "fp": 17,
+      "fn": 55,
+      "tn": 514,
+      "sensitivity": [
+       0.45,
+       0.356,
+       0.548
+      ],
+      "specificity": [
+       0.968,
+       0.949,
+       0.98
+      ],
+      "ppv": [
+       0.726,
+       0.604,
+       0.821
+      ],
+      "npv": [
+       0.903,
+       0.876,
+       0.925
+      ],
+      "referrals_per_confirmed": 1.38,
+      "false_referrals": 17
+     },
+     "baseline_stratified": {
+      "n": 631,
+      "tp": 51,
+      "fp": 29,
+      "fn": 42,
+      "tn": 509,
+      "sensitivity": [
+       0.548,
+       0.447,
+       0.646
+      ],
+      "specificity": [
+       0.946,
+       0.924,
+       0.962
+      ],
+      "ppv": [
+       0.637,
+       0.528,
+       0.734
+      ],
+      "npv": [
+       0.924,
+       0.899,
+       0.943
+      ],
+      "referrals_per_confirmed": 1.57,
+      "false_referrals": 29
+     },
+     "baseline_naive": {
+      "n": 631,
+      "tp": 42,
+      "fp": 18,
+      "fn": 51,
+      "tn": 520,
+      "sensitivity": [
+       0.452,
+       0.354,
+       0.553
+      ],
+      "specificity": [
+       0.967,
+       0.948,
+       0.979
+      ],
+      "ppv": [
+       0.7,
+       0.575,
+       0.801
+      ],
+      "npv": [
+       0.911,
+       0.884,
+       0.931
+      ],
+      "referrals_per_confirmed": 1.43,
+      "false_referrals": 18
+     },
+     "change_detection": {
+      "n": 590,
+      "tp": 39,
+      "fp": 25,
+      "fn": 20,
+      "tn": 506,
+      "sensitivity": [
+       0.661,
+       0.534,
+       0.769
+      ],
+      "specificity": [
+       0.953,
+       0.931,
+       0.968
+      ],
+      "ppv": [
+       0.609,
+       0.487,
+       0.719
+      ],
+      "npv": [
+       0.962,
+       0.942,
+       0.975
+      ],
+      "referrals_per_confirmed": 1.64,
+      "false_referrals": 25
+     }
+    }
+   }
+  },
+  "time_to_assessment_weeks": {
+   "membrain_median": 8.0,
+   "membrain_n": 152,
+   "decliners_total": 167,
+   "usual_care_median": 16.0,
+   "usual_care_n": 104,
+   "assumptions": "MemBrain: flag + 3-week review target. Usual care: annual screen + 16-week referral wait (assumption)."
+  },
+  "confounder_rule_ablation": {
+   "alerts_with_rules": 414,
+   "alerts_without_rules": 431,
+   "false_alerts_with_rules": 168,
+   "false_alerts_without_rules": 182
+  },
+  "workload": {
+   "check_again_repeats": 1081,
+   "sessions_total": 10766
+  },
+  "exploratory_voice": {
+   "speech_rate_auc_impairment": 0.841,
+   "note": "Exploratory only; not used for alerts."
+  },
+  "prevalence": {
+   "impaired": 0.137,
+   "decline_12m": 0.084
+  }
+ }
+}

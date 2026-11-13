@@ -1,0 +1,9 @@
+[project]
+name = "membrain"
+version = "0.3.0"
+description = "Voice-first, bilingual, longitudinal brain-health check-in engine (risk and change identification, not diagnosis)"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

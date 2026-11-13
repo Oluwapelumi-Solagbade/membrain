@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MemBrain — voice-first brain health check-in (prototype)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f4ef; --panel:#ffffff; --ink:#1d2a2e; --muted:#5f6b6e; --line:#e3ded3;
+  --teal:#0f5c63; --teal-2:#1b7b84; --teal-soft:#e2efef; --sand:#c89b5a; --sand-soft:#f5ead9;
+  --stable:#2f7d4f; --stable-soft:#e3f1e8; --check:#a8661b; --check-soft:#fbefdc;
+  --review:#b2462e; --review-soft:#f8e3dd; --urgent:#8f1d3b; --urgent-soft:#f6dde4; --base:#4d5f8a; --base-soft:#e5e9f3;
+  --radius:14px; --shadow:0 1px 2px rgba(20,30,30,.06),0 4px 16px rgba(20,30,30,.05);
+  --fs:16px;
+}
+.hc{--bg:#fff;--panel:#fff;--ink:#000;--muted:#222;--line:#000;--teal:#003d42;--teal-soft:#fff}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:400 var(--fs)/1.5 Inter,"IBM Plex Sans Arabic",system-ui,sans-serif}
+[dir=rtl] body,[dir=rtl] .ar{font-family:"IBM Plex Sans Arabic",Inter,system-ui,sans-serif}
+button{font:inherit;cursor:pointer}
+a{color:var(--teal)}
+header.top{position:sticky;top:0;z-index:20;background:rgba(246,244,239,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top-in{max-width:1280px;margin:0 auto;display:flex;align-items:center;gap:18px;padding:10px 20px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:19px;color:var(--teal)}
+.brand small{display:block;font-weight:500;font-size:11.5px;color:var(--muted);letter-spacing:.02em}
+nav.tabs{display:flex;gap:4px;background:#ebe7de;padding:4px;border-radius:999px}
+nav.tabs button{border:0;background:transparent;padding:7px 14px;border-radius:999px;color:var(--muted);font-weight:500;font-size:14px}
+nav.tabs button.on{background:var(--panel);color:var(--teal);box-shadow:var(--shadow)}
+.spacer{flex:1}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:12.5px;font-weight:600;white-space:nowrap}
+.lv-BASELINE{background:var(--base-soft);color:var(--base)} .lv-STABLE{background:var(--stable-soft);color:var(--stable)}
+.lv-CHECK_AGAIN{background:var(--check-soft);color:var(--check)} .lv-CLINICIAN_REVIEW{background:var(--review-soft);color:var(--review)}
+.lv-URGENT{background:var(--urgent-soft);color:var(--urgent)} .lv-INVALID{background:#eee;color:#555}
+.banner{background:var(--sand-soft);border-bottom:1px solid #ecdcc0;color:#6b4e22;font-size:13px;text-align:center;padding:6px 12px}
+main{max-width:1280px;margin:0 auto;padding:22px 20px 60px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.pad{padding:18px 20px}
+h1,h2,h3{margin:0 0 8px;line-height:1.25}
+h2{font-size:20px} h3{font-size:15.5px}
+.muted{color:var(--muted)} .small{font-size:13px} .tiny{font-size:12px}
+.grid{display:grid;gap:16px}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;padding:8px 14px;font-weight:500}
+.btn:hover{border-color:var(--teal-2)}
+.btn.primary{background:var(--teal);border-color:var(--teal);color:#fff}
+.btn.primary:hover{background:var(--teal-2)}
+.btn.ghost{background:transparent}
+.btn.big{font-size:1.15em;padding:14px 22px;border-radius:14px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-size:12px;margin:2px 4px 2px 0;background:#fbfaf7}
+.chip.on{background:var(--teal-soft);border-color:#bcd9da;color:var(--teal)}
+.chip.off{color:#999;text-decoration:line-through}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:start;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+td.num,th.num{text-align:end;font-variant-numeric:tabular-nums}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.kpi{padding:14px 16px}
+.kpi .v{font-size:26px;font-weight:700;color:var(--teal);font-variant-numeric:tabular-nums}
+.kpi .l{font-size:12.5px;color:var(--muted)}
+.kpi .ci{font-size:11.5px;color:var(--muted)}
+/* participant */
+.pt-wrap{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px}
+.phone{max-width:560px;width:100%;margin:0 auto;min-height:620px;display:flex;flex-direction:column}
+.phone .bar{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.phone .body{padding:26px 26px;flex:1;display:flex;flex-direction:column;gap:18px}
+.phone .foot{padding:14px 16px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:space-between}
+.progress{height:6px;background:#eee8dc;border-radius:99px;overflow:hidden;flex:1}
+.progress i{display:block;height:100%;background:var(--teal);transition:width .4s}
+.say{font-size:1.45em;font-weight:600;line-height:1.35}
+.mic{width:120px;height:120px;border-radius:50%;border:0;background:var(--teal);color:#fff;display:grid;place-items:center;margin:6px auto;box-shadow:0 6px 24px rgba(15,92,99,.35);font-size:15px;font-weight:600}
+.mic.rec{background:#b2462e;animation:pulse 1.4s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(178,70,46,.45)}70%{box-shadow:0 0 0 22px rgba(178,70,46,0)}100%{box-shadow:0 0 0 0 rgba(178,70,46,0)}}
+.meter{height:10px;border-radius:99px;background:#eee8dc;overflow:hidden} .meter i{display:block;height:100%;background:var(--sand);width:0}
+textarea{width:100%;min-height:84px;border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;background:#fdfcfa}
+.opts{display:grid;gap:10px}
+.opt{border:1.5px solid var(--line);border-radius:12px;padding:13px 16px;background:#fff;text-align:start;font-size:1.05em}
+.opt.sel{border-color:var(--teal);background:var(--teal-soft)}
+.timer{font-size:42px;font-weight:700;text-align:center;color:var(--teal);font-variant-numeric:tabular-nums}
+.wordshow{font-size:2.1em;font-weight:700;text-align:center;color:var(--teal);min-height:1.5em}
+.result-card{border-radius:14px;padding:18px}
+.side h3{margin-top:4px}
+/* clinician */
+.cl-wrap{display:grid;grid-template-columns:330px minmax(0,1fr);gap:18px;align-items:start}
+.qitem{padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer;display:grid;gap:4px}
+.qitem:hover{background:#faf8f3} .qitem.sel{background:var(--teal-soft)}
+.qitem .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.alertbox{border-radius:12px;padding:14px 16px;border:1px solid}
+.alertbox.lv-URGENT{border-color:#e8b9c6} .alertbox.lv-CLINICIAN_REVIEW{border-color:#efc2b6} .alertbox.lv-CHECK_AGAIN{border-color:#f0d4a8}
+.alertbox.lv-STABLE{border-color:#bfdcc9} .alertbox.lv-BASELINE{border-color:#c9d1e4}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.check{display:flex;gap:8px;align-items:flex-start;padding:5px 0;font-size:13.5px}
+.check b{min-width:18px}
+.bar-rci{position:relative;height:8px;background:#efebe2;border-radius:99px;width:120px;display:inline-block;vertical-align:middle}
+.bar-rci i{position:absolute;top:0;height:100%;border-radius:99px}
+.bar-rci .zero{position:absolute;left:50%;top:-3px;width:1px;height:14px;background:#999}
+.modal{position:fixed;inset:0;background:rgba(20,30,30,.45);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;z-index:50;overflow:auto}
+.modal.on{display:flex}
+.modal .panel{max-width:860px;width:100%}
+pre.code{background:#0f1f22;color:#d8efe9;padding:14px;border-radius:10px;overflow:auto;max-height:420px;font-size:12px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:#fff;padding:6px 12px;font-size:13px}
+.seg button.on{background:var(--teal);color:#fff}
+.req{display:grid;grid-template-columns:34px 1fr;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+.req .n{width:30px;height:30px;border-radius:50%;background:var(--teal);color:#fff;display:grid;place-items:center;font-weight:700}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .25s;z-index:60;pointer-events:none}
+.toast.on{opacity:1}
+@media (max-width:980px){.pt-wrap,.cl-wrap,.two{grid-template-columns:1fr}}
+@media print{header.top,.banner,.noprint{display:none}}
+</style>
+</head>
+<body>
+<div class="banner" id="banner">Prototype for the Future Health Digital Innovation Challenge. All people and data are synthetic. MemBrain identifies risk and change; it does not diagnose.</div>
+<header class="top"><div class="top-in">
+  <div class="brand"><svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#0f5c63"/><path d="M8 18c2-6 5-6 8 0s6 6 8 0" stroke="#f5ead9" stroke-width="2.4" fill="none" stroke-linecap="round"/><circle cx="16" cy="10" r="2.2" fill="#c89b5a"/></svg>
+    <div>MemBrain<small>Cerebro Spark · brain health check-in</small></div></div>
+  <nav class="tabs" id="tabs" role="tablist">
+    <button data-view="participant" class="on">Participant app</button>
+    <button data-view="clinician">Clinician dashboard</button>
+    <button data-view="validation">Validation</button>
+    <button data-view="how">How it works</button>
+  </nav>
+  <div class="spacer"></div>
+  <span class="tiny muted" id="ver"></span>
+</div></header>
+<main id="main"></main>
+<div class="modal" id="modal"><div class="panel pad" id="modal-body"></div></div>
+<div class="toast" id="toast"></div>
+<!--DATA-->
+<!--ENGINE-->
+<!--APP-->
+</body>
+</html>
