@@ -41,3 +41,16 @@ def test_dismiss_requires_reason():
 def test_fhir_export():
     b = c.get("/participants/MB-1187/fhir", headers=CL).json()
     assert b["resourceType"] == "Bundle"
+
+
+def test_azure_speech_token_endpoint():
+    r = c.get("/api/speech/token")
+    # If key is configured, it returns 200 with token and region
+    if r.status_code == 200:
+        data = r.json()
+        assert "token" in data
+        assert data["region"] == "uaenorth"
+        assert len(data["token"]) > 20
+    else:
+        # If running in environment without key, it gracefully returns 503
+        assert r.status_code in (503, 502)

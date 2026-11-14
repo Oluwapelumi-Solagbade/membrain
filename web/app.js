@@ -104,8 +104,10 @@
 
   // --- speech input + on-device acoustic features (audio never leaves the device)
   const Rec = {
-    active: false, fallback: false, async start(lang, onText) {
+    active: false, fallback: false, asrEngine: "browser",
+    async start(lang, onText) {
       this.text = ""; this.frames = []; this.t0 = performance.now(); this.clip = 0; this.samples = 0;
+      this.asrEngine = "browser";
       try {
         this.stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, sampleRate: 16000 } });
         this.ctx = new (window.AudioContext || window.webkitAudioContext)(); const src = this.ctx.createMediaStreamSource(this.stream);
@@ -113,16 +115,58 @@
         this.iv = setInterval(() => { this.an.getFloatTimeDomainData(buf); let s = 0; for (const x of buf) { s += x * x; if (Math.abs(x) > 0.99) this.clip++; this.samples++; }
           const db = 10 * Math.log10(s / buf.length + 1e-10); this.frames.push(db); const m = $("#lvl"); if (m) m.style.width = Math.max(0, Math.min(100, (db + 60) * 1.8)) + "%"; }, 50);
       } catch (e) { this.fallback = true; return false; }
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SR) {
-        this.sr = new SR(); this.sr.lang = lang === "ar" ? "ar-AE" : "en-US"; this.sr.continuous = true; this.sr.interimResults = true;
-        this.sr.onresult = (ev) => { let f = ""; for (let i = 0; i < ev.results.length; i++) f += ev.results[i][0].transcript + " "; this.text = f.trim(); onText && onText(this.text); };
-        this.sr.onerror = () => {}; try { this.sr.start(); } catch (e) {}
+
+      // Try Azure Speech in Dubai (uaenorth) first
+      let azureStarted = false;
+      const dialectMap = { "Emirati": "ar-AE", "Other Gulf": "ar-SA", "Egyptian": "ar-EG", "Levantine": "ar-LB", "English": "en-GB" };
+      const curDialect = S.pt ? S.pt.dialect : "Emirati";
+      const targetLang = lang === "ar" ? (dialectMap[curDialect] || "ar-AE") : "en-US";
+
+      if (window.SpeechSDK) {
+        try {
+          const res = await fetch("/api/speech/token");
+          if (res.ok) {
+            const data = await res.json();
+            const speechConfig = window.SpeechSDK.SpeechConfig.fromAuthorizationToken(data.token, data.region || "uaenorth");
+            speechConfig.speechRecognitionLanguage = targetLang;
+            const audioConfig = window.SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
+            this.azureRecognizer = new window.SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
+            this.azureRecognizer.recognizing = (s, e) => {
+              if (e.result && e.result.text) onText && onText((this.text ? this.text + " " : "") + e.result.text);
+            };
+            this.azureRecognizer.recognized = (s, e) => {
+              if (e.result && e.result.reason === window.SpeechSDK.ResultReason.RecognizedSpeech) {
+                this.text = (this.text ? this.text + " " : "") + e.result.text;
+                onText && onText(this.text);
+              }
+            };
+            this.azureRecognizer.startContinuousRecognitionAsync();
+            this.asrEngine = "azure_dubai";
+            azureStarted = true;
+          }
+        } catch (err) {
+          console.warn("Azure Dubai token unreachable; falling back to browser SpeechRecognition:", err);
+        }
+      }
+
+      // Fallback to browser SpeechRecognition if Azure not started
+      if (!azureStarted) {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SR) {
+          this.sr = new SR(); this.sr.lang = targetLang; this.sr.continuous = true; this.sr.interimResults = true;
+          this.sr.onresult = (ev) => { let f = ""; for (let i = 0; i < ev.results.length; i++) f += ev.results[i][0].transcript + " "; this.text = f.trim(); onText && onText(this.text); };
+          this.sr.onerror = () => {}; try { this.sr.start(); } catch (e) {}
+        }
       }
       this.active = true; return true;
     },
     stop(noiseDb) {
-      this.active = false; clearInterval(this.iv); try { this.sr && this.sr.stop(); } catch (e) {}
+      this.active = false; clearInterval(this.iv);
+      if (this.azureRecognizer) {
+        try { this.azureRecognizer.stopContinuousRecognitionAsync(); this.azureRecognizer.close(); } catch (e) {}
+        this.azureRecognizer = null;
+      }
+      try { this.sr && this.sr.stop(); } catch (e) {}
       try { this.stream.getTracks().forEach((t) => t.stop()); this.ctx.close(); } catch (e) {}
       const dur = (performance.now() - this.t0) / 1000; const fr = this.frames;
       const floor = noiseDb ?? (fr.length ? [...fr].sort((a, b) => a - b)[Math.floor(fr.length * 0.1)] : -60);
@@ -132,7 +176,8 @@
       const words = (this.text || "").split(/\s+/).filter(Boolean);
       return { audio: { snr_db: +(meanSp - floor).toFixed(1), clipping: this.samples ? +(this.clip / this.samples).toFixed(4) : 0, speech_ratio: fr.length ? +(sp / fr.length).toFixed(2) : 0, duration_s: +dur.toFixed(1) },
                features: { speech_rate_wpm: sp ? +(words.length / (sp * 0.05 / 60)).toFixed(1) : 0, pause_count: pauses, mean_pause_s: pauseLens.length ? +(pauseLens.reduce((a, b) => a + b, 0) / pauseLens.length).toFixed(2) : 0,
-                           type_token_ratio: words.length ? +(new Set(words).size / words.length).toFixed(2) : 0, word_count: words.length } };
+                           type_token_ratio: words.length ? +(new Set(words).size / words.length).toFixed(2) : 0, word_count: words.length },
+               asr_engine: this.asrEngine };
     },
   };
 
@@ -211,11 +256,13 @@
       if (!Rec.active) {
         const ok = await Rec.start(pt.lang, (t) => { ta.value = t; pt.tr[task] = t; });
         if (!ok) { $("#rec-status").textContent = l.typed; m.disabled = true; return; }
-        m.classList.add("rec"); m.textContent = l.stop; $("#rec-status").textContent = l.listening;
+        const listeningText = Rec.asrEngine === "azure_dubai" ? "🇦🇪 Azure Dubai · Listening…" : l.listening;
+        m.classList.add("rec"); m.textContent = l.stop; $("#rec-status").textContent = listeningText;
       } else {
         const r = Rec.stop(pt.noiseDb); m.classList.remove("rec"); m.textContent = l.tap;
         pt.audio[task] = r.audio; pt.vf[task] = r.features;
-        $("#rec-status").textContent = `SNR ${r.audio.snr_db} dB · speech ${Math.round(r.audio.speech_ratio * 100)}% · ${r.audio.duration_s}s`;
+        const engineLabel = r.asr_engine === "azure_dubai" ? "🇦🇪 Azure Dubai" : "Browser ASR";
+        $("#rec-status").textContent = `${engineLabel} · SNR ${r.audio.snr_db} dB · speech ${Math.round(r.audio.speech_ratio * 100)}% · ${r.audio.duration_s}s`;
       }
     };
     if (Rec.fallback) { $("#rec-status").textContent = l.typed; }
