@@ -475,7 +475,7 @@ window.MB_DATA = {"config": {"AUDIO_MAX_CLIPPING": 0.01, "AUDIO_MIN_DURATION_S":
   const fmt = (x, d = 2) => (x == null || Number.isNaN(x) ? "–" : Number(x).toFixed(d));
   const pct = (x) => (x == null ? "–" : Math.round(x * 100) + "%");
   const LV = { BASELINE: "Building baseline", STABLE: "Stable", CHECK_AGAIN: "Check again", CLINICIAN_REVIEW: "Clinician review", URGENT: "Urgent review", INVALID: "Not scored" };
-  const LV_AR = { BASELINE: "بناء خط الأساس", STABLE: "مستقر", CHECK_AGAIN: "إعادة الفحص", CLINICIAN_REVIEW: "مراجعة الطبيب", URGENT: "مراجعة عاجلة" };
+  const LV_AR = { BASELINE: "بِنَاءُ خَطِّ الأَسَاسِ", STABLE: "مُسْتَقِرٌّ", CHECK_AGAIN: "إِعَادَةُ الفَحْصِ", CLINICIAN_REVIEW: "مُرَاجَعَةُ الطَّبِيبِ", URGENT: "مُرَاجَعَةٌ عَاجِلَةٌ" };
   const LVCOL = { BASELINE: "#4d5f8a", STABLE: "#2f7d4f", CHECK_AGAIN: "#a8661b", CLINICIAN_REVIEW: "#b2462e", URGENT: "#8f1d3b" };
   const PATH = { ...D.navigator.pathways };
   const EDU = { none: "No formal education", primary: "Primary (1–6 y)", secondary: "Secondary (7–12 y)", tertiary: "Tertiary (>12 y)" };
@@ -526,26 +526,26 @@ window.MB_DATA = {"config": {"AUDIO_MAX_CLIPPING": 0.01, "AUDIO_MIN_DURATION_S":
       a11y: "Display", larger: "Larger text", contrast: "High contrast", slow: "Slower speech",
     },
     ar: {
-      choose: "من سيقوم بالفحص؟", chooseSub: "اختر مشاركاً لمتابعة فحوصاته، أو ابدأ مع شخص جديد.",
-      newp: "مشارك جديد", start: "ابدأ", next: "التالي", back: "رجوع", repeat: "أعد التعليمات", skip: "تخطَّ",
-      welcome: (n) => `مرحباً ${n}. يستغرق هذا الفحص حوالي 6 دقائق.`, welcomeSub: "سأقرأ لك كل تعليمات بصوت مسموع، وأنت تجيب بالكلام. لا حاجة للكتابة. يمكن لأحد أفراد العائلة المساعدة عند الحاجة.",
-      helper: "هناك من يساعدني اليوم", consentT: "ما وافقت على مشاركته", hearQ: "هل تسمعني بوضوح؟", play: "شغّل الصوت",
-      yes: "نعم", no: "لا", noiseQ: "لنتأكد أن المكان هادئ بما يكفي.", noiseBtn: "افحص المكان", seeQ: "هل تستطيع قراءة هذا النص بسهولة؟",
-      wordsL: "سأقول 10 كلمات. استمع جيداً وحاول أن تتذكرها.", wordsR: "الآن قل كل الكلمات التي تتذكرها، بأي ترتيب.",
-      storyL: "سأحكي لك قصة قصيرة. استمع جيداً.", storyR: "الآن احكِ لي القصة بأكبر قدر من التفاصيل التي تتذكرها.",
-      flu: (c) => `قل أكبر عدد ممكن من ${c} خلال دقيقة واحدة.`, judg: "استمع إلى هذا الموقف وقل لي ماذا تفعل.",
-      delayed: "قلت لك قبل قليل 10 كلمات. قل كل الكلمات التي ما زلت تتذكرها.",
-      tap: "اضغط وتكلم", stop: "اضغط عند الانتهاء", listening: "أستمع…", typed: "الميكروفون غير متاح هنا. اكتب ما قاله الشخص، أو استخدم إجابة نموذجية.",
-      sampleGood: "نموذج: إجابة معتادة", sampleWeak: "نموذج: إجابة أضعف",
-      moodT: "كيف كان شعورك؟", moodSub: "خلال الأسبوعين الماضيين، كم مرة انزعجت من:",
-      phq: ["قلة الاهتمام أو المتعة في القيام بالأشياء", "الشعور بالحزن أو الاكتئاب أو اليأس"],
-      gad: ["الشعور بالتوتر أو القلق أو العصبية", "عدم القدرة على إيقاف القلق أو التحكم فيه"],
-      freq: ["أبداً", "عدة أيام", "أكثر من نصف الأيام", "تقريباً كل يوم"],
-      sleepQ: "كم ساعة كنت تنام عادةً كل ليلة هذا الأسبوع؟", sleepO: ["أقل من 5", "من 5 إلى 6", "من 6 إلى 7", "من 7 إلى 8", "أكثر من 8"],
-      illQ: "خلال الأسبوعين الماضيين، هل كنت مريضاً أو بدأت دواءً جديداً؟",
-      finish: "إنهاء", doneT: "شكراً لك", planT: "أمور تساعد في الحفاظ على صحة دماغك", next_session: "الفحص القادم",
-      behind: "شفافية العرض: ماذا فعل النظام", openClin: "افتح في لوحة الطبيب",
-      a11y: "العرض", larger: "خط أكبر", contrast: "تباين عالٍ", slow: "كلام أبطأ",
+      choose: "مَنْ سَيَقُومُ بِالفَحْصِ؟", chooseSub: "اخْتَرْ مُشَارِكًا لِمُتَابَعَةِ فُحُوصَاتِهِ، أَوْ ابْدَأْ مَعَ شَخْصٍ جَدِيدٍ.",
+      newp: "مُشَارِكٌ جَدِيدٌ", start: "ابْدَأْ", next: "التَّالِي", back: "رُجُوعٌ", repeat: "أَعِدِ التَّعْلِيمَاتِ", skip: "تَخَطَّ",
+      welcome: (n) => `مَرْحَبًا ${n}. يَسْتَغْرِقُ هَذَا الفَحْصُ حَوَالَيْ 6 دَقَائِقَ.`, welcomeSub: "سَأَقْرَأُ لَكَ كُلَّ التَّعْلِيمَاتِ بِصَوْتٍ مَسْمُوعٍ، وَأَنْتَ تُجِيبُ بِالكَلَامِ. لَا حَاجَةَ لِلْكِتَابَةِ. يُمْكِنُ لِأَحَدِ أَفْرَادِ العَائِلَةِ المُسَاعَدَةُ عِنْدَ الحَاجَةِ.",
+      helper: "هُنَاكَ مَنْ يُسَاعِدُنِي اليَوْمَ", consentT: "مَا وَافَقْتَ عَلَى مُشَارَكَتِهِ", hearQ: "هَلْ تَسْمَعُنِي بِوُضُوحٍ؟", play: "شَغِّلِ الصَّوْتَ",
+      yes: "نَعَمْ", no: "لَا", noiseQ: "لِنَتَأَكَّدَ أَنَّ المَكَانَ هَادِئٌ بِمَا يَكْفِي.", noiseBtn: "افْحَصِ المَكَانَ", seeQ: "هَلْ تَسْتَطِيعُ قِرَاءَةَ هَذَا النَّصِّ بِسُهُولَةٍ؟",
+      wordsL: "سَأَقُولُ عَشْرَ كَلِمَاتٍ. اسْتَمِعْ جَيِّدًا وَحَاوِلْ أَنْ تَتَذَكَّرَهَا.", wordsR: "الآنَ، قُلْ كُلَّ الكَلِمَاتِ الَّتِي تَتَذَكَّرُهَا، بِأَيِّ تَرْتِيبٍ.",
+      storyL: "سَأَحْكِي لَكَ قِصَّةً قَصِيرَةً. اسْتَمِعْ جَيِّدًا.", storyR: "الآنَ، احْكِ لِي القِصَّةَ بِأَكْبَرِ قَدْرٍ مِنَ التَّفَاصِيلِ الَّتِي تَتَذَكَّرُهَا.",
+      flu: (c) => `قُلْ أَكْبَرَ عَدَدٍ مُمْكِنٍ مِنْ ${c} خِلَالَ دَقِيقَةٍ وَاحِدَةٍ.`, judg: "اسْتَمِعْ إِلَى هَذَا المَوْقِفِ، وَقُلْ لِي مَاذَا تَفْعَلُ.",
+      delayed: "قُلْتُ لَكَ قَبْلَ قَلِيلٍ عَشْرَ كَلِمَاتٍ. قُلْ كُلَّ الكَلِمَاتِ الَّتِي مَا زِلْتَ تَتَذَكَّرُهَا.",
+      tap: "اضْغَطْ وَتَكَلَّمْ", stop: "اضْغَطْ عِنْدَ الانْتِهَاءِ", listening: "أَسْتَمِعُ…", typed: "المِيكْرُوفُونُ غَيْرُ مُتَاحٍ هُنَا. اكْتُبْ مَا قَالَهُ الشَّخْصُ، أَوْ اسْتَخْدِمْ إِجَابَةً نَمُوذَجِيَّةً.",
+      sampleGood: "نَمُوذَجٌ: إِجَابَةٌ مُعْتَادَةٌ", sampleWeak: "نَمُوذَجٌ: إِجَابَةٌ أَضْعَفُ",
+      moodT: "كَيْفَ كَانَ شُعُورُكَ؟", moodSub: "خِلَالَ الأُسْبُوعَيْنِ المَاضِيَيْنِ، كَمْ مَرَّةً انْزَعَجْتَ مِنْ:",
+      phq: ["قِلَّةُ الاِهْتِمَامِ أَوِ المُتْعَةِ فِي القِيَامِ بِالأَشْيَاءِ", "الشُّعُورُ بِالحُزْنِ أَوِ الاِكْتِئَابِ أَوِ اليَأْسِ"],
+      gad: ["الشُّعُورُ بِالتَّوَتُّرِ أَوِ القَلَقِ أَوِ العَصَبِيَّةِ", "عَدَمُ القُدْرَةِ عَلَى إِيقَافِ القَلَقِ أَوِ التَّحَكُّمِ فِيهِ"],
+      freq: ["أَبَدًا", "عِدَّةَ أَيَّامٍ", "أَكْثَرَ مِنْ نِصْفِ الأَيَّامِ", "تَقْرِيبًا كُلَّ يَوْمٍ"],
+      sleepQ: "كَمْ سَاعَةً كُنْتَ تَنَامُ عَادَةً كُلَّ لَيْلَةٍ هَذَا الأُسْبُوعَ؟", sleepO: ["أَقَلَّ مِنْ 5", "مِنْ 5 إِلَى 6", "مِنْ 6 إِلَى 7", "مِنْ 7 إِلَى 8", "أَكْثَرَ مِنْ 8"],
+      illQ: "خِلَالَ الأُسْبُوعَيْنِ المَاضِيَيْنِ، هَلْ كُنْتَ مَرِيضًا أَوْ بَدَأْتَ دَوَاءً جَدِيدًا؟",
+      finish: "إِنْهَاءٌ", doneT: "شُكْرًا لَكَ", planT: "أُمُورٌ تُسَاعِدُ فِي الحِفَاظِ عَلَى صِحَّةِ دِمَاغِكَ", next_session: "الفَحْصُ القَادِمُ",
+      behind: "شَفَافِيَّةُ العَرْضِ: مَاذَا فَعَلَ النِّظَامُ", openClin: "افْتَحْ فِي لَوْحَةِ الطَّبِيبِ",
+      a11y: "العَرْضُ", larger: "خَطٌّ أَكْبَرُ", contrast: "تَبَايُنٌ عَالٍ", slow: "كَلَامٌ أَبْطَأُ",
     },
   };
   const STEPS = ["welcome", "hear", "noise", "see", "words_listen", "words_recall", "story_listen", "story_recall", "fluency", "judgement", "delayed", "mood", "sleep", "done"];
@@ -771,7 +771,7 @@ window.MB_DATA = {"config": {"AUDIO_MAX_CLIPPING": 0.01, "AUDIO_MIN_DURATION_S":
       foot(true, null);
     },
     see(pt, l) {
-      $("#pt-body").innerHTML = sayBlock(l.seeQ) + `<div class="wordshow" style="font-size:1.6em">${pt.lang === "ar" ? "الشمس مشرقة اليوم" : "The sun is bright today"}</div><div class="opts"><button class="opt" data-v="1">${l.yes}</button><button class="opt" data-v="0">${l.no}</button></div>`;
+      $("#pt-body").innerHTML = sayBlock(l.seeQ) + `<div class="wordshow" style="font-size:1.6em">${pt.lang === "ar" ? "الشَّمْسُ مُشْرِقَةٌ اليَوْمَ" : "The sun is bright today"}</div><div class="opts"><button class="opt" data-v="1">${l.yes}</button><button class="opt" data-v="0">${l.no}</button></div>`;
       bindRepeat(l.seeQ); document.querySelectorAll(".opt").forEach((b) => (b.onclick = () => { pt.precheck.vision_ok = b.dataset.v === "1"; nextStep(); }));
       foot(true, null, l.skip);
     },
@@ -823,7 +823,7 @@ window.MB_DATA = {"config": {"AUDIO_MAX_CLIPPING": 0.01, "AUDIO_MIN_DURATION_S":
       const support = ev.confounders.some((c) => c.code === "mood") ? D.messages.MOOD_SUPPORT[pt.lang === "ar" ? 1 : 0] : null;
       const showPlan = ["BASELINE", "STABLE", "CHECK_AGAIN"].includes(ev.level);
       const plan = (p.prevention && p.prevention[pt.lang]) ? p.prevention[pt.lang].items : [];
-      const nxt = { BASELINE: pt.lang === "ar" ? "بعد أسبوعين" : "in 2 weeks", STABLE: pt.lang === "ar" ? "بعد 6 أشهر" : "in 6 months", CHECK_AGAIN: pt.lang === "ar" ? "بعد 2 إلى 4 أسابيع" : "in 2–4 weeks" }[key];
+      const nxt = { BASELINE: pt.lang === "ar" ? "بَعْدَ أُسْبُوعَيْنِ" : "in 2 weeks", STABLE: pt.lang === "ar" ? "بَعْدَ 6 أَشْهُرٍ" : "in 6 months", CHECK_AGAIN: pt.lang === "ar" ? "بعد 2 إلى 4 أسابيع" : "in 2–4 weeks" }[key];
       $("#pt-body").innerHTML = `<div class="say">${l.doneT}</div>
         <div class="result-card lv-${ev.held_for_clinician ? "BASELINE" : key}" style="font-size:1.1em">${esc(msg)}</div>
         ${support ? `<div class="result-card" style="background:var(--sand-soft)">${esc(support)}</div>` : ""}
@@ -885,14 +885,14 @@ window.MB_DATA = {"config": {"AUDIO_MAX_CLIPPING": 0.01, "AUDIO_MIN_DURATION_S":
 
   // ================================================================ ENROLMENT (coordinator)
   const CONSENT_INFO = [
-    ["voice_features", "Voice features", "Measurements of how you speak (speed, pauses). Calculated on your phone; the recording itself is not sent.", "قياسات لطريقة كلامك (السرعة والتوقفات). تُحسب على هاتفك ولا يُرسل التسجيل نفسه.", true],
-    ["raw_audio", "Keep voice recordings", "Keep your recordings for a fixed time so scoring can be checked by a person.", "الاحتفاظ بتسجيلاتك لفترة محددة حتى يتمكن شخص من مراجعة التقييم.", false],
-    ["wearables", "Watch or fitness band", "Daily sleep and activity summaries from your device.", "ملخصات يومية للنوم والنشاط من جهازك.", false],
-    ["clinical_record", "Health record", "Blood pressure, sugar (HbA1c), cholesterol and relevant diagnoses from your clinic record.", "ضغط الدم والسكر التراكمي والكوليسترول والتشخيصات المهمة من ملفك في العيادة.", true],
-    ["family_history", "Family history", "Whether close relatives had memory problems or dementia.", "هل عانى أحد الأقارب من مشاكل في الذاكرة أو الخرف.", true],
-    ["caregiver_involvement", "Family member involvement", "A family member may help with sessions and answer a short questionnaire about daily life.", "يمكن لأحد أفراد العائلة المساعدة في الجلسات والإجابة على استبيان قصير عن الحياة اليومية.", true],
-    ["genomics", "Genetic results", "Use existing genetic results (for example from a national programme). Results are only discussed with you by a clinician with counselling.", "استخدام نتائج جينية موجودة. لا تُناقش النتائج معك إلا من قبل طبيب مع الإرشاد.", false],
-    ["model_training", "Help improve the tool", "Allow your anonymised data to be used to improve the tool. Separate from your care.", "السماح باستخدام بياناتك بعد إخفاء هويتك لتحسين الأداة. منفصل عن رعايتك.", false],
+    ["voice_features", "Voice features", "Measurements of how you speak (speed, pauses). Calculated on your phone; the recording itself is not sent.", "قِيَاسَاتٌ لِطَرِيقَةِ كَلَامِكَ (السُّرْعَةُ وَالتَّوَقُّفَاتُ). تُحْسَبُ عَلَى هَاتِفِكَ وَلَا يُرْسَلُ التَّسْجِيلُ نَفْسُهُ.", true],
+    ["raw_audio", "Keep voice recordings", "Keep your recordings for a fixed time so scoring can be checked by a person.", "الاِحْتِفَاظُ بِتَسْجِيلَاتِكَ لِفَتْرَةٍ مُحَدَّدَةٍ حَتَّى يَتَمَكَّنَ شَخْصٌ مِنْ مُرَاجَعَةِ التَّقْيِيمِ.", false],
+    ["wearables", "Watch or fitness band", "Daily sleep and activity summaries from your device.", "مُلَخَّصَاتٌ يَوْمِيَّةٌ لِلنَّوْمِ وَالنَّشَاطِ مِنْ جِهَازِكَ.", false],
+    ["clinical_record", "Health record", "Blood pressure, sugar (HbA1c), cholesterol and relevant diagnoses from your clinic record.", "ضَغْطُ الدَّمِ وَالسُّكَّرُ التَّرَاكُمِيُّ وَالكُولِيسْتِرُولُ وَالتَّشْخِيصَاتُ المُهِمَّةُ مِنْ مِلَفِّكَ فِي العِيَادَةِ.", true],
+    ["family_history", "Family history", "Whether close relatives had memory problems or dementia.", "هَلْ عَانَى أَحَدُ الأَقَارِبِ مِنْ مَشَاكِلَ فِي الذَّاكِرَةِ أَوِ الخَرَفِ.", true],
+    ["caregiver_involvement", "Family member involvement", "A family member may help with sessions and answer a short questionnaire about daily life.", "يُمْكِنُ لِأَحَدِ أَفْرَادِ العَائِلَةِ المُسَاعَدَةُ فِي الجَلَسَاتِ وَالإِجَابَةُ عَلَى اسْتِبْيَانٍ قَصِيرٍ عَنِ الحَيَاةِ اليَوْمِيَّةِ.", true],
+    ["genomics", "Genetic results", "Use existing genetic results (for example from a national programme). Results are only discussed with you by a clinician with counselling.", "اسْتِخْدَامُ نَتَائِجَ جِينِيَّةٍ مَوْجُودَةٍ. لَا تُنَاقَشُ النَّتَائِجُ مَعَكَ إِلَّا مِنْ قِبَلِ طَبِيبٍ مَعَ الإِرْشَادِ.", false],
+    ["model_training", "Help improve the tool", "Allow your anonymised data to be used to improve the tool. Separate from your care.", "السَّمَاحُ بِاسْتِخْدَامِ بَيَانَاتِكَ بَعْدَ إِخْفَاءِ هُوِيَّتِكَ لِتَحْسِينِ الأَدَاةِ. مُنْفَصِلٌ عَنْ رِعَايَتِكَ.", false],
   ];
   const CONDITIONS = [["hypertension", "Hypertension"], ["diabetes", "Type 2 diabetes"], ["stroke_tia", "Stroke / TIA"], ["af", "Atrial fibrillation"], ["cvd", "Cardiovascular disease"],
     ["ckd", "Chronic kidney disease"], ["hypothyroid", "Hypothyroidism"], ["b12", "B12 / folate deficiency"], ["depression", "Depression"], ["anxiety", "Anxiety"],
