@@ -100,6 +100,14 @@ FLUENCY_LEXICON = {
 }
 
 
+def participant_seed(pid: str) -> int:
+    """Deterministic counterbalancing seed (same as hashSeed in web/app.js). Never use hash(): it is salted per process."""
+    h = 0
+    for ch in pid:
+        h = (h * 31 + ord(ch)) % 997
+    return h % 3
+
+
 def form_for_session(session_index: int, participant_seed: int = 0) -> str:
     """Counterbalanced form assignment (Latin-square rotation by participant)."""
     order = [FORMS[(participant_seed + k) % 3] for k in range(3)]

@@ -6,3 +6,6 @@ __pycache__/
 data/raw/
 .env
 *.env
+!.env.example
+*.msi
+DEPLOY_AZURE.md

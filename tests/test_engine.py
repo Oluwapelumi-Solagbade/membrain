@@ -88,3 +88,24 @@ def test_golden_vectors_match():
     for case in json.loads(GOLDEN.read_text()):
         hist = evaluate(case["participant"], case["sessions"])["history"]
         assert [h["level"] for h in hist] == case["expected_levels"]
+
+
+def test_red_flags_go_urgent_before_any_testing():
+    p = {"id": "X", "age": 70, "education": "primary", "language": "ar"}
+    ev = evaluate(p, [{"session_id": "i0", "date": "2026-11-14", "type": "intake", "concern": "family noticed confusion",
+                       "red_flags": ["sudden_onset", "fluctuating_confusion"]}])["latest"]
+    assert ev["level"] == "URGENT" and "urgent_clinical_assessment" in ev["pathways"]
+
+
+def test_intake_without_red_flags_is_not_an_alert():
+    p = {"id": "X", "age": 70, "education": "primary", "language": "ar"}
+    ev = evaluate(p, [{"session_id": "i0", "date": "2026-11-14", "type": "intake", "concern": "memory complaints", "red_flags": []}])["latest"]
+    assert ev["level"] == "BASELINE" and ev["intake"]
+
+
+def test_very_low_first_visit_goes_to_review_without_waiting():
+    from membrain.personas import _raw
+    p = {"id": "X", "age": 72, "education": "secondary", "language": "en"}
+    s = [{"session_id": "s0", "date": "2026-11-14", "form": "A", "raw": _raw("secondary", 72, -2.6, 0)}]
+    ev = evaluate(p, s)["latest"]
+    assert ev["level"] == "CLINICIAN_REVIEW" and "first visit" in ev["reasons"][-1]

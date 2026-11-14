@@ -146,19 +146,32 @@
       let prevIq = null; const hd = [], hz = [];
       const t0 = sessions.length ? sessions[0].date : null;
       for (const s of sessions) {
-        const ch = s.channel || "app"; const idx = chIdx[ch] || 0; chIdx[ch] = idx + 1;
+        const ch = s.channel || "app"; const idx = chIdx[ch] || 0; if (s.type !== "intake") chIdx[ch] = idx + 1;
         const ev = { session_id: s.session_id, date: s.date.slice(0, 10), channel: ch, form: s.form, session_index: idx,
                      level: "BASELINE", reasons: [], drivers: [], confounders: [], pathways: [], valid: true, engine_version: C.ENGINE_VERSION };
         const iq = s.iqcode;
         const fflag = iq != null && iq > C.IQCODE_CUTOFF;
         const newLoss = fflag && prevIq != null && iq - prevIq >= C.IQCODE_RISE;
         const iqBefore = prevIq; if (iq != null) prevIq = iq;
+        const flags = (s.red_flags || []).filter((f) => C.RED_FLAGS[f]);
+        if (flags.length) {
+          ev.level = "URGENT";
+          ev.reasons.push("Red flags for an acute presentation: " + flags.map((f) => C.RED_FLAGS[f]).join("; ") + ". Follow the emergency protocol; do not wait for repeat testing");
+          ev.drivers.push({ input: "Red-flag screen", value: flags.length, threshold: 1 });
+          ev.pathways.push("urgent_clinical_assessment"); ev.red_flags = flags;
+        }
         if (s.safety_concern) { ev.level = "URGENT"; ev.reasons.push("Informant reported a safety concern"); ev.pathways.push("primary_care_urgent"); }
         if (newLoss) {
           ev.level = "URGENT";
           ev.reasons.push(`New functional loss reported by informant (IQCODE ${iqBefore.toFixed(2)} -> ${iq.toFixed(2)}, above cutoff ${C.IQCODE_CUTOFF})`);
           ev.drivers.push({ input: "Informant questionnaire (IQCODE-16)", value: iq, threshold: C.IQCODE_CUTOFF });
           ev.pathways.push("memory_clinic");
+        }
+        if (s.type === "intake") {
+          ev.valid = false; ev.intake = true;
+          if (ev.level === "BASELINE") ev.reasons.push("Intake recorded: " + (s.concern || "concern documented") + "; no red flags. First check-in to follow");
+          ev.next_action = ev.level === "BASELINE" ? "first_session" : "urgent_review_task";
+          evals.push(ev); continue;
         }
         const gate = audioGate(s.audio);
         if (gate.length || s.raw == null) {
@@ -176,6 +189,12 @@
           if (clean || idx >= C.BASELINE_MAX_SESSIONS - 1) bl.push({ idx, raw, z: zp.composite, s });
           ev.level = lvMax(ev.level, "BASELINE");
           ev.reasons.push(`Building personal baseline (${bl.length}/${C.BASELINE_SESSIONS} sessions, channel: ${ch})`);
+          if (hz.length === 1 && zp.composite <= C.FIRST_VISIT_REVIEW_Z) {
+            ev.level = lvMax(ev.level, "CLINICIAN_REVIEW");
+            ev.reasons.push(`Very low score at first visit for age and education (composite z ${zp.composite.toFixed(2)} <= ${C.FIRST_VISIT_REVIEW_Z}); clinician review without waiting for a baseline`);
+            ev.drivers.push({ input: "First-visit composite (education-stratified)", value: r2(zp.composite), threshold: C.FIRST_VISIT_REVIEW_Z });
+            ev.pathways.push("memory_clinic");
+          }
           if (bl.length === C.BASELINE_SESSIONS) {
             const bz = bl.reduce((a, b) => a + b.z, 0) / bl.length; ev.baseline_composite_z = r3(bz);
             if (bz <= C.LOW_BASELINE_Z) {

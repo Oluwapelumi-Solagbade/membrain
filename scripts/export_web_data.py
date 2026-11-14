@@ -10,10 +10,11 @@ from membrain import items as I  # noqa: E402
 from membrain.dossier import build_dossier  # noqa: E402
 from membrain.fhir import bundle  # noqa: E402
 from membrain.personas import personas  # noqa: E402
-from membrain.prevention import MESSAGES, prevention_plan, risk_context  # noqa: E402
+from membrain.prevention import ALWAYS, MESSAGES, RULES, prevention_plan, risk_context  # noqa: E402
 from membrain.simulate import ASSUMPTIONS, generate_cohort  # noqa: E402
 from membrain.triage import evaluate  # noqa: E402
 from membrain.validation import analyse  # noqa: E402
+from membrain import navigator as NAV  # noqa: E402
 
 N = int(sys.argv[1]) if len(sys.argv) > 1 else 2000
 cfg = {k: getattr(C, k) for k in dir(C) if k.isupper()}
@@ -25,10 +26,19 @@ for p in ps:
     p["risk_context"] = risk_context(ctx)
     p["fhir_example"] = bundle(p, p["sessions"], ev["history"])
 res = analyse(generate_cohort(N, seed=7))
+_log = NAV.simulate_pathways(160, seed=3)
 data = {"config": cfg, "items": {"WORD_LISTS": I.WORD_LISTS, "FLUENCY": I.FLUENCY, "STORIES": I.STORIES,
                                  "JUDGEMENT": I.JUDGEMENT, "FLUENCY_LEXICON": I.FLUENCY_LEXICON,
                                  "ITEM_BANK_VERSION": I.ITEM_BANK_VERSION},
         "personas": ps, "messages": MESSAGES,
+        "prevention_rules": [{"id": r[0], "evidence": r[2], "en": r[3], "ar": r[4]} for r in RULES],
+        "navigator": {"version": NAV.NAVIGATOR_VERSION, "directory": NAV.directory(), "pathways": NAV.PATHWAYS,
+                      "states": NAV.STATES, "transitions": NAV.TRANSITIONS, "needs_reason": sorted(NAV.NEEDS_REASON),
+                      "closed": sorted(NAV.CLOSED), "pack": NAV.PACK, "funding": NAV.FUNDING_LABEL, "languages": NAV.LANG_LABEL,
+                      "stale_after_days": NAV.STALE_AFTER_DAYS, "assumptions": NAV.PATHWAY_ASSUMPTIONS,
+                      "synthetic_log": {"referrals": _log[0], "people": _log[1]},
+                      "synthetic_metrics": NAV.programme_metrics(*_log)},
+        "prevention_always": {"en": ALWAYS[0], "ar": ALWAYS[1]},
         "validation": {"n": N, "seed": 7, "assumptions": ASSUMPTIONS, "summary": res["summary"]}}
 (ROOT / "web" / "data.js").write_text("window.MB_DATA = " + json.dumps(data, ensure_ascii=False, default=str) + ";\n")
 (ROOT / "docs" / "validation_summary.json").write_text(json.dumps(data["validation"], indent=1, default=str))

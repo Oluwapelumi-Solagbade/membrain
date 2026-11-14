@@ -6,7 +6,7 @@ illustrative and must be replaced with locally derived estimates.
 Changing any value requires a new ENGINE_VERSION (change control).
 """
 
-ENGINE_VERSION = "0.3.0"
+ENGINE_VERSION = "0.4.0"
 NORMS_VERSION = "synthetic-2026.11"  # [PLACEHOLDER] until Phase A local norms
 
 # --- Cognitive domains in the voice-first battery -------------------------
@@ -47,7 +47,19 @@ RCI_DOMAIN_CHECK = -1.96       # stricter per-domain threshold
 TRIGGER_DOMAINS = ["memory_delayed"]
 RCI_LARGE = -2.576             # large decline -> urgent
 LOW_BASELINE_Z = -1.5          # entry composite below stratified norm -> review
+FIRST_VISIT_REVIEW_Z = -2.0    # very low score at the FIRST visit -> review without waiting for baseline
 RAPID_DROP_Z = 1.5             # composite z drop vs baseline within <=12 weeks
+
+# Red flags for an acute presentation (possible delirium, stroke, rapid deterioration).
+# Any of these -> URGENT safety pathway immediately; never wait for repeat testing.
+RED_FLAGS = {
+    "sudden_onset": "Change started suddenly, over hours or days",
+    "fluctuating_confusion": "Confusion or attention comes and goes during the day",
+    "new_neuro_symptoms": "New weakness, facial droop, speech difficulty or severe headache",
+    "recent_fall_head_injury": "Recent fall or head injury",
+    "rapid_deterioration": "Rapid worsening over weeks",
+    "safety_risk": "Immediate safety risk (wandering, unsafe at home, self-neglect)",
+}
 
 # --- Confounders -----------------------------------------------------------
 PHQ2_CUTOFF = 3      # PHQ-2 >= 3: positive depression screen

@@ -1,0 +1,39 @@
+flowchart LR
+  subgraph DEV["📱 Participant device (offline-capable)"]
+    direction TB
+    UI["Voice-first app<br/>AR / EN · captions · large text"]
+    PRE["Pre-session check<br/>volume · noise · hearing · vision"]
+    CAP["Audio capture 16 kHz"]
+    QG["Quality gate<br/>SNR · clipping · speech ratio"]
+    FEAT["Acoustic features<br/>openSMILE eGeMAPS"]
+    Q["Offline queue"]
+    UI --> PRE --> CAP --> QG --> FEAT --> Q
+    QG -- "repeat request" --> UI
+  end
+  subgraph CLOUD["☁️ In-country cloud (UAE region)"]
+    direction TB
+    ASR["Speech-to-text<br/>self-hosted, dialect-aware"]
+    SCORE["Scoring<br/>versioned item bank"]
+    ENG["Change engine<br/>norms · baseline · RCI · confounders · triage"]
+    PREV["Prevention rules<br/>AR / EN"]
+    WF["Clinician workflow<br/>queue · dossier · actions"]
+    FHIR[("FHIR R4 store<br/>pseudonymous")]
+    VAULT[("Identity vault<br/>separate keys")]
+    AUD[("Consent service · audit log · KMS")]
+    ASR --> SCORE --> ENG --> WF
+    ENG --> PREV
+    ENG --> FHIR
+    WF --- VAULT
+    FHIR --- AUD
+  end
+  subgraph EXT["Consented connectors"]
+    direction TB
+    WEAR["Wearables<br/>daily summaries"]
+    EHR["Clinic record<br/>via partner"]
+    INF["Informant IQCODE"]
+  end
+  Q -- "features + encrypted audio for ASR<br/>(audio deleted unless consented)" --> ASR
+  Q -- "answers, mood, sleep" --> ENG
+  EXT --> ENG
+  WF --> CLIN["👩‍⚕️ Clinician dashboard"]
+  PREV --> UI

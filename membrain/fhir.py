@@ -106,6 +106,18 @@ def review_task(p: dict, ev: dict, ra: dict) -> dict:
             "note": [{"text": f"Review target: {C.REVIEW_TARGET_DAYS[ev['level']]} days"}]}
 
 
+def service_request(p: dict, ref: dict) -> dict:
+    from .navigator import FHIR_STATUS, PATHWAYS
+    return {"resourceType": "ServiceRequest", "id": _id(), "status": FHIR_STATUS[ref["state"]], "intent": "order",
+            "priority": "urgent" if ref.get("urgency") == "urgent" else "routine",
+            "code": _cc(f"{CS}/pathway", ref["pathway"], PATHWAYS.get(ref["pathway"], ref["pathway"])),
+            "subject": {"reference": f"Patient/{p['id']}"}, "authoredOn": ref["history"][0]["date"],
+            "performer": [{"display": ref.get("service_id") or "to be assigned"}],
+            "reasonCode": [{"text": ref.get("reason", "")}],
+            "extension": [{"url": f"{CS}/ext/referral-state", "valueCode": ref["state"]}],
+            "note": [{"text": f"{h['date']} {h['state']} {h.get('reason', '')}".strip()} for h in ref["history"]]}
+
+
 def bundle(p: dict, sessions: list[dict], evals: list[dict]) -> dict:
     entries = [patient(p)] + consents(p)
     by_id = {s.get("session_id"): s for s in sessions}
@@ -120,5 +132,7 @@ def bundle(p: dict, sessions: list[dict], evals: list[dict]) -> dict:
             entries.append(ra)
             if ev["level"] in ("CLINICIAN_REVIEW", "URGENT"):
                 entries.append(review_task(p, ev, ra))
+    for ref in p.get("referrals", []) or []:
+        entries.append(service_request(p, ref))
     return {"resourceType": "Bundle", "id": _id(), "type": "collection",
             "entry": [{"fullUrl": f"urn:uuid:{e['id']}", "resource": e} for e in entries]}

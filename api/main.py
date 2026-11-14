@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import copy
 import os
+import pathlib
 import uuid
 from datetime import datetime, timezone
 
@@ -25,7 +26,8 @@ AZURE_SPEECH_REGION = os.getenv("AZURE_SPEECH_REGION", "uaenorth")
 from membrain import config as C
 from membrain.dossier import build_dossier
 from membrain.fhir import bundle
-from membrain.items import FLUENCY, FORMS, JUDGEMENT, STORIES, WORD_LISTS, form_for_session
+from membrain.items import FLUENCY, FORMS, JUDGEMENT, STORIES, WORD_LISTS, form_for_session, participant_seed
+from membrain import navigator as NAV
 from membrain.personas import personas
 from membrain.prevention import participant_message, prevention_plan
 from membrain.scoring import score_session_transcripts
@@ -33,9 +35,19 @@ from membrain.triage import LEVELS, evaluate
 
 app = FastAPI(title="MemBrain API", version=C.ENGINE_VERSION,
               description="Voice-first longitudinal brain-health check-in. Identifies risk and change; never diagnoses.")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+# Only listed origins may call the API from a browser (GitHub Pages demo, local dev, the App Service itself).
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv(
+    "ALLOWED_ORIGINS", "https://oluwapelumi-solagbade.github.io,http://localhost:8000,http://127.0.0.1:8000").split(",") if o.strip()]
+app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, allow_methods=["*"], allow_headers=["*"])
+
+from api.speech import router as speech_router  # noqa: E402
+
+app.include_router(speech_router)
 
 DB: dict = {"participants": {}, "tasks": {}, "audit": []}
+# Identity vault: direct identifiers live here ONLY, keyed by pseudonym.
+# In production this is a separate encrypted store with its own keys and access policy.
+VAULT: dict = {}
 
 
 def audit(actor: str, action: str, target: str, detail: dict | None = None):
@@ -74,7 +86,25 @@ def _seed():
 _seed()
 
 
+class Identity(BaseModel):
+    full_name: str
+    national_id: str | None = None   # Emirates ID or MRN
+    phone: str | None = None
+    preferred_channel: str = Field("app", pattern="^(app|whatsapp|phone)$")
+
+
+class Informant(BaseModel):
+    name: str
+    relation: str
+    phone: str | None = None
+
+
 class Enrol(BaseModel):
+    identity: Identity | None = None
+    informant: Informant | None = None
+    enrolled_by: str = "coordinator"
+    programme: str = "pilot"
+    consent_version: str = "consent-ar-en-0.1"
     age: float = Field(ge=50, le=75)
     sex: str = "U"
     education: str = Field(pattern="^(none|primary|secondary|tertiary)$")
@@ -102,6 +132,20 @@ class SessionIn(BaseModel):
     iqcode: float | None = None
     safety_concern: bool = False
     voice_features: dict | None = None
+
+
+class ReferralIn(BaseModel):
+    pathway: str
+    service_id: str | None = None
+    urgency: str = Field("routine", pattern="^(routine|urgent)$")
+    reason: str
+    date: str
+
+
+class ReferralStatus(BaseModel):
+    state: str
+    date: str
+    reason: str = ""
 
 
 class Action(BaseModel):
@@ -181,10 +225,26 @@ def items(form: str, lang: str = "en"):
 def enrol(body: Enrol, r: str = Depends(role)):
     need(r, "coordinator", "clinician")
     pid = "MB-" + uuid.uuid4().hex[:6].upper()
-    p = body.model_dump() | {"id": pid, "sessions": []}
+    data = body.model_dump()
+    ident, informant = data.pop("identity"), data.pop("informant")
+    VAULT[pid] = {"identity": ident, "informant": informant}   # identifiers never enter the analytics record
+    p = data | {"id": pid, "sessions": [], "has_informant": informant is not None,
+                "enrolled_at": datetime.now(timezone.utc).isoformat()}
     DB["participants"][pid] = p
-    audit(r, "enrol", pid, {"consent": body.consent})
-    return {"id": pid}
+    audit(r, "enrol", pid, {"consent": body.consent, "consent_version": body.consent_version, "programme": body.programme})
+    return {"id": pid, "first_form": form_for_session(0, participant_seed(pid)), "schedule": {"baseline_1": "today", "baseline_2": "+2 weeks", "follow_up": "+12 weeks"}}
+
+
+@app.post("/participants/{pid}/reidentify")
+def reidentify(pid: str, reason: dict, r: str = Depends(role)):
+    """Break-glass re-identification for follow-up contact: clinician only, reason required, audited."""
+    need(r, "clinician", "coordinator")
+    if not reason.get("reason"):
+        raise HTTPException(422, "a reason is required to re-identify")
+    if pid not in VAULT:
+        raise HTTPException(404, "no identity on file")
+    audit(r, "reidentify", pid, {"reason": reason["reason"]})
+    return VAULT[pid]
 
 
 @app.patch("/participants/{pid}/consent")
@@ -193,6 +253,14 @@ def update_consent(pid: str, consent: dict, r: str = Depends(role)):
     if not p:
         raise HTTPException(404)
     p["consent"] = {**p.get("consent", {}), **consent}
+    withdrawn = [k for k, v in consent.items() if not v]
+    # withdrawal propagates: stop processing and purge the affected signal downstream
+    if "voice_features" in withdrawn:
+        for s in p["sessions"]:
+            s["voice_features"] = None
+    if "wearables" in withdrawn:
+        for k in ("sleep_hours", "activity_min_week"):
+            (p.get("context") or {}).pop(k, None)
     audit(r, "consent_update", pid, consent)
     return p["consent"]
 
@@ -205,7 +273,7 @@ def submit_session(pid: str, body: SessionIn, r: str = Depends(role)):
     idx = len(p["sessions"])
     s = body.model_dump()
     s["session_id"] = f"{pid}-s{idx}"
-    s["form"] = form_for_session(idx, hash(pid) % 3)
+    s["form"] = form_for_session(idx, participant_seed(pid))
     if s.get("transcripts") and not s.get("raw"):
         scored = score_session_transcripts(s["transcripts"], s["form"], p["language"])
         s["raw"], s["scoring_detail"] = scored["raw"], scored["detail"]
@@ -216,7 +284,7 @@ def submit_session(pid: str, body: SessionIn, r: str = Depends(role)):
     _sync_tasks(p, ev)
     audit(r, "session_submitted", pid, {"session_id": s["session_id"], "level": ev["latest"]["level"]})
     msg = participant_message(ev["latest"], p["language"])
-    out = {"session_id": s["session_id"], "message": msg, "next_form": form_for_session(idx + 1, hash(pid) % 3)}
+    out = {"session_id": s["session_id"], "message": msg, "next_form": form_for_session(idx + 1, participant_seed(pid))}
     if ev["latest"]["level"] in ("BASELINE", "STABLE"):
         out["prevention"] = prevention_plan({**p.get("context", {}), "mood_positive": (body.phq2 or 0) >= 3}, p["language"])
     return out  # held results: participant sees only the message; details go to clinician
@@ -304,3 +372,85 @@ def get_audit(r: str = Depends(role)):
 def reset():
     _seed()
     return {"ok": True, "participants": len(DB["participants"])}
+
+
+# ------------------------------------------------------------- Navigator
+@app.get("/directory")
+def get_directory():
+    return NAV.directory()
+
+
+@app.get("/participants/{pid}/services")
+def services_for(pid: str, pathway: str, r: str = Depends(role)):
+    need(r, "clinician", "coordinator")
+    p = DB["participants"].get(pid)
+    if not p:
+        raise HTTPException(404)
+    return NAV.match_services(pathway, p)
+
+
+@app.post("/participants/{pid}/referrals")
+def create_referral(pid: str, body: ReferralIn, r: str = Depends(role)):
+    need(r, "clinician")
+    p = DB["participants"].get(pid)
+    if not p:
+        raise HTTPException(404)
+    if body.pathway not in NAV.PATHWAYS:
+        raise HTTPException(422, "unknown pathway")
+    refs = p.setdefault("referrals", [])
+    ref = NAV.new_referral(f"REF-{pid}-{len(refs)}", pid, body.pathway, body.service_id, body.urgency, body.date, body.reason,
+                           entry_route=p.get("entry_route", "programme"))
+    refs.append(ref)
+    audit(r, "referral_recommended", pid, {"pathway": body.pathway, "service": body.service_id})
+    return ref
+
+
+@app.post("/referrals/{rid}/status")
+def referral_status(rid: str, body: ReferralStatus, r: str = Depends(role)):
+    need(r, "clinician", "coordinator")
+    for p in DB["participants"].values():
+        for ref in p.get("referrals", []):
+            if ref["id"] == rid:
+                try:
+                    NAV.advance(ref, body.state, body.date, body.reason, by=r)
+                except ValueError as e:
+                    raise HTTPException(422, str(e))
+                audit(r, "referral_" + body.state, p["id"], {"referral": rid, "reason": body.reason})
+                return ref
+    raise HTTPException(404)
+
+
+@app.get("/referrals")
+def list_referrals(unresolved_only: bool = False, r: str = Depends(role)):
+    need(r, "clinician", "coordinator")
+    out = [ref for p in DB["participants"].values() for ref in p.get("referrals", [])]
+    return [x for x in out if NAV.is_unresolved(x)] if unresolved_only else out
+
+
+@app.get("/referrals/{rid}/next-steps")
+def next_steps(rid: str, lang: str = "en", r: str = Depends(role)):
+    need(r, "clinician", "coordinator")
+    svc = {s["id"]: s for s in NAV.directory()}
+    for p in DB["participants"].values():
+        for ref in p.get("referrals", []):
+            if ref["id"] == rid:
+                return NAV.next_steps_pack(ref, svc.get(ref.get("service_id")), lang)
+    raise HTTPException(404)
+
+
+@app.get("/programme/metrics")
+def metrics(r: str = Depends(role)):
+    need(r, "clinician", "coordinator")
+    refs = [ref for p in DB["participants"].values() for ref in p.get("referrals", [])]
+    people = {p["id"]: {"language": p.get("language"), "funding": p.get("funding"), "sex": p.get("sex"), "age_band": p.get("age_band")}
+              for p in DB["participants"].values()}
+    return NAV.programme_metrics(refs, people)
+
+
+# ------------------------------------------------------------- web app
+# Serve the built single-page app at "/" so one in-country App Service hosts
+# both the API and the demo (same origin: microphone + speech work over HTTPS).
+_DIST = pathlib.Path(__file__).resolve().parents[1] / "web" / "dist"
+if _DIST.exists():
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/", StaticFiles(directory=str(_DIST), html=True), name="web")
