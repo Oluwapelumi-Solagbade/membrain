@@ -17,7 +17,8 @@ from pydantic import BaseModel, Field
 from membrain import config as C
 from membrain.dossier import build_dossier
 from membrain.fhir import bundle
-from membrain.items import FLUENCY, FORMS, JUDGEMENT, STORIES, WORD_LISTS, form_for_session
+from membrain.items import FLUENCY, FORMS, JUDGEMENT, STORIES, WORD_LISTS, form_for_session, participant_seed
+from membrain import navigator as NAV
 from membrain.personas import personas
 from membrain.prevention import participant_message, prevention_plan
 from membrain.scoring import score_session_transcripts
@@ -117,6 +118,20 @@ class SessionIn(BaseModel):
     voice_features: dict | None = None
 
 
+class ReferralIn(BaseModel):
+    pathway: str
+    service_id: str | None = None
+    urgency: str = Field("routine", pattern="^(routine|urgent)$")
+    reason: str
+    date: str
+
+
+class ReferralStatus(BaseModel):
+    state: str
+    date: str
+    reason: str = ""
+
+
 class Action(BaseModel):
     action: str = Field(pattern="^(confirm_concern|dismiss|request_repeat|order_investigations|refer)$")
     note: str = ""
@@ -148,7 +163,7 @@ def enrol(body: Enrol, r: str = Depends(role)):
                 "enrolled_at": datetime.now(timezone.utc).isoformat()}
     DB["participants"][pid] = p
     audit(r, "enrol", pid, {"consent": body.consent, "consent_version": body.consent_version, "programme": body.programme})
-    return {"id": pid, "schedule": {"baseline_1": "today", "baseline_2": "+2 weeks", "follow_up": "+12 weeks"}}
+    return {"id": pid, "first_form": form_for_session(0, participant_seed(pid)), "schedule": {"baseline_1": "today", "baseline_2": "+2 weeks", "follow_up": "+12 weeks"}}
 
 
 @app.post("/participants/{pid}/reidentify")
@@ -189,7 +204,7 @@ def submit_session(pid: str, body: SessionIn, r: str = Depends(role)):
     idx = len(p["sessions"])
     s = body.model_dump()
     s["session_id"] = f"{pid}-s{idx}"
-    s["form"] = form_for_session(idx, hash(pid) % 3)
+    s["form"] = form_for_session(idx, participant_seed(pid))
     if s.get("transcripts") and not s.get("raw"):
         scored = score_session_transcripts(s["transcripts"], s["form"], p["language"])
         s["raw"], s["scoring_detail"] = scored["raw"], scored["detail"]
@@ -200,7 +215,7 @@ def submit_session(pid: str, body: SessionIn, r: str = Depends(role)):
     _sync_tasks(p, ev)
     audit(r, "session_submitted", pid, {"session_id": s["session_id"], "level": ev["latest"]["level"]})
     msg = participant_message(ev["latest"], p["language"])
-    out = {"session_id": s["session_id"], "message": msg, "next_form": form_for_session(idx + 1, hash(pid) % 3)}
+    out = {"session_id": s["session_id"], "message": msg, "next_form": form_for_session(idx + 1, participant_seed(pid))}
     if ev["latest"]["level"] in ("BASELINE", "STABLE"):
         out["prevention"] = prevention_plan({**p.get("context", {}), "mood_positive": (body.phq2 or 0) >= 3}, p["language"])
     return out  # held results: participant sees only the message; details go to clinician
@@ -288,3 +303,76 @@ def get_audit(r: str = Depends(role)):
 def reset():
     _seed()
     return {"ok": True, "participants": len(DB["participants"])}
+
+
+# ------------------------------------------------------------- Navigator
+@app.get("/directory")
+def get_directory():
+    return NAV.directory()
+
+
+@app.get("/participants/{pid}/services")
+def services_for(pid: str, pathway: str, r: str = Depends(role)):
+    need(r, "clinician", "coordinator")
+    p = DB["participants"].get(pid)
+    if not p:
+        raise HTTPException(404)
+    return NAV.match_services(pathway, p)
+
+
+@app.post("/participants/{pid}/referrals")
+def create_referral(pid: str, body: ReferralIn, r: str = Depends(role)):
+    need(r, "clinician")
+    p = DB["participants"].get(pid)
+    if not p:
+        raise HTTPException(404)
+    if body.pathway not in NAV.PATHWAYS:
+        raise HTTPException(422, "unknown pathway")
+    refs = p.setdefault("referrals", [])
+    ref = NAV.new_referral(f"REF-{pid}-{len(refs)}", pid, body.pathway, body.service_id, body.urgency, body.date, body.reason,
+                           entry_route=p.get("entry_route", "programme"))
+    refs.append(ref)
+    audit(r, "referral_recommended", pid, {"pathway": body.pathway, "service": body.service_id})
+    return ref
+
+
+@app.post("/referrals/{rid}/status")
+def referral_status(rid: str, body: ReferralStatus, r: str = Depends(role)):
+    need(r, "clinician", "coordinator")
+    for p in DB["participants"].values():
+        for ref in p.get("referrals", []):
+            if ref["id"] == rid:
+                try:
+                    NAV.advance(ref, body.state, body.date, body.reason, by=r)
+                except ValueError as e:
+                    raise HTTPException(422, str(e))
+                audit(r, "referral_" + body.state, p["id"], {"referral": rid, "reason": body.reason})
+                return ref
+    raise HTTPException(404)
+
+
+@app.get("/referrals")
+def list_referrals(unresolved_only: bool = False, r: str = Depends(role)):
+    need(r, "clinician", "coordinator")
+    out = [ref for p in DB["participants"].values() for ref in p.get("referrals", [])]
+    return [x for x in out if NAV.is_unresolved(x)] if unresolved_only else out
+
+
+@app.get("/referrals/{rid}/next-steps")
+def next_steps(rid: str, lang: str = "en", r: str = Depends(role)):
+    need(r, "clinician", "coordinator")
+    svc = {s["id"]: s for s in NAV.directory()}
+    for p in DB["participants"].values():
+        for ref in p.get("referrals", []):
+            if ref["id"] == rid:
+                return NAV.next_steps_pack(ref, svc.get(ref.get("service_id")), lang)
+    raise HTTPException(404)
+
+
+@app.get("/programme/metrics")
+def metrics(r: str = Depends(role)):
+    need(r, "clinician", "coordinator")
+    refs = [ref for p in DB["participants"].values() for ref in p.get("referrals", [])]
+    people = {p["id"]: {"language": p.get("language"), "funding": p.get("funding"), "sex": p.get("sex"), "age_band": p.get("age_band")}
+              for p in DB["participants"].values()}
+    return NAV.programme_metrics(refs, people)

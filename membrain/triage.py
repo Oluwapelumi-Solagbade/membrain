@@ -95,7 +95,8 @@ def evaluate_history(participant: dict, sessions: list[dict]) -> list[dict]:
     for s in sessions:
         ch = s.get("channel", "app")
         idx = channel_idx.get(ch, 0)
-        channel_idx[ch] = idx + 1
+        if s.get("type") != "intake":
+            channel_idx[ch] = idx + 1
         ev = {"session_id": s.get("session_id"), "date": s["date"][:10], "channel": ch, "form": s.get("form"),
               "session_index": idx, "level": "BASELINE", "reasons": [], "drivers": [], "confounders": [],
               "pathways": [], "valid": True, "engine_version": C.ENGINE_VERSION}
@@ -107,6 +108,14 @@ def evaluate_history(participant: dict, sessions: list[dict]) -> list[dict]:
         iq_before = prev_iq
         if iq is not None:
             prev_iq = iq
+        flags = [f for f in (s.get("red_flags") or []) if f in C.RED_FLAGS]
+        if flags:
+            ev["level"] = "URGENT"
+            ev["reasons"].append("Red flags for an acute presentation: " + "; ".join(C.RED_FLAGS[f] for f in flags) +
+                                 ". Follow the emergency protocol; do not wait for repeat testing")
+            ev["drivers"].append({"input": "Red-flag screen", "value": len(flags), "threshold": 1})
+            ev["pathways"].append("urgent_clinical_assessment")
+            ev["red_flags"] = flags
         if s.get("safety_concern"):
             ev["level"] = "URGENT"
             ev["reasons"].append("Informant reported a safety concern")
@@ -116,6 +125,17 @@ def evaluate_history(participant: dict, sessions: list[dict]) -> list[dict]:
             ev["reasons"].append(f"New functional loss reported by informant (IQCODE {iq_before:.2f} -> {iq:.2f}, above cutoff {C.IQCODE_CUTOFF})")
             ev["drivers"].append({"input": "Informant questionnaire (IQCODE-16)", "value": iq, "threshold": C.IQCODE_CUTOFF})
             ev["pathways"].append("memory_clinic")
+
+        # intake record (concern + red-flag screen before any testing)
+        if s.get("type") == "intake":
+            ev["valid"] = False
+            ev["intake"] = True
+            if ev["level"] == "BASELINE":
+                ev["reasons"].append("Intake recorded: " + (s.get("concern") or "concern documented") +
+                                     "; no red flags. First check-in to follow")
+            ev["next_action"] = "first_session" if ev["level"] == "BASELINE" else "urgent_review_task"
+            evals.append(ev)
+            continue
 
         # 2. quality gate
         gate = audio_gate(s.get("audio"))
@@ -146,6 +166,13 @@ def evaluate_history(participant: dict, sessions: list[dict]) -> list[dict]:
                 bl.append((idx, raw, zp["composite"], s))
             ev["level"] = _max(ev["level"], "BASELINE")
             ev["reasons"].append(f"Building personal baseline ({len(bl)}/{C.BASELINE_SESSIONS} sessions, channel: {ch})")
+            if len(hist_z) == 1 and zp["composite"] <= C.FIRST_VISIT_REVIEW_Z:
+                ev["level"] = _max(ev["level"], "CLINICIAN_REVIEW")
+                ev["reasons"].append(f"Very low score at first visit for age and education (composite z {zp['composite']:.2f} <= "
+                                     f"{C.FIRST_VISIT_REVIEW_Z}); clinician review without waiting for a baseline")
+                ev["drivers"].append({"input": "First-visit composite (education-stratified)", "value": round(zp["composite"], 2),
+                                      "threshold": C.FIRST_VISIT_REVIEW_Z})
+                ev["pathways"].append("memory_clinic")
             if len(bl) == C.BASELINE_SESSIONS:
                 bz = sum(b[2] for b in bl) / len(bl)
                 ev["baseline_composite_z"] = round(bz, 3)

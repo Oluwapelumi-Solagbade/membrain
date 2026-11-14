@@ -8,16 +8,21 @@
 - Run the hearing check, play the word list, and recall by voice (or a sample answer).
 - Show the mood questions and the result: "steady compared with your own earlier results", plus her prevention plan (BP, glucose, hearing aid, walking after Maghrib).
 
-**1:05–1:50 · Clinician dashboard.**
+**1:05–1:40 · Clinician dashboard.**
 - Open Khalid: urgent. The informant questionnaire rose from 3.05 to 3.72 and there was a large decline.
 - Show the trend chart, the drivers table with RCI and thresholds, the 90% uncertainty range, and the confounders checked.
 - Show integrated context with consent chips (APOE visible only because genomics consent is on).
 - Open the referral dossier and the FHIR bundle.
 - Switch to Mariam: the decline was held because of low mood and poor sleep, and she was offered the mental-health pathway instead.
 
-**1:50–2:30 · Validation.**
+**1:40–2:00 · Navigator.**
+- Open Referrals: Ahmed's memory-clinic referral is tracked to "attended". Mariam missed her mental-health appointment, so she sits at the top of the worklist.
+- New referral: the clinical pathway is chosen first, then a service she can reach; funding never removes the pathway. Show the Arabic next-steps pack.
+- Enrolment with "sudden onset" ticked: an urgent review is created at once, with no testing first.
+
+**2:00–2:30 · Validation.**
 - Synthetic cohort of 2,000 people.
-- Against education-blind usual care: sensitivity 83% vs 61%, PPV 59% vs 46%, referrals per confirmed finding 1.7 vs 2.2.
+- Against education-blind usual care: sensitivity 83% vs 61%, PPV 58% vs 46%, referrals per confirmed finding 1.7 vs 2.2.
 - False positives among people with no schooling drop from 44% to 7%.
 - Be honest: "this is a simulation of our pipeline, not clinical evidence. And it already shows a sensitivity gap for people with no formal education, which is the first job of Phase A."
 

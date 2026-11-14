@@ -1,6 +1,6 @@
 # MemBrain: technical documentation
 
-Version: engine 0.3.0 · norms synthetic-2026.11 · item bank ib-0.2.0 · Team Cerebro Spark
+Version: engine 0.4.0 · navigator nav-0.1.0 · norms synthetic-2026.11 · item bank ib-0.2.0 · Team Cerebro Spark
 
 ## 1. Problem and scope
 
@@ -79,8 +79,8 @@ The engine computes this for the composite and for each domain, using each test'
 |---|---|---|
 | Stable | Composite RCI > −1.645 and delayed-recall RCI > −1.96 | Reassurance, prevention plan, routine repeat (6 months) |
 | Check again | One decline signal, or a decline with a confounder, or an invalid recording | Alternate-form repeat in 2–4 weeks |
-| Clinician review | The same decline signal confirmed on the next session; or decline plus an informant functional flag; or entry composite ≤ −1.5 for age and education | Review Task, 21-day target |
-| Urgent review | Composite RCI ≤ −2.576 or a drop of ≥ 1.5 SD within 120 days; new informant-reported functional loss (IQCODE above 3.34 and rising ≥ 0.3); safety concern | Review Task, 3-day target, clinician call |
+| Clinician review | Very low first-visit score (≤ −2.0 for age and education, no waiting for baseline); the same decline signal confirmed on the next session; or decline plus an informant functional flag; or entry composite ≤ −1.5 for age and education | Review Task, 21-day target |
+| Urgent review | Red flags for an acute presentation at intake (sudden onset, fluctuating confusion, new neurological symptoms, fall or head injury, rapid worsening, safety risk), which follow the emergency protocol with no testing first; composite RCI ≤ −2.576 or a drop of ≥ 1.5 SD within 120 days; new informant-reported functional loss (IQCODE above 3.34 and rising ≥ 0.3); safety concern | Review Task, 3-day target, clinician call |
 
 **Design decisions found through simulation.**
 - Only the composite and delayed recall can trigger alerts on their own. Coarse scales such as judgement (0–4) are shown as context. Allowing every domain to trigger, and accepting any signal as confirmation, doubled false referrals in the synthetic cohort (specificity 0.76 → 0.90 after the change).
@@ -101,6 +101,21 @@ The clinician sees BP, HbA1c, LDL, BMI, activity, sleep, PHQ-2, GAD-2, IQCODE-16
 - **Reversible causes.** The dossier suggests checks for TSH, B12, folate, FBC, HbA1c, renal function, anticholinergic burden, PHQ-9, STOP-BANG, and hearing and vision.
 - **Referral dossier.** A one-page summary with trend, drivers, confounders, risk context and limitations. It is also available as a FHIR bundle.
 
+## 6b. Navigator layer: from alert to completed care
+
+See `NAVIGATOR.md`. It covers:
+- concern-led entry
+- the red-flag screen before any testing
+- household-helper informants with separate consent
+- a functional change timeline
+- a service directory with verification dates
+- matching that puts the clinical pathway first and records pathway gaps
+- closed-loop referral tracking (7 states, plus reasons for declined, missed or lost referrals)
+- a next-steps pack in Arabic and English
+- programme metrics by entry route, language, funding, sex and age
+
+Each referral is stored as a FHIR `ServiceRequest`.
+
 ## 7. Safety and human oversight (requirement 5)
 
 1. Results at review level are **held**. The participant hears only "your clinic will contact you. This is not a diagnosis."
@@ -120,10 +135,10 @@ Below is a synthetic run with n = 2,000 people, 10,766 sessions and 12 months of
 |---|---|---|
 | Sessions completed unaided | 92% | – |
 | Test–retest ICC(2,1), 2 weeks | 0.86 | – |
-| Sensitivity (impaired or meaningful decline) | 83% (95% CI 78–87) | 61% |
-| Specificity | 90% (89–92) | 87% |
-| PPV at 14% prevalence | 59% | 46% |
-| Referrals per confirmed finding | 1.68 | 2.20 |
+| Sensitivity (impaired or meaningful decline) | 83% (95% CI 79–87) | 61% |
+| Specificity | 89% (88–91) | 87% |
+| PPV at 14% prevalence | 58% | 46% |
+| Referrals per confirmed finding | 1.74 | 2.20 |
 | Meaningful change detected (sens / spec) | 64% / 95% | – |
 | Median time to clinical assessment* | 8 weeks | 16 weeks |
 | False-positive rate at entry, no formal education | 7% | 44% |
@@ -160,8 +175,8 @@ The run also surfaces a real gap: sensitivity is 67% for people with no formal e
 
 ## 11. Engineering quality
 
-- 25 pytest tests cover persona pathways, RCI arithmetic, education fairness, mood hold, the audio gate, explanations, Arabic scoring, FHIR validation, API role checks, identity-vault separation and consent withdrawal.
-- The Python and JavaScript engines agree on all 87 golden cases (457 session evaluations).
+- 35 pytest tests cover persona pathways, RCI arithmetic, education fairness, mood hold, the audio gate, explanations, Arabic scoring, FHIR validation, API role checks, identity-vault separation, consent withdrawal, the red-flag and first-visit routes, the referral state machine, accessibility matching and FHIR ServiceRequest.
+- The Python and JavaScript engines agree on all 90 golden cases (461 session evaluations) and on all 15 Navigator programme metrics.
 - `make all` rebuilds data, the demo and tests from one source of truth (`membrain/config.py`).
 
 ## 12. Roadmap after the challenge
@@ -175,4 +190,4 @@ The run also surfaces a real gap: sensitivity is 67% for people with no formal e
 
 ## 13. Business model
 
-MemBrain is sold business-to-business to health programmes, longevity centres and primary care networks, on a per-enrolled-person annual licence covering the app, engine, dashboard and reporting. The value case rests on fewer unnecessary specialist referrals (1.68 against 2.2 referrals per confirmed finding in simulation), earlier assessment, and a structured dataset for population brain-health planning.
+MemBrain is sold business-to-business to health programmes, longevity centres and primary care networks, on a per-enrolled-person annual licence covering the app, engine, dashboard and reporting. The value case rests on fewer unnecessary specialist referrals (1.74 against 2.2 referrals per confirmed finding in simulation), earlier assessment, and a structured dataset for population brain-health planning.

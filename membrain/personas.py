@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from . import config as C
-from .items import form_for_session
+from .items import form_for_session, participant_seed
 from .scoring import expected_raw
 
 
@@ -22,7 +22,7 @@ def _sessions(pid: str, edu: str, age: float, plan: list[tuple], start=date(2026
         extra = dict(extra or {})
         dz = extra.pop("dz", None)
         s = {"session_id": f"{pid}-s{i}", "date": (start + timedelta(weeks=week)).isoformat(), "week": week,
-             "channel": extra.pop("channel", "app"), "form": form_for_session(i, hash(pid) % 3),
+             "channel": extra.pop("channel", "app"), "form": form_for_session(i, participant_seed(pid)),
              "audio": {"snr_db": 24.0, "clipping": 0.0, "speech_ratio": 0.55, "duration_s": 40.0},
              "precheck": {"hearing_ok": True, "vision_ok": True, "noise_ok": True},
              "phq2": 1, "gad2": 1, "sleep_hours": 7.0}
@@ -87,4 +87,46 @@ def personas() -> list[dict]:
          (28, -0.55, {"assisted": True, "helper_role": "son", "precheck": {"hearing_ok": False, "vision_ok": True, "noise_ok": True}})],
         {"sbp": 135, "dbp": 80, "hba1c": 6.6, "ldl": 2.8, "bmi": 29, "activity_min_week": 70, "sleep_hours": 6.0,
          "hearing_difficulty": True, "vision_difficulty": True})
+    nav = {  # funding route, emirate, languages, entry route, seeded referrals (synthetic)
+        "MB-1041": ("thiqa", "Abu Dhabi", ["ar"], "programme", []),
+        "MB-1187": ("basic", "Abu Dhabi", ["ar", "en"], "primary_care",
+                    [("memory_clinic", "SVC-02", "routine", [("sent", "2026-09-22"), ("accepted", "2026-09-25"), ("appointment_offered", "2026-09-28")])]),
+        "MB-1203": ("enhanced", "Abu Dhabi", ["ar", "en"], "programme",
+                    [("mental_health", "SVC-06", "routine", [("sent", "2026-09-01"), ("accepted", "2026-09-03"), ("appointment_offered", "2026-09-05"),
+                                                             ("missed", "2026-09-24", "did not attend")])]),
+        "MB-1322": ("thiqa", "Abu Dhabi", ["ar", "en"], "family",
+                    [("memory_clinic", "SVC-01", "urgent", [("sent", "2026-05-24"), ("accepted", "2026-05-25"), ("appointment_offered", "2026-05-26"),
+                                                            ("attended", "2026-06-02"), ("assessment_completed", "2026-06-16")])]),
+        "MB-1409": ("enhanced", "Dubai", ["en"], "programme", []),
+        "MB-1455": ("enhanced", "Abu Dhabi", ["ar", "en"], "programme", []),
+        "MB-1510": ("thiqa", "Abu Dhabi", ["ar"], "household_helper",
+                    [("audiology", "SVC-08", "routine", [])]),
+    }
+    from .navigator import advance, new_referral
+    for p in P:
+        funding, emirate, langs, entry, refs = nav[p["id"]]
+        p.update({"funding": funding, "emirate": emirate, "languages": langs, "entry_route": entry, "referrals": []})
+        first = p["sessions"][0]["date"]
+        for k, (pathway, svc, urg, steps) in enumerate(refs):
+            last = p["sessions"][-1]["date"]
+            r = new_referral(f"REF-{p['id']}-{k}", p["id"], pathway, svc, urg, last if not steps else steps[0][1],
+                             "Clinician confirmed concern after review", entry_route=entry)
+            r["concern_date"] = first
+            for st in steps:
+                advance(r, st[0], st[1], st[2] if len(st) > 2 else "")
+            p["referrals"].append(r)
+    for p in P:
+        if p["id"] == "MB-1510":
+            p["informant"] = {"type": "household_helper", "language": "en", "consented": True,
+                              "timeline": [{"activity": "Managing medicines", "change": "Now prepared in a weekly box by the helper",
+                                            "when": "about 8 months ago", "who_took_over": "household helper",
+                                            "why": "He forgot doses twice"},
+                                           {"activity": "Going to the mosque alone", "change": "Now accompanied",
+                                            "when": "about 3 months ago", "who_took_over": "son", "why": "Family preference after a fall"}]}
+        if p["id"] == "MB-1322":
+            p["informant"] = {"type": "family", "relation": "daughter", "consented": True,
+                              "timeline": [{"activity": "Managing money", "change": "Daughter now pays bills", "when": "about 2 months ago",
+                                            "who_took_over": "daughter", "why": "Missed payments and repeated transfers"},
+                                           {"activity": "Driving", "change": "Stopped after getting lost on a familiar route",
+                                            "when": "about 6 weeks ago", "who_took_over": "driver", "why": "Got lost"}]}
     return P

@@ -76,32 +76,32 @@
    "n_retest_pairs": 1365,
    "membrain": {
     "n": 2000,
-    "tp": 246,
-    "fp": 168,
-    "fn": 50,
-    "tn": 1536,
+    "tp": 247,
+    "fp": 182,
+    "fn": 49,
+    "tn": 1522,
     "sensitivity": [
-     0.831,
-     0.784,
-     0.869
+     0.834,
+     0.788,
+     0.872
     ],
     "specificity": [
-     0.901,
-     0.886,
-     0.915
+     0.893,
+     0.878,
+     0.907
     ],
     "ppv": [
-     0.594,
-     0.546,
-     0.64
+     0.576,
+     0.529,
+     0.622
     ],
     "npv": [
-     0.968,
+     0.969,
      0.959,
      0.976
     ],
-    "referrals_per_confirmed": 1.68,
-    "false_referrals": 168
+    "referrals_per_confirmed": 1.74,
+    "false_referrals": 182
    },
    "usual_care": {
     "n": 2000,
@@ -231,31 +231,31 @@
      "membrain": {
       "n": 325,
       "tp": 48,
-      "fp": 25,
+      "fp": 33,
       "fn": 7,
-      "tn": 245,
+      "tn": 237,
       "sensitivity": [
        0.873,
        0.76,
        0.937
       ],
       "specificity": [
-       0.907,
-       0.867,
-       0.936
+       0.878,
+       0.833,
+       0.912
       ],
       "ppv": [
-       0.658,
-       0.543,
-       0.756
+       0.593,
+       0.484,
+       0.693
       ],
       "npv": [
-       0.972,
-       0.944,
+       0.971,
+       0.942,
        0.986
       ],
-      "referrals_per_confirmed": 1.52,
-      "false_referrals": 25
+      "referrals_per_confirmed": 1.69,
+      "false_referrals": 33
      },
      "usual_care": {
       "n": 325,
@@ -383,31 +383,31 @@
      "membrain": {
       "n": 570,
       "tp": 65,
-      "fp": 42,
+      "fp": 43,
       "fn": 14,
-      "tn": 449,
+      "tn": 448,
       "sensitivity": [
        0.823,
        0.724,
        0.891
       ],
       "specificity": [
-       0.914,
-       0.886,
-       0.936
+       0.912,
+       0.884,
+       0.934
       ],
       "ppv": [
-       0.607,
-       0.513,
-       0.695
+       0.602,
+       0.508,
+       0.689
       ],
       "npv": [
        0.97,
        0.95,
        0.982
       ],
-      "referrals_per_confirmed": 1.65,
-      "false_referrals": 42
+      "referrals_per_confirmed": 1.66,
+      "false_referrals": 43
      },
      "usual_care": {
       "n": 570,
@@ -535,31 +535,31 @@
      "membrain": {
       "n": 473,
       "tp": 54,
-      "fp": 35,
+      "fp": 37,
       "fn": 17,
-      "tn": 367,
+      "tn": 365,
       "sensitivity": [
        0.761,
        0.65,
        0.845
       ],
       "specificity": [
-       0.913,
-       0.881,
-       0.937
+       0.908,
+       0.876,
+       0.932
       ],
       "ppv": [
-       0.607,
-       0.503,
-       0.702
+       0.593,
+       0.491,
+       0.689
       ],
       "npv": [
-       0.956,
+       0.955,
        0.93,
        0.972
       ],
-      "referrals_per_confirmed": 1.65,
-      "false_referrals": 35
+      "referrals_per_confirmed": 1.69,
+      "false_referrals": 37
      },
      "usual_care": {
       "n": 473,
@@ -686,32 +686,32 @@
      "n_retest_pairs": 217,
      "membrain": {
       "n": 326,
-      "tp": 40,
-      "fp": 36,
-      "fn": 10,
-      "tn": 240,
+      "tp": 41,
+      "fp": 38,
+      "fn": 9,
+      "tn": 238,
       "sensitivity": [
-       0.8,
-       0.67,
-       0.888
+       0.82,
+       0.692,
+       0.902
       ],
       "specificity": [
-       0.87,
-       0.825,
-       0.904
+       0.862,
+       0.817,
+       0.898
       ],
       "ppv": [
-       0.526,
-       0.416,
-       0.635
+       0.519,
+       0.411,
+       0.626
       ],
       "npv": [
-       0.96,
-       0.928,
-       0.978
+       0.964,
+       0.932,
+       0.981
       ],
-      "referrals_per_confirmed": 1.9,
-      "false_referrals": 36
+      "referrals_per_confirmed": 1.93,
+      "false_referrals": 38
      },
      "usual_care": {
       "n": 326,
@@ -839,31 +839,31 @@
      "membrain": {
       "n": 306,
       "tp": 39,
-      "fp": 30,
+      "fp": 31,
       "fn": 2,
-      "tn": 235,
+      "tn": 234,
       "sensitivity": [
        0.951,
        0.839,
        0.987
       ],
       "specificity": [
-       0.887,
-       0.843,
-       0.92
+       0.883,
+       0.839,
+       0.916
       ],
       "ppv": [
-       0.565,
-       0.448,
-       0.676
+       0.557,
+       0.441,
+       0.668
       ],
       "npv": [
        0.992,
        0.97,
        0.998
       ],
-      "referrals_per_confirmed": 1.77,
-      "false_referrals": 30
+      "referrals_per_confirmed": 1.79,
+      "false_referrals": 31
      },
      "usual_care": {
       "n": 306,
@@ -993,31 +993,31 @@
      "membrain": {
       "n": 811,
       "tp": 62,
-      "fp": 63,
+      "fp": 71,
       "fn": 18,
-      "tn": 668,
+      "tn": 660,
       "sensitivity": [
        0.775,
        0.672,
        0.853
       ],
       "specificity": [
-       0.914,
-       0.891,
-       0.932
+       0.903,
+       0.879,
+       0.922
       ],
       "ppv": [
-       0.496,
-       0.41,
-       0.582
+       0.466,
+       0.384,
+       0.551
       ],
       "npv": [
-       0.974,
-       0.959,
+       0.973,
+       0.958,
        0.983
       ],
-      "referrals_per_confirmed": 2.02,
-      "false_referrals": 63
+      "referrals_per_confirmed": 2.15,
+      "false_referrals": 71
      },
      "usual_care": {
       "n": 811,
@@ -1144,32 +1144,32 @@
      "n_retest_pairs": 550,
      "membrain": {
       "n": 800,
-      "tp": 108,
-      "fp": 71,
-      "fn": 22,
-      "tn": 599,
+      "tp": 109,
+      "fp": 75,
+      "fn": 21,
+      "tn": 595,
       "sensitivity": [
-       0.831,
-       0.757,
-       0.886
+       0.838,
+       0.766,
+       0.892
       ],
       "specificity": [
-       0.894,
-       0.868,
-       0.915
+       0.888,
+       0.862,
+       0.91
       ],
       "ppv": [
-       0.603,
-       0.53,
-       0.672
+       0.592,
+       0.52,
+       0.661
       ],
       "npv": [
-       0.965,
-       0.947,
-       0.976
+       0.966,
+       0.948,
+       0.978
       ],
-      "referrals_per_confirmed": 1.66,
-      "false_referrals": 71
+      "referrals_per_confirmed": 1.69,
+      "false_referrals": 75
      },
      "usual_care": {
       "n": 800,
@@ -1297,31 +1297,31 @@
      "membrain": {
       "n": 389,
       "tp": 76,
-      "fp": 34,
+      "fp": 36,
       "fn": 10,
-      "tn": 269,
+      "tn": 267,
       "sensitivity": [
        0.884,
        0.799,
        0.936
       ],
       "specificity": [
-       0.888,
-       0.847,
-       0.919
+       0.881,
+       0.84,
+       0.913
       ],
       "ppv": [
-       0.691,
-       0.599,
-       0.77
+       0.679,
+       0.587,
+       0.758
       ],
       "npv": [
        0.964,
        0.935,
        0.98
       ],
-      "referrals_per_confirmed": 1.45,
-      "false_referrals": 34
+      "referrals_per_confirmed": 1.47,
+      "false_referrals": 36
      },
      "usual_care": {
       "n": 389,
@@ -1451,31 +1451,31 @@
      "membrain": {
       "n": 186,
       "tp": 16,
-      "fp": 19,
+      "fp": 23,
       "fn": 8,
-      "tn": 143,
+      "tn": 139,
       "sensitivity": [
        0.667,
        0.467,
        0.82
       ],
       "specificity": [
-       0.883,
-       0.824,
-       0.924
+       0.858,
+       0.796,
+       0.903
       ],
       "ppv": [
-       0.457,
-       0.305,
-       0.618
+       0.41,
+       0.271,
+       0.566
       ],
       "npv": [
-       0.947,
-       0.899,
-       0.973
+       0.946,
+       0.896,
+       0.972
       ],
-      "referrals_per_confirmed": 2.19,
-      "false_referrals": 19
+      "referrals_per_confirmed": 2.44,
+      "false_referrals": 23
      },
      "usual_care": {
       "n": 186,
@@ -1603,31 +1603,31 @@
      "membrain": {
       "n": 391,
       "tp": 47,
-      "fp": 29,
+      "fp": 33,
       "fn": 7,
-      "tn": 308,
+      "tn": 304,
       "sensitivity": [
        0.87,
        0.756,
        0.936
       ],
       "specificity": [
-       0.914,
-       0.879,
-       0.939
+       0.902,
+       0.866,
+       0.929
       ],
       "ppv": [
-       0.618,
-       0.506,
-       0.719
+       0.588,
+       0.478,
+       0.689
       ],
       "npv": [
-       0.978,
-       0.955,
+       0.977,
+       0.954,
        0.989
       ],
-      "referrals_per_confirmed": 1.62,
-      "false_referrals": 29
+      "referrals_per_confirmed": 1.7,
+      "false_referrals": 33
      },
      "usual_care": {
       "n": 391,
@@ -1755,31 +1755,31 @@
      "membrain": {
       "n": 792,
       "tp": 95,
-      "fp": 66,
+      "fp": 69,
       "fn": 23,
-      "tn": 608,
+      "tn": 605,
       "sensitivity": [
        0.805,
        0.724,
        0.866
       ],
       "specificity": [
-       0.902,
-       0.877,
-       0.922
+       0.898,
+       0.872,
+       0.918
       ],
       "ppv": [
-       0.59,
-       0.513,
-       0.663
+       0.579,
+       0.503,
+       0.652
       ],
       "npv": [
-       0.964,
+       0.963,
        0.946,
-       0.976
+       0.975
       ],
-      "referrals_per_confirmed": 1.69,
-      "false_referrals": 66
+      "referrals_per_confirmed": 1.73,
+      "false_referrals": 69
      },
      "usual_care": {
       "n": 792,
@@ -1906,32 +1906,32 @@
      "n_retest_pairs": 436,
      "membrain": {
       "n": 631,
-      "tp": 88,
-      "fp": 54,
-      "fn": 12,
-      "tn": 477,
+      "tp": 89,
+      "fp": 57,
+      "fn": 11,
+      "tn": 474,
       "sensitivity": [
-       0.88,
-       0.802,
-       0.93
+       0.89,
+       0.814,
+       0.937
       ],
       "specificity": [
-       0.898,
-       0.87,
-       0.921
+       0.893,
+       0.863,
+       0.916
       ],
       "ppv": [
-       0.62,
-       0.538,
-       0.695
+       0.61,
+       0.529,
+       0.685
       ],
       "npv": [
-       0.975,
-       0.958,
-       0.986
+       0.977,
+       0.96,
+       0.987
       ],
-      "referrals_per_confirmed": 1.61,
-      "false_referrals": 54
+      "referrals_per_confirmed": 1.64,
+      "false_referrals": 57
      },
      "usual_care": {
       "n": 631,
@@ -2061,10 +2061,10 @@
    "assumptions": "MemBrain: flag + 3-week review target. Usual care: annual screen + 16-week referral wait (assumption)."
   },
   "confounder_rule_ablation": {
-   "alerts_with_rules": 414,
-   "alerts_without_rules": 431,
-   "false_alerts_with_rules": 168,
-   "false_alerts_without_rules": 182
+   "alerts_with_rules": 429,
+   "alerts_without_rules": 435,
+   "false_alerts_with_rules": 182,
+   "false_alerts_without_rules": 186
   },
   "workload": {
    "check_again_repeats": 1081,

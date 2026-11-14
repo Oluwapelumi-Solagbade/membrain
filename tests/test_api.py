@@ -21,11 +21,13 @@ def test_participant_cannot_see_queue():
 
 def test_enrol_and_transcript_session_flow():
     pid = c.post("/participants", headers={"X-Role": "coordinator"},
-                 json={"age": 63, "education": "secondary", "language": "en", "consent": {"voice_features": True}}).json()["id"]
-    tr = {"memory_immediate": "camel window orange teacher river coffee", "memory_delayed": "camel orange river coffee",
-          "fluency": "dog cat camel horse goat sheep cow lion tiger elephant bird falcon eagle fish shark whale",
-          "story_recall": "Fatima went with her grandson to the market in Al Ain on Friday, bought dates and a blue scarf, flat tyre, police helped",
-          "judgement": "turn off the stove, get out and call 997"}
+                 json={"age": 63, "education": "secondary", "language": "en", "consent": {"voice_features": True}}).json()
+    pid, form = pid["id"], pid["first_form"]
+    from membrain.items import FLUENCY_LEXICON, JUDGEMENT, STORIES, WORD_LISTS
+    w = WORD_LISTS[form]["en"]
+    tr = {"memory_immediate": " ".join(w[:6]), "memory_delayed": " ".join(w[:4]),
+          "fluency": " ".join(FLUENCY_LEXICON[form]["en"].split()[:16]),
+          "story_recall": STORIES[form]["en"], "judgement": " ".join(r[0] for r in JUDGEMENT[form]["rubric"]["en"][:3])}
     r = c.post(f"/participants/{pid}/sessions", json={"date": "2026-11-01", "transcripts": tr,
                                                        "audio": {"snr_db": 25, "clipping": 0, "speech_ratio": 0.5, "duration_s": 30}}).json()
     assert r["message"]["key"] == "BASELINE"

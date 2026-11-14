@@ -8,7 +8,7 @@
   const LV = { BASELINE: "Building baseline", STABLE: "Stable", CHECK_AGAIN: "Check again", CLINICIAN_REVIEW: "Clinician review", URGENT: "Urgent review", INVALID: "Not scored" };
   const LV_AR = { BASELINE: "بناء خط الأساس", STABLE: "مستقر", CHECK_AGAIN: "إعادة الفحص", CLINICIAN_REVIEW: "مراجعة الطبيب", URGENT: "مراجعة عاجلة" };
   const LVCOL = { BASELINE: "#4d5f8a", STABLE: "#2f7d4f", CHECK_AGAIN: "#a8661b", CLINICIAN_REVIEW: "#b2462e", URGENT: "#8f1d3b" };
-  const PATH = { memory_clinic: "Memory clinic / geriatrics / neurology", mental_health: "Mental health services", primary_care: "Primary care", primary_care_urgent: "Primary care (urgent safety review)" };
+  const PATH = { ...D.navigator.pathways };
   const EDU = { none: "No formal education", primary: "Primary (1–6 y)", secondary: "Secondary (7–12 y)", tertiary: "Tertiary (>12 y)" };
   const pill = (lv) => `<span class="pill lv-${lv}">${LV[lv] || lv}</span>`;
 
@@ -29,7 +29,7 @@
   $("#tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) go(b.dataset.view); });
   function render() {
     document.documentElement.dir = "ltr"; document.documentElement.lang = "en";
-    ({ enrol: renderEnrol, participant: renderParticipant, clinician: renderClinician, validation: renderValidation, how: renderHow })[S.view]();
+    ({ enrol: renderEnrol, participant: renderParticipant, clinician: renderClinician, referrals: renderReferrals, validation: renderValidation, how: renderHow })[S.view]();
   }
 
   // ================================================================ PARTICIPANT
@@ -82,7 +82,7 @@
   const STEPS = ["welcome", "hear", "noise", "see", "words_listen", "words_recall", "story_listen", "story_recall", "fluency", "judgement", "delayed", "mood", "sleep", "done"];
 
   function newPt(person) {
-    const idx = person.sessions.length;
+    const idx = person.sessions.filter((s) => s.type !== "intake").length;
     return { pid: person.id, lang: person.language, step: "welcome", form: E.formForSession(idx, hashSeed(person.id)), tr: {}, audio: {}, vf: {},
              precheck: { hearing_ok: true, vision_ok: true, noise_ok: true }, phq: [0, 0], gad: [0, 0], sleep: 6.5, ill: false,
              assisted: false, big: false, hc: false, slow: false, noiseDb: null, result: null };
@@ -171,7 +171,7 @@
         <div class="panel pad small" dir="ltr"><h3>Demo notes</h3>
           <div><b>${esc(p.display_name.en)}</b> · ${p.age} y · ${EDU[p.education]} · ${esc(p.dialect)}</div>
           <div class="muted" style="margin-top:6px">${esc(p.story || "New participant.")}</div>
-          <div style="margin-top:8px">Session ${p.sessions.length + 1}, alternate form <b>${pt.form}</b></div>
+          <div style="margin-top:8px">Session ${p.sessions.filter((s) => s.type !== "intake").length + 1}, alternate form <b>${pt.form}</b></div>
           <div class="muted tiny" style="margin-top:8px">Hosted preview: browsers block the microphone inside embedded pages, so answers are typed or sampled. Run the repo locally for live speech recognition and on-device voice features.</div></div>
       </aside></div>`;
     $("#pt-exit").onclick = () => { try { speechSynthesis.cancel(); } catch (e) {} S.pt = null; render(); };
@@ -329,7 +329,7 @@
                 precheck: { ...pt.precheck }, phq2: pt.phq[0] + pt.phq[1], gad2: pt.gad[0] + pt.gad[1], sleep_hours: pt.sleep, acute_illness: pt.ill,
                 assisted: pt.assisted, helper_role: pt.assisted ? "family member" : null, input_mode: audio ? "voice" : "typed (demo)",
                 voice_features: (p.consent || {}).voice_features && vfs.length ? vfs.reduce((acc, f) => { for (const k in f) acc[k] = +(((acc[k] || 0) + f[k] / vfs.length)).toFixed(2); return acc; }, {}) : null, transcripts: tr };
-    if (p.pending_iqcode != null && !p.sessions.length) { s.iqcode = p.pending_iqcode; p.pending_iqcode = null; }
+    if (p.pending_iqcode != null && !p.sessions.some((x) => x.type !== "intake")) { s.iqcode = p.pending_iqcode; p.pending_iqcode = null; }
     p.sessions.push(s);
     const ev = E.evaluate(p, p.sessions).latest;
     S.audit.unshift({ ts: new Date().toISOString().slice(0, 19).replace("T", " "), actor: "participant app", action: "session_submitted", target: p.id, detail: ev.level });
@@ -377,9 +377,11 @@
   const blankEnrol = () => ({ step: 0, identity: { full_name: "", national_id: "", phone: "", preferred_channel: "whatsapp" },
     profile: { age: 64, sex: "F", years: 6, language: "ar", dialect: "Emirati", hearing_aid: false, glasses: false, digital: "some" },
     consent: Object.fromEntries(CONSENT_INFO.map((c) => [c[0], c[4]])), informant: { name: "", relation: "", phone: "", iqcode: "" },
-    ctx: { sbp: "", dbp: "", hba1c: "", ldl: "", bmi: "", activity_min_week: "", smoker: false, family_history_dementia: false, social_isolation: false, district: "" }, cond: {}, done: null });
+    ctx: { sbp: "", dbp: "", hba1c: "", ldl: "", bmi: "", activity_min_week: "", smoker: false, family_history_dementia: false, social_isolation: false, district: "" }, cond: {}, done: null,
+    concern: { route: "family", text: "", onset: "months" }, flags: {}, nav: { emirate: "Abu Dhabi", funding: "thiqa" },
+    inf: { type: "family", language: "ar", helper_consent: false, timeline: [] } });
   S.en = blankEnrol();
-  const ESTEPS = ["Identity", "Profile", "Consent", "Informant", "Health context", "Review & schedule"];
+  const ESTEPS = ["Concern & safety", "Identity", "Profile", "Consent", "Informant", "Health context", "Review & schedule"];
   const inp = (path, val, type = "text", ph = "") => `<input class="btn" style="width:100%;text-align:start" data-path="${path}" type="${type}" value="${esc(val)}" placeholder="${esc(ph)}">`;
   const fld = (label, html, help) => `<label style="display:grid;gap:4px;margin-bottom:12px"><span class="small" style="font-weight:600">${label}</span>${html}${help ? `<span class="tiny muted">${help}</span>` : ""}</label>`;
   const sel = (path, val, opts) => `<select class="btn" style="width:100%" data-path="${path}">${opts.map(([v, t]) => `<option value="${v}" ${String(v) === String(val) ? "selected" : ""}>${t}</option>`).join("")}</select>`;
@@ -403,40 +405,77 @@
     return { items: items.slice(0, 5) };
   }
 
+
+  const RF = D.config.RED_FLAGS;
+  const urgentBanner = (flags) => `<div class="panel pad" style="background:var(--urgent-soft);border-color:#e8b9c6;margin-bottom:14px"><b style="color:var(--urgent)">Possible acute presentation.</b>
+    Follow the partner's emergency protocol now (ambulance 998 if needed). Do not start cognitive testing and do not wait for repeat tests. Record minimal identity so the clinician can act; the rest can be completed later.
+    <div class="small" style="margin-top:6px">${flags.map((f) => "• " + esc(RF[f])).join("<br>")}</div></div>`;
+  function concernStep(e, flags) {
+    return `<h3>Concern and safety</h3><div class="small muted" style="margin-bottom:10px">People can enter through a screening programme, a primary care clinician, a family member or a household helper. The red-flag screen comes first, before any testing.</div>
+      ${fld("How did this person come to us?", sel("concern.route", e.concern.route, Object.entries(ENTRY)))}
+      ${fld("What has been noticed?", inp("concern.text", e.concern.text, "text", "e.g. repeating questions, missed bills, got lost driving"), e.concern.route === "programme" ? "Optional for routine programme screening." : "")}
+      ${fld("When did it start?", sel("concern.onset", e.concern.onset, [["days", "Within the last few days"], ["weeks", "Over the last few weeks"], ["months", "Over months"], ["years", "Over a year or more"], ["none", "No specific concern (routine screening)"]]))}
+      <div class="small" style="font-weight:600;margin:6px 0">Red-flag screen (ask the person and the family member)</div>
+      ${Object.entries(RF).map(([k, v]) => chk("flags." + k, e.flags[k], v)).join("")}
+      ${flags.length ? urgentBanner(flags) : '<div class="tiny muted" style="margin-top:6px">No red flags: continue with routine enrolment.</div>'}`;
+  }
+  const ACTIVITIES = ["Managing money / bills", "Managing medicines", "Cooking", "Shopping", "Driving or getting around", "Using the phone", "Remembering appointments", "Prayer times / routines", "Household tasks"];
+  const WHY = ["Memory or thinking problems", "Physical illness or mobility", "Personal preference", "Family arrangement", "Not sure"];
+  function informantStep(e) {
+    const helper = e.inf.type === "household_helper";
+    return `<h3>Informant (family member or household helper)</h3><div class="small muted" style="margin-bottom:10px">Optional. Someone who knows the person well describes changes in everyday life. Household help can hide early changes, so what helpers see matters.</div>
+      ${fld("Who is giving information?", sel("inf.type", e.inf.type, [["family", "Family member"], ["household_helper", "Household helper"], ["none", "No informant"]]))}
+      ${e.inf.type === "none" ? "" : `
+      ${helper ? `<div class="panel pad small" style="background:var(--base-soft);border-color:#c9d1e4;margin-bottom:10px">Household helpers take part voluntarily, under their own consent, in a language they understand. Their observations are <b>never</b> shared with an employer or used for employment decisions.</div>
+        ${chk("inf.helper_consent", e.inf.helper_consent, "The helper agrees voluntarily and the participant consents to their involvement")}
+        ${fld("Helper's preferred language", sel("inf.language", e.inf.language, Object.entries(ND.languages)), "Questionnaire translations beyond Arabic and English are planned for Phase A.")}` : (e.consent.caregiver_involvement ? "" : '<div class="panel pad small" style="background:var(--check-soft);border-color:#f0d4a8;margin-bottom:10px">Family member involvement was not consented on the Consent step.</div>')}
+      <div class="two">${fld("Name", inp("informant.name", e.informant.name))}${fld("Relation", sel("informant.relation", e.informant.relation, [["", "—"], ["spouse", "Spouse"], ["son", "Son"], ["daughter", "Daughter"], ["sibling", "Sibling"], ["household_helper", "Household helper"], ["carer", "Paid carer"], ["other", "Other"]]))}</div>
+      <div class="two">${fld("Mobile number", inp("informant.phone", e.informant.phone, "tel"))}${fld("IQCODE-16 average (1–5), if done today", inp("informant.iqcode", e.informant.iqcode, "number", "e.g. 3.1"), `Above ${C.IQCODE_CUTOFF} is flagged to the clinician.`)}</div>
+      <div class="small" style="font-weight:600;margin:8px 0 4px">Functional change timeline</div><div class="tiny muted" style="margin-bottom:6px">What changed, roughly when, who took over and why. This is context for the clinician, not automatic evidence of decline.</div>
+      ${e.inf.timeline.map((t, i) => `<div style="display:grid;grid-template-columns:1.2fr 1.4fr .9fr 1fr 1.2fr auto;gap:6px;margin-bottom:6px">
+        <select class="btn small" data-tl="${i}" data-k="activity">${ACTIVITIES.map((a) => `<option ${a === t.activity ? "selected" : ""}>${a}</option>`).join("")}</select>
+        <input class="btn small" data-tl="${i}" data-k="change" value="${esc(t.change)}" placeholder="What changed">
+        <input class="btn small" data-tl="${i}" data-k="when" value="${esc(t.when)}" placeholder="When">
+        <input class="btn small" data-tl="${i}" data-k="who_took_over" value="${esc(t.who_took_over)}" placeholder="Who took over">
+        <select class="btn small" data-tl="${i}" data-k="why">${WHY.map((a) => `<option ${a === t.why ? "selected" : ""}>${a}</option>`).join("")}</select>
+        <button class="btn small" data-tldel="${i}">✕</button></div>`).join("")}
+      <button class="btn small" id="tl-add">+ Add a change</button>`}`;
+  }
   function renderEnrol() {
     const e = S.en;
     if (e.done) return renderEnrolDone();
-    const st = e.step; let body = "";
-    if (st === 0) body = `<h3>Identity <span class="tiny muted">(identity vault)</span></h3>
+    const st = e.step; const nm = ESTEPS[st]; let body = "";
+    const urgentFlags = Object.keys(e.flags).filter((k) => e.flags[k]);
+    if (nm === "Concern & safety") body = concernStep(e, urgentFlags);
+    if (nm === "Identity") body = (urgentFlags.length ? urgentBanner(urgentFlags) : "") + `<h3>Identity <span class="tiny muted">(identity vault)</span></h3>
       <div class="panel pad small" style="background:var(--base-soft);border-color:#c9d1e4;margin-bottom:14px">These details are stored only in the separate, encrypted identity vault so the clinic can contact the person for follow-up. The assessment record, analytics and dashboard use a pseudonymous ID. Showing them again is audited and needs a reason.</div>
       ${fld("Full name", inp("identity.full_name", e.identity.full_name, "text", "e.g. Mariam Al Hashemi"))}
       ${fld("Emirates ID or clinic MRN", inp("identity.national_id", e.identity.national_id, "text", "784-XXXX-XXXXXXX-X"))}
       ${fld("Mobile number", inp("identity.phone", e.identity.phone, "tel", "+971 5X XXX XXXX"))}
       ${fld("Preferred channel for reminders and check-ins", sel("identity.preferred_channel", e.identity.preferred_channel, [["whatsapp", "WhatsApp"], ["app", "MemBrain app"], ["phone", "Phone call (guided)"]]), "Phone and WhatsApp sessions keep their own baseline. Scores are not pooled across channels until equivalence is shown.")}`;
-    if (st === 1) { const band = eduBand(+e.profile.years);
+    if (nm === "Profile") { const band = eduBand(+e.profile.years);
       body = `<h3>Profile</h3><div class="two">${fld("Age", inp("profile.age", e.profile.age, "number"), "Eligible: 50–75")}${fld("Sex", sel("profile.sex", e.profile.sex, [["F", "Female"], ["M", "Male"]]))}</div>
       <div class="two">${fld("Years of schooling", inp("profile.years", e.profile.years, "number"), `Norm group: <b>${EDU[band]}</b>. Scores are compared with people of the same age and education.`)}
       ${fld("Language for sessions", sel("profile.language", e.profile.language, [["ar", "Arabic"], ["en", "English"]]))}</div>
       ${fld("Dialect", sel("profile.dialect", e.profile.dialect, DIALECTS.map((d) => [d, d])), "Used to report accuracy by dialect and to pick recorded prompts.")}
+      <div class="two">${fld("Emirate of residence", sel("nav.emirate", e.nav.emirate, ["Abu Dhabi", "Dubai", "Sharjah", "Ajman", "Umm Al Quwain", "Ras Al Khaimah", "Fujairah"].map((x) => [x, x])), "Used to find services the person can reach.")}
+      ${fld("Funding route", sel("nav.funding", e.nav.funding, Object.entries(ND.funding)), "Used only to find accessible services. Never used to withhold a clinically needed referral.")}</div>
       <div class="two"><div>${chk("profile.hearing_aid", e.profile.hearing_aid, "Uses a hearing aid")}${chk("profile.glasses", e.profile.glasses, "Uses reading glasses")}</div>
       ${fld("Comfort with smartphones", sel("profile.digital", e.profile.digital, [["none", "Not comfortable"], ["some", "Somewhat"], ["confident", "Confident"]]), e.profile.digital === "none" ? "Suggest caregiver-assisted mode or the guided phone channel." : "")}</div>`; }
-    if (st === 2) body = `<h3>Consent for each type of data</h3><div class="small muted" style="margin-bottom:10px">Each item is optional and can be withdrawn at any time. Withdrawal stops processing and removes that data from downstream stores. Read each one aloud in the person's language.</div>` +
+    if (nm === "Consent") body = `<h3>Consent for each type of data</h3><div class="small muted" style="margin-bottom:10px">Each item is optional and can be withdrawn at any time. Withdrawal stops processing and removes that data from downstream stores. Read each one aloud in the person's language.</div>` +
       CONSENT_INFO.map(([k, en, , ar]) => `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;padding:10px 0;border-bottom:1px solid var(--line)">
         <input type="checkbox" data-path="consent.${k}" ${e.consent[k] ? "checked" : ""} style="margin-top:4px;width:18px;height:18px">
         <div><b>${en}</b><div class="small">${esc(CONSENT_INFO.find((c) => c[0] === k)[2])}</div><div class="small ar muted" dir="rtl">${esc(ar)}</div></div>
         <button class="btn small" data-read="${k}">🔊</button></div>`).join("") + `<div class="tiny muted" style="margin-top:8px">Consent text version consent-ar-en-0.1 · recorded by the coordinator · stored as FHIR Consent resources.</div>`;
-    if (st === 3) body = `<h3>Informant (family member or carer)</h3><div class="small muted" style="margin-bottom:10px">Optional. Someone who knows the person well and can describe changes in everyday life (IQCODE-16 informant questionnaire). New functional loss reported here can trigger an urgent review.</div>
-      ${e.consent.caregiver_involvement ? "" : '<div class="panel pad small" style="background:var(--check-soft);border-color:#f0d4a8;margin-bottom:10px">Family member involvement was not consented. You can skip this step.</div>'}
-      <div class="two">${fld("Name", inp("informant.name", e.informant.name))}${fld("Relation", sel("informant.relation", e.informant.relation, [["", "—"], ["spouse", "Spouse"], ["son", "Son"], ["daughter", "Daughter"], ["sibling", "Sibling"], ["carer", "Paid carer"], ["other", "Other"]]))}</div>
-      <div class="two">${fld("Mobile number", inp("informant.phone", e.informant.phone, "tel"))}${fld("IQCODE-16 average (1–5), if done today", inp("informant.iqcode", e.informant.iqcode, "number", "e.g. 3.1"), `Above ${C.IQCODE_CUTOFF} is flagged to the clinician.`)}</div>`;
-    if (st === 4) body = `<h3>Health context</h3>${e.consent.clinical_record ? "" : '<div class="panel pad small" style="background:var(--check-soft);border-color:#f0d4a8;margin-bottom:10px">Health record use was not consented. Only what the person tells you directly is recorded.</div>'}
+    if (nm === "Informant") body = informantStep(e);
+    if (nm === "Health context") body = `<h3>Health context</h3>${e.consent.clinical_record ? "" : '<div class="panel pad small" style="background:var(--check-soft);border-color:#f0d4a8;margin-bottom:10px">Health record use was not consented. Only what the person tells you directly is recorded.</div>'}
       <div class="small muted" style="margin-bottom:10px">In the pilot these come from the clinic record through the partner's integration. Here they are entered by hand.</div>
       <div class="two">${fld("Blood pressure (systolic / diastolic)", `<div style="display:flex;gap:6px">${inp("ctx.sbp", e.ctx.sbp, "number", "130")}${inp("ctx.dbp", e.ctx.dbp, "number", "80")}</div>`)}${fld("HbA1c (%)", inp("ctx.hba1c", e.ctx.hba1c, "number", "6.1"))}</div>
       <div class="two">${fld("LDL cholesterol (mmol/L)", inp("ctx.ldl", e.ctx.ldl, "number", "3.0"))}${fld("BMI", inp("ctx.bmi", e.ctx.bmi, "number", "28"))}</div>
       <div class="two">${fld("Physical activity (minutes per week)", inp("ctx.activity_min_week", e.ctx.activity_min_week, "number", "90"))}${fld("Home district (optional)", inp("ctx.district", e.ctx.district, "text", "e.g. Al Ain, Khalifa City"), "For later environmental exposure (air quality) and service planning, at district level only.")}</div>
       <div class="small" style="font-weight:600;margin:6px 0">Known conditions</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">${CONDITIONS.map(([k, v]) => chk("cond." + k, e.cond[k], v)).join("")}</div>
       <div class="small" style="font-weight:600;margin:10px 0 6px">Lifestyle and family</div>${chk("ctx.smoker", e.ctx.smoker, "Smokes (cigarettes, shisha or medwakh)")}${chk("ctx.social_isolation", e.ctx.social_isolation, "Lives alone or rarely sees family and friends")}${e.consent.family_history ? chk("ctx.family_history_dementia", e.ctx.family_history_dementia, "Parent or sibling with memory problems or dementia") : ""}`;
-    if (st === 5) { const band = eduBand(+e.profile.years); const today = new Date("2026-11-14");
+    if (nm === "Review & schedule") { const band = eduBand(+e.profile.years); const today = new Date("2026-11-14");
       const add = (d) => new Date(today.getTime() + d * 86400000).toISOString().slice(0, 10);
       body = `<h3>Review and schedule</h3><table>
         <tr><td>Person</td><td>${esc(e.identity.full_name || "—")} · ${e.profile.age} y · ${e.profile.sex === "F" ? "female" : "male"} · ${EDU[band]} · ${esc(e.profile.dialect)}</td></tr>
@@ -455,18 +494,23 @@
         ${ESTEPS.map((t, i) => `<div class="check" style="cursor:pointer;${i === st ? "font-weight:700;color:var(--teal)" : ""}" data-step="${i}"><b>${i < st ? "✓" : i + 1}</b>${t}</div>`).join("")}</div>
       <div class="panel pad">${body}<div style="display:flex;justify-content:space-between;margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
         <button class="btn" id="e-back" ${st === 0 ? "disabled" : ""}>Back</button>
-        <button class="btn primary big" id="e-next">${st === ESTEPS.length - 1 ? "Enrol and create pseudonymous ID" : "Next"}</button></div></div></div>`;
+        <button class="btn primary big" id="e-next" ${urgentFlags.length ? 'style="background:var(--urgent);border-color:var(--urgent)"' : ""}>${st === ESTEPS.length - 1 ? "Enrol and create pseudonymous ID" : urgentFlags.length && nm === "Concern & safety" ? "Record identity and escalate now" : urgentFlags.length && nm === "Identity" ? "Create URGENT review now" : "Next"}</button></div></div></div>`;
     document.querySelectorAll("[data-path]").forEach((el) => {
       const store = () => { const [a, b] = el.dataset.path.split("."); e[a][b] = el.type === "checkbox" ? el.checked : el.value; };
       el.oninput = store;
       el.onchange = () => { store(); if (el.tagName === "SELECT" || el.type === "checkbox" || el.dataset.path === "profile.years") renderEnrol(); };
     });
     document.querySelectorAll("[data-step]").forEach((el) => (el.onclick = () => { e.step = +el.dataset.step; renderEnrol(); }));
+    document.querySelectorAll("[data-tl]").forEach((el) => (el.oninput = el.onchange = () => { e.inf.timeline[+el.dataset.tl][el.dataset.k] = el.value; }));
+    document.querySelectorAll("[data-tldel]").forEach((el) => (el.onclick = () => { e.inf.timeline.splice(+el.dataset.tldel, 1); renderEnrol(); }));
+    const ta = $("#tl-add"); if (ta) ta.onclick = () => { e.inf.timeline.push({ activity: ACTIVITIES[0], change: "", when: "", who_took_over: "", why: WHY[0] }); renderEnrol(); };
     document.querySelectorAll("[data-read]").forEach((b) => (b.onclick = () => { const c = CONSENT_INFO.find((x) => x[0] === b.dataset.read); speak(e.profile.language === "ar" ? c[3] : c[2], e.profile.language); }));
     $("#e-back").onclick = () => { e.step--; renderEnrol(); };
     $("#e-next").onclick = () => {
-      if (st === 0 && !e.identity.full_name.trim()) { toast("Enter a name (it stays in the identity vault)"); return; }
-      if (st === 1 && (+e.profile.age < 50 || +e.profile.age > 75)) { toast("MemBrain is for ages 50–75"); return; }
+      if (nm === "Concern & safety" && !e.concern.text.trim() && e.concern.route !== "programme") { toast("Describe the concern in a few words"); return; }
+      if (nm === "Identity" && !e.identity.full_name.trim()) { toast("Enter a name (it stays in the identity vault)"); return; }
+      if (nm === "Identity" && urgentFlags.length) { finishEnrol(); return; }
+      if (nm === "Profile" && (+e.profile.age < 50 || +e.profile.age > 75)) { toast("MemBrain is for ages 50–75"); return; }
       if (st < ESTEPS.length - 1) { e.step++; renderEnrol(); return; }
       finishEnrol();
     };
@@ -483,7 +527,12 @@
     const p = { id, display_name: { en: "Enrolled participant", ar: "مشارك مسجّل" }, age: +e.profile.age, age_band: +e.profile.age < 60 ? "50-59" : +e.profile.age < 70 ? "60-69" : "70-75",
       sex: e.profile.sex, education: band, dialect: e.profile.dialect, language: lang, story: "Enrolled during this demo through the enrolment flow.", context: ctx,
       consent: { ...e.consent }, sessions: [], prevention: { en: preventionJS(ctx, "en"), ar: preventionJS(ctx, "ar") }, risk_context: riskContextJS(ctx, band),
-      pending_iqcode: e.informant.iqcode ? +e.informant.iqcode : null, preferred_channel: e.identity.preferred_channel };
+      pending_iqcode: e.informant.iqcode ? +e.informant.iqcode : null, preferred_channel: e.identity.preferred_channel,
+      funding: e.nav.funding, emirate: e.nav.emirate, languages: [lang], entry_route: e.concern.route, referrals: [],
+      informant: e.inf.type === "none" || (e.inf.type === "household_helper" && !e.inf.helper_consent) ? null
+        : { type: e.inf.type, relation: e.informant.relation, language: e.inf.language, consented: true, timeline: e.inf.timeline.filter((t) => t.change || t.when) } };
+    const flags = Object.keys(e.flags).filter((k) => e.flags[k]);
+    p.sessions.push({ session_id: id + "-intake", date: TODAY, type: "intake", channel: "app", concern: e.concern.text || "routine programme screening", onset: e.concern.onset, red_flags: flags });
     S.people.push(p);
     S.vault[id] = { identity: { ...e.identity }, informant: e.informant.name ? { name: e.informant.name, relation: e.informant.relation, phone: e.informant.phone } : null };
     S.audit.unshift({ ts: new Date().toISOString().slice(0, 19).replace("T", " "), actor: "coordinator", action: "enrol", target: id, detail: "consent: " + Object.keys(e.consent).filter((k) => e.consent[k]).join(", ") });
@@ -492,6 +541,7 @@
   function renderEnrolDone() {
     const id = S.en.done; const p = person(id);
     $("#main").innerHTML = `<div class="panel pad" style="max-width:640px;margin:0 auto;text-align:center">
+      ${p.sessions[0] && (p.sessions[0].red_flags || []).length ? '<div class="panel pad" style="background:var(--urgent-soft);border-color:#e8b9c6;margin-bottom:12px;text-align:left"><b style="color:var(--urgent)">URGENT review created.</b> The clinician queue shows this person at the top. Follow the emergency protocol; no cognitive testing today.</div>' : ""}
       <div style="font-size:40px">✓</div><h2>Enrolled</h2><div class="muted">Pseudonymous ID</div><div style="font-size:30px;font-weight:700;color:var(--teal);letter-spacing:.04em">${id}</div>
       <div class="small muted" style="margin:8px 0 16px">Name and contact details are in the identity vault only. Clinicians see ${id}, and can re-identify for follow-up with a reason (audited).</div>
       <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn primary big" id="d-start">Start baseline session 1 now</button><button class="btn big" id="d-new">Enrol another person</button><button class="btn big" id="d-clin">Open in clinician dashboard</button></div></div>`;
@@ -511,6 +561,124 @@
         <tr><td>Informant</td><td>${v.informant ? esc(v.informant.name + " · " + v.informant.relation + (v.informant.phone ? " · " + v.informant.phone : "")) : "None"}</td></tr></table>`; };
   }
 
+  // ================================================================ NAVIGATOR (referrals & care navigation)
+  const NV = window.makeNavigator(D.navigator); const ND = D.navigator;
+  const TODAY = "2026-11-14";
+  const STATE_LABEL = { recommended: "Recommended", sent: "Sent", accepted: "Accepted", declined: "Declined", appointment_offered: "Appointment offered", attended: "Attended",
+    missed: "Missed", assessment_completed: "Assessment completed", follow_up_documented: "Follow-up documented", lost_to_follow_up: "Lost to follow-up",
+    no_accessible_service: "No accessible service", cancelled: "Cancelled" };
+  const STATE_COL = (s) => (["declined", "missed", "lost_to_follow_up", "no_accessible_service"].includes(s) ? "lv-CLINICIAN_REVIEW" : ["assessment_completed", "follow_up_documented"].includes(s) ? "lv-STABLE" : s === "cancelled" ? "lv-INVALID" : "lv-BASELINE");
+  const svcById = (id) => ND.directory.find((s) => s.id === id);
+  const ENTRY = { programme: "Programme screening", primary_care: "Primary care clinician", family: "Family member", household_helper: "Household helper" };
+  const allLiveRefs = () => S.people.flatMap((p) => (p.referrals || []).map((r) => ({ ...r, _p: p })));
+
+  function referralPanel(p) {
+    const refs = p.referrals || [];
+    const rows = refs.map((r) => {
+      const svc = svcById(r.service_id); const nexts = ND.transitions[r.state] || [];
+      const tl = r.history.map((h) => `<span class="pill ${STATE_COL(h.state)}" title="${esc(h.reason || "")}">${h.date.slice(5)} ${STATE_LABEL[h.state]}</span>`).join(" → ");
+      return `<div style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><div><b>${esc(PATH[r.pathway] || r.pathway)}</b> ${r.urgency === "urgent" ? '<span class="pill lv-URGENT">urgent</span>' : ""}
+          <div class="small muted">${svc ? esc(svc.name) + " · " + esc(svc.area) : "No service assigned"} · ${NV.isUnresolved(r) ? "<b>open</b>" : "closed"}</div></div>
+          <button class="btn small" data-pack="${r.id}">Next-steps pack</button></div>
+        <div style="margin:8px 0;line-height:2">${tl}</div>
+        ${nexts.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="tiny muted">Update:</span>${nexts.map((n) => `<button class="btn small" data-adv="${r.id}" data-st="${n}">${STATE_LABEL[n]}</button>`).join("")}
+          <input class="btn small" style="flex:1;min-width:140px;text-align:start" id="rs-${r.id}" placeholder="reason (needed for declined / missed / lost)"></div>` : ""}</div>`;
+    }).join("");
+    return `<div class="panel pad"><div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">Referrals and care navigation</h3><button class="btn primary" id="b-ref">New referral</button></div>
+      <div class="tiny muted" style="margin:4px 0 10px">Closed loop: a referral counts as done only when the assessment is completed and follow-up is documented. Unresolved referrals stay visible.</div>
+      ${rows || '<div class="small muted">No referrals yet.</div>'}</div>`;
+  }
+  function timelinePanel(p) {
+    const inf = p.informant; if (!inf || !(inf.timeline || []).length) return "";
+    return `<div class="panel pad"><h3>Functional change timeline <span class="tiny muted">(${inf.type === "household_helper" ? "household helper, separate consent" : esc(inf.relation || "family")})</span></h3>
+      <table><tr><th>Activity</th><th>What changed</th><th>When</th><th>Who took over</th><th>Why (as reported)</th></tr>
+      ${inf.timeline.map((t) => `<tr><td>${esc(t.activity)}</td><td>${esc(t.change)}</td><td>${esc(t.when)}</td><td>${esc(t.who_took_over)}</td><td>${esc(t.why)}</td></tr>`).join("")}</table>
+      <div class="tiny muted" style="margin-top:6px">Context for clinical review, not automatic evidence of decline: changes can reflect preference, physical illness or family arrangements.${inf.type === "household_helper" ? " Helper observations are never shared with an employer." : ""}</div></div>`;
+  }
+  function bindReferralPanel(p) {
+    const b = $("#b-ref"); if (b) b.onclick = () => referralModal(p);
+    document.querySelectorAll("[data-adv]").forEach((el) => (el.onclick = () => {
+      const r = p.referrals.find((x) => x.id === el.dataset.adv); const reason = ($("#rs-" + r.id) || {}).value || "";
+      try { NV.advance(r, el.dataset.st, TODAY, reason.trim(), "dr.demo"); log("referral_" + el.dataset.st, p.id, reason); toast(STATE_LABEL[el.dataset.st]); renderClinician(); }
+      catch (e) { toast(e.message.includes("reason") ? "Add a reason first" : e.message); }
+    }));
+    document.querySelectorAll("[data-pack]").forEach((el) => (el.onclick = () => showPack(p, p.referrals.find((x) => x.id === el.dataset.pack))));
+  }
+  function showPack(p, r, lang) {
+    lang = lang || (p.language === "ar" ? "ar" : "en"); const pk = NV.pack(r, svcById(r.service_id), lang); const txt = pk.title + "\n\n" + pk.sections.map((s) => "• " + s).join("\n\n");
+    modal(`<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Next-steps pack</h2><div class="seg"><button data-pl="en" class="${lang === "en" ? "on" : ""}">English</button><button data-pl="ar" class="${lang === "ar" ? "on" : ""}">عربي</button></div></div>
+      <div class="small muted">Clinician-approved template given to the participant and their chosen care partner after a confirmed referral.</div>
+      <div class="panel pad" dir="${lang === "ar" ? "rtl" : "ltr"}" style="margin:10px 0;${lang === "ar" ? "font-family:'IBM Plex Sans Arabic'" : ""}"><h3>${esc(pk.title)}</h3><ul>${pk.sections.map((s) => `<li style="margin-bottom:8px">${esc(s)}</li>`).join("")}</ul></div>
+      <button class="btn primary" id="cp">Copy text</button> <button class="btn" id="cl">Close</button>`);
+    document.querySelectorAll("[data-pl]").forEach((b) => (b.onclick = () => showPack(p, r, b.dataset.pl)));
+    $("#cp").onclick = () => navigator.clipboard.writeText(txt).then(() => toast("Copied"), () => toast("Copy blocked here")); $("#cl").onclick = closeModal;
+  }
+  function referralModal(p, pathway) {
+    const ev = p.sessions.length ? E.evaluate(p, p.sessions).latest : null;
+    pathway = pathway || (ev && ev.pathways[0]) || "memory_clinic";
+    const m = NV.match(pathway, p); const urgent = ev && ev.level === "URGENT";
+    const rows = m.services.map((s, i) => `<tr><td><input type="radio" name="svc" value="${s.id}" ${i === 0 && s.accessible ? "checked" : ""}></td><td><b>${esc(s.name)}</b><div class="tiny muted">${esc(s.area)}, ${esc(s.emirate)} · ${esc(s.notes || "")}</div></td>
+      <td class="small">${s.languages.map((l) => ND.languages[l] || l).join(", ")}</td><td class="small">${s.funding.map((f) => ND.funding[f]).join("; ")}</td><td class="num">${s.wait_weeks} wk</td>
+      <td>${s.accessible ? '<span class="pill lv-STABLE">accessible</span>' : `<span class="pill lv-CHECK_AGAIN">barrier: ${s.barriers.join(", ")}</span>`}${s.stale ? ' <span class="pill lv-INVALID">info not verified recently</span>' : ""}</td></tr>`).join("");
+    modal(`<h2>New referral · ${esc(p.id)}</h2>
+      <div class="small muted">Step 1: choose the clinically appropriate pathway. Step 2: choose a service the person can actually reach. Funding or eligibility never removes a clinically needed pathway.</div>
+      <div class="two" style="margin:12px 0"><label class="small"><b>Pathway</b><select class="btn" id="rf-path" style="width:100%">${Object.entries(PATH).map(([k, v]) => `<option value="${k}" ${k === pathway ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+        <label class="small"><b>Urgency</b><select class="btn" id="rf-urg" style="width:100%"><option value="routine">Routine</option><option value="urgent" ${urgent || pathway === "urgent_clinical_assessment" ? "selected" : ""}>Urgent</option></select></label></div>
+      <div class="small">Person: ${(p.languages || [p.language]).map((l) => ND.languages[l] || l).join(", ")} · ${ND.funding[p.funding] || "funding not recorded"} · ${esc(p.emirate || "emirate not recorded")}</div>
+      ${m.gap ? `<div class="panel pad small" style="background:var(--review-soft);border-color:#efc2b6;margin:8px 0"><b>Pathway gap:</b> no listed service matches this person's language and funding route. Services are still shown. If none can be arranged, record "no accessible service" so the gap is escalated and counted.</div>` : ""}
+      <table style="margin-top:8px"><tr><th></th><th>Service</th><th>Languages</th><th>Funding</th><th class="num">Wait</th><th>Access</th></tr>${rows || '<tr><td colspan="6" class="muted">No service in the directory for this pathway.</td></tr>'}</table>
+      <label class="small" style="display:block;margin-top:10px"><b>Reason for referral</b><input class="btn" id="rf-reason" style="width:100%;text-align:start" value="${esc(ev ? ev.reasons[0] || "" : "")}"></label>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="rf-send">Recommend and send</button><button class="btn" id="rf-gap">Record: no accessible service</button><button class="btn" id="rf-cl">Cancel</button></div>
+      <div class="tiny muted" style="margin-top:6px">All directory entries are synthetic placeholders. In the pilot the partner maintains them, and anything not verified in ${ND.stale_after_days} days is flagged.</div>`);
+    $("#rf-path").onchange = (e) => referralModal(p, e.target.value);
+    $("#rf-cl").onclick = closeModal;
+    const create = () => { p.referrals = p.referrals || []; const r = NV.newReferral(`REF-${p.id}-${p.referrals.length}`, p.id, $("#rf-path").value, null, $("#rf-urg").value, TODAY, $("#rf-reason").value || "Clinician confirmed concern", "dr.demo", p.entry_route || "programme");
+      r.concern_date = (p.sessions[0] || {}).date || TODAY; p.referrals.push(r); return r; };
+    $("#rf-send").onclick = () => { const sel = document.querySelector('input[name="svc"]:checked'); if (!sel) { toast("Choose a service, or record that none is accessible"); return; }
+      const r = create(); r.service_id = sel.value; NV.advance(r, "sent", TODAY, "", "dr.demo");
+      (S.actions[p.id] = S.actions[p.id] || []).push({ action: "refer", note: PATH[r.pathway], ts: TODAY, session: ev && ev.session_id });
+      log("referral_sent", p.id, PATH[r.pathway] + " → " + sel.value); closeModal(); toast("Referral sent"); renderClinician(); };
+    $("#rf-gap").onclick = () => { const r = create(); NV.advance(r, "no_accessible_service", TODAY, "No service in language or funding route; escalated to clinical lead", "dr.demo");
+      log("pathway_gap", p.id, PATH[r.pathway]); closeModal(); toast("Pathway gap recorded and escalated"); renderClinician(); };
+  }
+
+  function renderReferrals() {
+    const live = allLiveRefs(); const syn = S.withSyn !== false; const log_ = ND.synthetic_log;
+    const refs = [...live.map(({ _p, ...r }) => r), ...(syn ? log_.referrals : [])];
+    const people = { ...(syn ? log_.people : {}) }; S.people.forEach((p) => (people[p.id] = { language: p.language, funding: p.funding, sex: p.sex, age_band: p.age_band }));
+    const m = NV.metrics(refs, people);
+    const kpi = (v, l, c) => `<div class="panel kpi"><div class="v">${v}</div><div class="l">${l}</div><div class="ci">${c || ""}</div></div>`;
+    const work = [...live.filter((r) => NV.isUnresolved(r)).map((r) => ({ r, p: r._p, syn: false })), ...(syn ? log_.referrals.filter(NV.isUnresolved).map((r) => ({ r, p: null, syn: true })) : [])]
+      .map((x) => ({ ...x, age: NV.days(x.r.history[x.r.history.length - 1].date, TODAY) })).sort((a, b) => (["no_accessible_service", "declined", "lost_to_follow_up", "missed"].includes(b.r.state) - ["no_accessible_service", "declined", "lost_to_follow_up", "missed"].includes(a.r.state)) || (b.p ? 1 : 0) - (a.p ? 1 : 0) || b.age - a.age);
+    const bars = (obj, lab) => Object.entries(obj).map(([k, v]) => [lab ? lab[k] || k : k, v.completion, v.sent]);
+    const barSvg = (rows) => { const W = 480, rh = 30, pl = 200, H = rows.length * rh + 8; return `<svg viewBox="0 0 ${W} ${H}" width="100%">${rows.map(([k, v, n], i) => `<text x="${pl - 8}" y="${i * rh + 19}" font-size="12" text-anchor="end">${esc(k)}</text><rect x="${pl}" y="${i * rh + 7}" width="${(v || 0) * (W - pl - 70)}" height="16" rx="3" fill="#0f5c63"/><text x="${pl + (v || 0) * (W - pl - 70) + 5}" y="${i * rh + 19}" font-size="11">${pct(v)} of ${n}</text>`).join("")}</svg>`; };
+    const stale = ND.directory.filter((s) => NV.days(s.last_verified, TODAY) > ND.stale_after_days);
+    $("#main").innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:12px"><div><h2 style="margin:0">Referrals and care navigation</h2>
+      <div class="muted small">From alert to completed assessment: every referral is tracked until follow-up is documented.</div></div>
+      <label class="check small"><input type="checkbox" id="syn" ${syn ? "checked" : ""}> Include synthetic programme log (${log_.referrals.length} journeys)</label></div>
+      <div class="kpis">${kpi(pct(m.completion_rate), "Referrals completed to assessment", `${m.sent} sent`)}${kpi(pct(m.accepted_rate), "Accepted by receiving service")}
+        ${kpi((m.median_days_concern_to_review ?? "–") + " d", "First concern → clinician review", "median")}${kpi((m.median_days_referral_to_assessment ?? "–") + " d", "Referral → completed assessment", "median")}
+        ${kpi(m.unresolved, "Open referrals", `${Object.values(m.non_completion_reasons).reduce((a, b) => a + b, 0)} need action`)}${kpi(m.pathway_gaps, "Pathway gaps recorded", "no accessible service")}</div>
+      <div class="two" style="margin-top:16px">
+        <div class="panel pad"><h3>Open referrals worklist</h3><div class="tiny muted" style="margin-bottom:6px">Problems first (declined, missed, lost, no accessible service), then oldest.</div>
+          <div style="max-height:420px;overflow:auto"><table><tr><th>Person</th><th>Pathway</th><th>State</th><th class="num">Days</th></tr>
+          ${work.slice(0, 60).map((x) => `<tr ${x.p ? `data-open="${x.p.id}" style="cursor:pointer"` : ""}><td>${x.p ? `<b>${esc(x.p.id)}</b>` : `<span class="muted">${esc(x.r.participant_id)}</span>`}</td><td class="small">${esc(PATH[x.r.pathway] || x.r.pathway)}</td>
+            <td><span class="pill ${STATE_COL(x.r.state)}">${STATE_LABEL[x.r.state]}</span>${x.r.history[x.r.history.length - 1].reason ? `<div class="tiny muted">${esc(x.r.history[x.r.history.length - 1].reason)}</div>` : ""}</td><td class="num">${x.age}</td></tr>`).join("")}</table></div></div>
+        <div class="grid"><div class="panel pad"><h3>Completion by entry route</h3>${barSvg(bars(m.by_entry_route, ENTRY))}</div>
+          <div class="panel pad"><h3>Completion by funding route</h3>${barSvg(bars(m.by_funding, { thiqa: "Thiqa (government)", enhanced: "Enhanced / employer", basic: "Basic insurance", self_pay: "Self-pay" }))}</div>
+          <div class="panel pad"><h3>Completion by language</h3>${barSvg(bars(m.by_language, ND.languages))}<div class="tiny muted">Gaps by language or funding point to directory or access problems, not to the person.</div></div></div></div>
+      <div class="panel pad" style="margin-top:16px"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><h3 style="margin:0">Service directory</h3><span class="small muted">${stale.length} of ${ND.directory.length} entries not verified in the last ${ND.stale_after_days} days</span></div>
+        <table style="margin-top:8px"><tr><th>Service</th><th>Pathways</th><th>Languages</th><th>Funding</th><th class="num">Wait</th><th>Last verified</th></tr>
+        ${ND.directory.map((s) => `<tr><td><b>${esc(s.name)}</b><div class="tiny muted">${esc(s.area)} · ${esc(s.referral_process)}</div></td><td class="small">${s.pathways.map((x) => PATH[x] || x).join("; ")}</td>
+          <td class="small">${s.languages.map((l) => ND.languages[l] || l).join(", ")}</td><td class="small">${s.funding.map((f) => ND.funding[f]).join("; ")}</td><td class="num">${s.wait_weeks} wk</td>
+          <td class="small">${s.last_verified}${NV.days(s.last_verified, TODAY) > ND.stale_after_days ? ' <span class="pill lv-CHECK_AGAIN">re-verify</span>' : ""}</td></tr>`).join("")}</table>
+        <div class="tiny muted" style="margin-top:6px">All entries are synthetic placeholders. In the pilot the partner maintains the directory with providers.</div></div>
+      <div class="panel pad small" style="margin-top:16px;background:var(--sand-soft);border-color:#ecdcc0"><b>Synthetic programme log.</b> ${esc(ND.assumptions.notes)} Assumptions: acceptance ${pct(ND.assumptions.acceptance)}, attendance ${pct(ND.assumptions.appointment_attended)}, rebooking after a missed appointment ${pct(ND.assumptions.rebook_after_missed)}. Real baselines come from Phase 0 with the partner.</div>`;
+    $("#syn").onchange = (e) => { S.withSyn = e.target.checked; renderReferrals(); };
+    document.querySelectorAll("[data-open]").forEach((el) => (el.onclick = () => { S.selected = el.dataset.open; go("clinician"); }));
+  }
+
   // ================================================================ CLINICIAN
   function queueItems() {
     return S.people.map((p) => {
@@ -527,7 +695,8 @@
       return `<div class="qitem ${x.p.id === sel.p.id ? "sel" : ""}" data-id="${x.p.id}"><div class="row"><b>${esc(x.p.id)}</b>${pill(x.lv)}</div>
         <div class="small muted">${x.p.age} y · ${EDU[x.p.education]} · ${esc(x.p.dialect)}</div>
         ${x.ev ? `<div class="small">${esc(x.ev.latest.reasons[0] || "")}</div>` : ""}
-        ${C.REVIEW_TARGET_DAYS[x.lv] ? `<div class="tiny muted">Review target: ${due}${x.closed ? " · closed" : ""}</div>` : ""}</div>`;
+        ${C.REVIEW_TARGET_DAYS[x.lv] ? `<div class="tiny muted">Review target: ${due}${x.closed ? " · closed" : ""}</div>` : ""}
+        ${(x.p.referrals || []).filter(NV.isUnresolved).map((r) => `<div class="tiny">↳ Referral: <span class="pill ${STATE_COL(r.state)}" style="padding:1px 7px">${STATE_LABEL[r.state]}</span></div>`).join("")}</div>`;
     };
     $("#main").innerHTML = `<div class="cl-wrap">
       <div class="panel" style="overflow:hidden"><div class="pad" style="border-bottom:1px solid var(--line)"><h3 style="margin:0">Review queue</h3>
@@ -576,11 +745,11 @@
         <div class="small muted">${p.age} y · ${p.sex === "F" ? "female" : p.sex === "M" ? "male" : ""} · ${EDU[p.education]} · ${esc(p.dialect)} · ${p.sessions.length} sessions</div>
         <div style="margin-top:6px">${consent}</div></div>
         <div class="noprint" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" id="b-reid">Contact details 🔒</button><button class="btn" id="b-dos">Referral dossier</button><button class="btn" id="b-fhir">FHIR R4 bundle</button></div></div>
-        <div class="alertbox lv-${L_.level}" style="margin-top:14px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">${pill(L_.level)}<span class="small muted">Latest session ${L_.date} · form ${L_.form} · ${L_.channel}</span>
+        <div class="alertbox lv-${L_.level}" style="margin-top:14px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">${pill(L_.level)}<span class="small muted">${L_.intake ? `Intake ${L_.date}` : `Latest session ${L_.date} · form ${L_.form} · ${L_.channel}`}</span>
           ${L_.held_for_clinician ? '<span class="small"><b>Held:</b> participant was told only that the clinic will contact them.</span>' : ""}</div>
           <ul style="margin:8px 0 4px">${L_.reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>
           ${L_.pathways.length ? `<div class="small"><b>Suggested pathway:</b> ${L_.pathways.map((x) => PATH[x] || x).join(" · ")}</div>` : ""}</div></div>
-      <div class="panel pad"><h3>Trend against personal baseline</h3>${trendChart(ev.history)}
+      <div class="panel pad"><h3>Trend against personal baseline</h3>${ev.history.some((h) => h.z) ? trendChart(ev.history) : '<div class="small muted">No scored sessions yet.</div>'}
         <div class="legend">${["BASELINE", "STABLE", "CHECK_AGAIN", "CLINICIAN_REVIEW", "URGENT"].map((k) => `<span><i style="background:${LVCOL[k]}"></i>${LV[k]}</span>`).join("")}<span><i style="background:#fff;border:1.5px solid #888"></i>Not scored</span></div></div>
       <div class="two">
         <div class="panel pad"><h3>What drove this result</h3>${drivers}<h3 style="margin-top:14px">Domains (raw points, practice-adjusted RCI)</h3>${domTable}</div>
@@ -599,17 +768,20 @@
           <h3 style="margin-top:14px">Exploratory voice features</h3>
           ${vf ? `<div class="small">${Object.entries(vf).map(([k, v]) => `<span class="chip">${k.replace(/_/g, " ")}: ${v}</span>`).join("")}</div>` : '<div class="small muted">None recorded for the latest session.</div>'}
           <div class="tiny muted">Collected for research under a pre-specified analysis plan. Not used for alerts until validated per language and dialect.</div></div></div>
+      ${referralPanel(p)}${timelinePanel(p)}
       <div class="panel pad"><h3>Audit log</h3>${S.audit.slice(0, 8).map((a) => `<div class="tiny">${a.ts} · ${esc(a.actor)} · <b>${esc(a.action)}</b> · ${esc(a.target)} ${esc(a.detail)}</div>`).join("") || '<div class="tiny muted">Empty.</div>'}</div>`;
     if (!S.audit[0] || S.audit[0].target !== p.id || S.audit[0].action !== "view_evaluation") log("view_evaluation", p.id);
     document.querySelectorAll("[data-act]").forEach((b) => (b.onclick = () => {
       const note = $("#act-note").value.trim(); const a = b.dataset.act;
+      if (a === "refer") { referralModal(p); return; }
       if (a === "dismiss" && !note) { toast("A reason is required to dismiss an alert"); $("#act-note").focus(); return; }
       (S.actions[p.id] = S.actions[p.id] || []).push({ action: a, note, ts: new Date().toISOString().slice(0, 16).replace("T", " "), session: L_.session_id });
       log("task_" + a, p.id, note); toast("Recorded: " + a.replace(/_/g, " ")); renderClinician();
     }));
     $("#b-dos").onclick = () => showDossier(p, ev);
     $("#b-reid").onclick = () => reidentify(p);
-    $("#b-fhir").onclick = () => { const b = fhirBundle(p, ev); log("export_fhir", p.id); modal(`<h2>FHIR R4 bundle</h2><div class="small muted">Patient (pseudonymous), Consent per signal, Observation, RiskAssessment, Task. The system never writes Condition (clinician-only).</div>
+    bindReferralPanel(p);
+    $("#b-fhir").onclick = () => { const b = fhirBundle(p, ev); log("export_fhir", p.id); modal(`<h2>FHIR R4 bundle</h2><div class="small muted">Patient (pseudonymous), Consent per signal, Observation, RiskAssessment, Task, ServiceRequest (referral with state). The system never writes Condition (clinician-only).</div>
       <div style="margin:10px 0"><button class="btn primary" id="cp">Copy JSON</button> <button class="btn" id="cl">Close</button></div><pre class="code">${esc(JSON.stringify(b, null, 1))}</pre>`);
       $("#cp").onclick = () => navigator.clipboard.writeText(JSON.stringify(b, null, 1)).then(() => toast("Copied"), () => toast("Copy blocked here")); $("#cl").onclick = closeModal; };
   }
@@ -655,6 +827,11 @@
         if (h.held_for_clinician) ent.push({ resourceType: "Task", id: id("task"), status: "requested", intent: "order", priority: h.level === "URGENT" ? "urgent" : "routine", for: { reference: "Patient/" + p.id }, focus: { reference: "RiskAssessment/" + ra.id }, authoredOn: h.date, code: cc(CS + "/task", "clinician-review", "Clinician review of MemBrain alert") });
       }
     });
+    const FS = { recommended: "draft", sent: "active", accepted: "active", appointment_offered: "active", attended: "active", missed: "on-hold", declined: "revoked",
+      assessment_completed: "completed", follow_up_documented: "completed", lost_to_follow_up: "on-hold", no_accessible_service: "on-hold", cancelled: "revoked" };
+    (p.referrals || []).forEach((r) => ent.push({ resourceType: "ServiceRequest", id: id("ref"), status: FS[r.state], intent: "order", priority: r.urgency === "urgent" ? "urgent" : "routine",
+      code: cc(CS + "/pathway", r.pathway, PATH[r.pathway] || r.pathway), subject: { reference: "Patient/" + p.id }, authoredOn: r.history[0].date, performer: [{ display: r.service_id || "to be assigned" }],
+      extension: [{ url: CS + "/ext/referral-state", valueCode: r.state }], note: r.history.map((h) => ({ text: `${h.date} ${h.state} ${h.reason || ""}`.trim() })) }));
     return { resourceType: "Bundle", type: "collection", entry: ent.map((r) => ({ fullUrl: "urn:uuid:" + r.id, resource: r })) };
   }
 
@@ -735,7 +912,7 @@
       <div class="grid"><div class="panel pad"><h2>Architecture</h2>${archSvg()}</div>
       <div class="panel pad"><h3>Design principles</h3><ul class="small">
         <li>Validated instruments and inspectable statistics first; machine learning second and exploratory.</li>
-        <li>Explainable by construction: one engine, versioned (engine ${C.ENGINE_VERSION}, norms ${C.NORMS_VERSION}). Python and JavaScript produce identical results on ${"87"} golden test cases.</li>
+        <li>Explainable by construction: one engine, versioned (engine ${C.ENGINE_VERSION}, norms ${C.NORMS_VERSION}). Python and JavaScript produce identical results on 90 golden test cases.</li>
         <li>Per-signal consent; identifiers held apart from assessment data; in-country hosting; voice reduced to features on the device.</li>
         <li>Built for low-end Android, WhatsApp/phone fallback channels (scores not pooled across channels until equivalence is shown).</li>
         <li>Design controls aligned to IEC 62304 / ISO 14971. Pilot runs as research under ethics approval until EDE classification advice is received.</li></ul></div></div></div>`;
@@ -754,6 +931,7 @@
   }
 
   // ---------------------------------------------------------------- boot
-  const h = (location.hash || "").replace("#", ""); if (["enrol", "participant", "clinician", "validation", "how"].includes(h)) S.view = h;
+  const h = (location.hash || "").replace("#", ""); if (["enrol", "participant", "clinician", "referrals", "validation", "how"].includes(h)) S.view = h;
+  window.addEventListener("hashchange", () => { const v = (location.hash || "").replace("#", ""); if (v !== S.view && ["enrol", "participant", "clinician", "referrals", "validation", "how"].includes(v)) go(v); });
   go(S.view);
 })();
