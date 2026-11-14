@@ -65,6 +65,7 @@
   ],
   "repeat_after_check_again_weeks": 3,
   "meaningful_decline_threshold_z": -0.5,
+  "uae_risk_profile": "Hypertension, diabetes, obesity, physical inactivity and smoking drawn by sex from WHO GHO national estimates for the UAE (see docs/UAE_DATA.md)",
   "usual_care": "single screen at week 0 and 52, education-blind norms, composite z <= -1.5 -> referral"
  },
  "summary": {

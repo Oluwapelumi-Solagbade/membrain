@@ -1,0 +1,10 @@
+# Install on the GPU machine (Kaggle / Colab / approved cluster), not needed for the web demo.
+torch>=2.2
+transformers>=4.44,<6
+peft>=0.11
+datasets>=2.19
+jiwer>=3.0
+soundfile>=0.12
+librosa>=0.10
+accelerate>=0.30
+httpx>=0.27

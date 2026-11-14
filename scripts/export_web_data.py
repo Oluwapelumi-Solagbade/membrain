@@ -15,6 +15,7 @@ from membrain.simulate import ASSUMPTIONS, generate_cohort  # noqa: E402
 from membrain.triage import evaluate  # noqa: E402
 from membrain.validation import analyse  # noqa: E402
 from membrain import navigator as NAV  # noqa: E402
+from membrain import genomics as GX  # noqa: E402
 
 N = int(sys.argv[1]) if len(sys.argv) > 1 else 2000
 cfg = {k: getattr(C, k) for k in dir(C) if k.isupper()}
@@ -38,6 +39,12 @@ data = {"config": cfg, "items": {"WORD_LISTS": I.WORD_LISTS, "FLUENCY": I.FLUENC
                       "stale_after_days": NAV.STALE_AFTER_DAYS, "assumptions": NAV.PATHWAY_ASSUMPTIONS,
                       "synthetic_log": {"referrals": _log[0], "people": _log[1]},
                       "synthetic_metrics": NAV.programme_metrics(*_log)},
+        "genomics_cases": [{"person": c, "expected": {k: v for k, v in GX.genomic_context(c).items() if k in ("available", "apoe4_copies", "recommendations", "flags", "participant_disclosure_allowed", "counselling")}}
+                           for c in [{"id": "g%d" % i, "age": a, "consent": {"genomics": cons}, "context": {"family_history_dementia": fh},
+                                      "genomics": ({"apoe": ap, "counselling": st} if ap else {})}
+                                     for i, (a, cons, fh, ap, st) in enumerate([(70, True, True, "e3/e4", "offered"), (55, True, False, "e3/e4", "not_offered"),
+                                                                                 (66, True, False, "e4/e4", "completed_wants_result"), (66, False, True, "e4/e4", "offered"),
+                                                                                 (61, True, True, "e3/e3", "offered"), (72, True, False, None, None)])]],
         "prevention_always": {"en": ALWAYS[0], "ar": ALWAYS[1]},
         "validation": {"n": N, "seed": 7, "assumptions": ASSUMPTIONS, "summary": res["summary"]}}
 (ROOT / "web" / "data.js").write_text("window.MB_DATA = " + json.dumps(data, ensure_ascii=False, default=str) + ";\n")

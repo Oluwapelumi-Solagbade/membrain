@@ -722,7 +722,8 @@ function speak(text, lang, onend) {
       <div class="two">${fld("LDL cholesterol (mmol/L)", inp("ctx.ldl", e.ctx.ldl, "number", "3.0"))}${fld("BMI", inp("ctx.bmi", e.ctx.bmi, "number", "28"))}</div>
       <div class="two">${fld("Physical activity (minutes per week)", inp("ctx.activity_min_week", e.ctx.activity_min_week, "number", "90"))}${fld("Home district (optional)", inp("ctx.district", e.ctx.district, "text", "e.g. Al Ain, Khalifa City"), "For later environmental exposure (air quality) and service planning, at district level only.")}</div>
       <div class="small" style="font-weight:600;margin:6px 0">Known conditions</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">${CONDITIONS.map(([k, v]) => chk("cond." + k, e.cond[k], v)).join("")}</div>
-      <div class="small" style="font-weight:600;margin:10px 0 6px">Lifestyle and family</div>${chk("ctx.smoker", e.ctx.smoker, "Smokes (cigarettes, shisha or medwakh)")}${chk("ctx.social_isolation", e.ctx.social_isolation, "Lives alone or rarely sees family and friends")}${e.consent.family_history ? chk("ctx.family_history_dementia", e.ctx.family_history_dementia, "Parent or sibling with memory problems or dementia") : ""}`;
+      <div class="small" style="font-weight:600;margin:10px 0 6px">Lifestyle and family</div>${chk("ctx.smoker", e.ctx.smoker, "Smokes (cigarettes, shisha or medwakh)")}${chk("ctx.social_isolation", e.ctx.social_isolation, "Lives alone or rarely sees family and friends")}${e.consent.family_history ? chk("ctx.family_history_dementia", e.ctx.family_history_dementia, "Parent or sibling with memory problems or dementia") : ""}
+      ${e.consent.genomics ? `<div class="small" style="font-weight:600;margin:10px 0 6px">Existing genomic result (from the partner programme)</div>${fld("APOE genotype on file", sel("ctx.apoe", e.ctx.apoe || "", [["", "None on file"], ["e3/e3", "e3/e3"], ["e2/e3", "e2/e3"], ["e3/e4", "e3/e4"], ["e4/e4", "e4/e4"]]), "Imported only, never tested by MemBrain. Shown to the clinician; shared with the person only after counselling. It never changes alert thresholds.")}` : ""}`;
     if (nm === "Review & schedule") { const band = eduBand(+e.profile.years); const today = new Date("2026-11-14");
       const add = (d) => new Date(today.getTime() + d * 86400000).toISOString().slice(0, 10);
       body = `<h3>Review and schedule</h3><table>
@@ -770,13 +771,14 @@ function speak(text, lang, onend) {
       smoker: e.ctx.smoker, social_isolation: e.ctx.social_isolation, family_history_dementia: e.consent.family_history ? e.ctx.family_history_dementia : null, district: e.ctx.district || null,
       hypertension: !!e.cond.hypertension, diabetes: !!e.cond.diabetes, hearing_difficulty: !!e.cond.hearing_loss, hearing_aid: e.profile.hearing_aid, vision_difficulty: !!e.cond.vision,
       mood_positive: !!e.cond.depression, tbi: !!e.cond.tbi, conditions: Object.keys(e.cond).filter((k) => e.cond[k]) };
+    const gxImport = e.consent.genomics && e.ctx.apoe ? { apoe: e.ctx.apoe, source: "Partner genome programme (synthetic record)", date: "2026-11-14", counselling: "not_offered" } : null;
     if (!e.consent.clinical_record) ["sbp", "dbp", "hba1c", "ldl", "bmi"].forEach((k) => (ctx[k] = null));
     const band = eduBand(+e.profile.years); const lang = e.profile.language;
     const p = { id, display_name: { en: "Enrolled participant", ar: "مشارك مسجّل" }, age: +e.profile.age, age_band: +e.profile.age < 60 ? "50-59" : +e.profile.age < 70 ? "60-69" : "70-75",
       sex: e.profile.sex, education: band, dialect: e.profile.dialect, language: lang, story: "Enrolled during this demo through the enrolment flow.", context: ctx,
       consent: { ...e.consent }, sessions: [], prevention: { en: preventionJS(ctx, "en"), ar: preventionJS(ctx, "ar") }, risk_context: riskContextJS(ctx, band),
       pending_iqcode: e.informant.iqcode ? +e.informant.iqcode : null, preferred_channel: e.identity.preferred_channel,
-      funding: e.nav.funding, emirate: e.nav.emirate, languages: [lang], entry_route: e.concern.route, referrals: [],
+      funding: e.nav.funding, emirate: e.nav.emirate, languages: [lang], entry_route: e.concern.route, referrals: [], genomics: gxImport,
       informant: e.inf.type === "none" || (e.inf.type === "household_helper" && !e.inf.helper_consent) ? null
         : { type: e.inf.type, relation: e.informant.relation, language: e.inf.language, consented: true, timeline: e.inf.timeline.filter((t) => t.change || t.when) } };
     const flags = Object.keys(e.flags).filter((k) => e.flags[k]);
@@ -927,6 +929,28 @@ function speak(text, lang, onend) {
     document.querySelectorAll("[data-open]").forEach((el) => (el.onclick = () => { S.selected = el.dataset.open; go("clinician"); }));
   }
 
+  // ---------------------------------------------------------------- genomics panel (consent-gated)
+  const GXL = { not_offered: "Counselling not yet offered", offered: "Counselling offered", completed_wants_result: "Counselled: wants result",
+    completed_declines_result: "Counselled: does not want result", declined_counselling: "Declined counselling" };
+  function genomicsPanel(p) {
+    const g = window.MBGenomics.context(p);
+    const head = `<h3>Genomics <span class="tiny muted">(consent-gated, existing results only)</span></h3>`;
+    if (!g.available) return `<div class="panel pad">${head}<div class="small muted">${esc(g.reason)}</div></div>`;
+    const nexts = window.MBGenomics.TRANSITIONS[g.counselling] || [];
+    return `<div class="panel pad">${head}
+      <table><tr><td>APOE genotype</td><td><b>${esc(g.apoe)}</b> (${g.apoe4_copies} × e4)</td><td class="tiny muted">${esc(g.source)} · ${esc(g.result_date || "")}</td></tr>
+      ${g.prs ? `<tr><td>Polygenic score</td><td>${g.prs.percentile}th percentile</td><td class="tiny" style="color:var(--check)">${esc(g.prs.warning)}</td></tr>` : ""}
+      <tr><td>Family history</td><td colspan="2">${g.family_history_dementia ? "First-degree relative with dementia" : "None recorded"}</td></tr></table>
+      ${g.recommendations.length ? `<div class="small" style="margin-top:8px"><b>Suggested</b><ul style="margin:4px 0">${g.recommendations.map((r) => `<li>${esc(r.text)} <span class="tiny muted">(${esc(r.reason)})</span></li>`).join("")}</ul></div>` : ""}
+      ${g.flags.map((f) => `<div class="small" style="padding:8px 10px;border-radius:10px;margin-top:6px;background:${f.severity === "treatment_safety" ? "var(--review-soft)" : "var(--base-soft)"}">${f.severity === "treatment_safety" ? "<b>Treatment safety:</b> " : "<b>Research:</b> "}${esc(f.text)}</div>`).join("")}
+      <div style="margin-top:10px;display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="pill ${g.participant_disclosure_allowed ? "lv-STABLE" : "lv-BASELINE"}">${GXL[g.counselling]}</span>
+        ${nexts.map((n) => `<button class="btn small" data-gx="${n}">${esc(GXL[n])}</button>`).join("")}</div>
+      <div class="tiny muted" style="margin-top:8px">Genomics never changes alert levels or thresholds. The participant app shows nothing about genetics; results are shared only in a counselling session and only if the person chooses to know. Most APOE e4 carriers never develop dementia.</div></div>`;
+  }
+  function bindGenomics(p) {
+    document.querySelectorAll("[data-gx]").forEach((b) => (b.onclick = () => { p.genomics.counselling = window.MBGenomics.advance(p.genomics.counselling || "not_offered", b.dataset.gx); log("genomics_counselling", p.id, b.dataset.gx); renderClinician(); }));
+  }
+
   // ================================================================ CLINICIAN
   function queueItems() {
     return S.people.map((p) => {
@@ -983,7 +1007,7 @@ function speak(text, lang, onend) {
       ["LDL cholesterol", c.ldl ? fmt(c.ldl, 1) + " mmol/L" : null, "clinical_record"], ["BMI", c.bmi ? fmt(c.bmi, 0) : null, "clinical_record"],
       ["Activity", c.activity_min_week != null ? Math.round(c.activity_min_week) + " min/week" : null, "wearables"], ["Sleep (7-day avg)", c.sleep_hours ? fmt(c.sleep_hours, 1) + " h" : null, "wearables"],
       ["Family history of dementia", c.family_history_dementia != null ? (c.family_history_dementia ? "Yes (first-degree)" : "No") : null, "family_history"],
-      ["Genomics (APOE)", c.apoe4 || null, "genomics"]].filter((r) => r[1] != null)
+      ].filter((r) => r[1] != null)
       .map(([k, v, src]) => `<tr><td>${k}</td><td>${(p.consent || {})[src] ? esc(v) : '<span class="muted">not consented</span>'}</td><td class="tiny muted">${src.replace("_", " ")}</td></tr>`).join("");
     const acts = (S.actions[p.id] || []).map((a) => `<div class="tiny">${a.ts} · <b>${a.action.replace(/_/g, " ")}</b>${a.note ? " — " + esc(a.note) : ""}</div>`).join("");
     const vf = last.voice_features;
@@ -1016,7 +1040,7 @@ function speak(text, lang, onend) {
           <h3 style="margin-top:14px">Exploratory voice features</h3>
           ${vf ? `<div class="small">${Object.entries(vf).map(([k, v]) => `<span class="chip">${k.replace(/_/g, " ")}: ${v}</span>`).join("")}</div>` : '<div class="small muted">None recorded for the latest session.</div>'}
           <div class="tiny muted">Collected for research under a pre-specified analysis plan. Not used for alerts until validated per language and dialect.</div></div></div>
-      ${referralPanel(p)}${timelinePanel(p)}
+      ${referralPanel(p)}${timelinePanel(p)}${genomicsPanel(p)}
       <div class="panel pad"><h3>Audit log</h3>${S.audit.slice(0, 8).map((a) => `<div class="tiny">${a.ts} · ${esc(a.actor)} · <b>${esc(a.action)}</b> · ${esc(a.target)} ${esc(a.detail)}</div>`).join("") || '<div class="tiny muted">Empty.</div>'}</div>`;
     if (!S.audit[0] || S.audit[0].target !== p.id || S.audit[0].action !== "view_evaluation") log("view_evaluation", p.id);
     document.querySelectorAll("[data-act]").forEach((b) => (b.onclick = () => {
@@ -1028,7 +1052,7 @@ function speak(text, lang, onend) {
     }));
     $("#b-dos").onclick = () => showDossier(p, ev);
     $("#b-reid").onclick = () => reidentify(p);
-    bindReferralPanel(p);
+    bindReferralPanel(p); bindGenomics(p);
     $("#b-fhir").onclick = () => { const b = fhirBundle(p, ev); log("export_fhir", p.id); modal(`<h2>FHIR R4 bundle</h2><div class="small muted">Patient (pseudonymous), Consent per signal, Observation, RiskAssessment, Task, ServiceRequest (referral with state). The system never writes Condition (clinician-only).</div>
       <div style="margin:10px 0"><button class="btn primary" id="cp">Copy JSON</button> <button class="btn" id="cl">Close</button></div><pre class="code">${esc(JSON.stringify(b, null, 1))}</pre>`);
       $("#cp").onclick = () => navigator.clipboard.writeText(JSON.stringify(b, null, 1)).then(() => toast("Copied"), () => toast("Copy blocked here")); $("#cl").onclick = closeModal; };
@@ -1080,6 +1104,9 @@ function speak(text, lang, onend) {
     (p.referrals || []).forEach((r) => ent.push({ resourceType: "ServiceRequest", id: id("ref"), status: FS[r.state], intent: "order", priority: r.urgency === "urgent" ? "urgent" : "routine",
       code: cc(CS + "/pathway", r.pathway, PATH[r.pathway] || r.pathway), subject: { reference: "Patient/" + p.id }, authoredOn: r.history[0].date, performer: [{ display: r.service_id || "to be assigned" }],
       extension: [{ url: CS + "/ext/referral-state", valueCode: r.state }], note: r.history.map((h) => ({ text: `${h.date} ${h.state} ${h.reason || ""}`.trim() })) }));
+    const gxc = window.MBGenomics.context(p);
+    if (gxc.available) ent.push({ resourceType: "Observation", id: p.id + "-apoe", status: "final", code: cc(CS + "/genomics", "APOE-genotype", "APOE genotype"), subject: { reference: "Patient/" + p.id },
+      valueString: gxc.apoe, extension: [{ url: CS + "/ext/counselling-state", valueCode: gxc.counselling }], note: [{ text: "Existing result imported with genomics consent. Not used for triage." }] });
     return { resourceType: "Bundle", type: "collection", entry: ent.map((r) => ({ fullUrl: "urn:uuid:" + r.id, resource: r })) };
   }
 

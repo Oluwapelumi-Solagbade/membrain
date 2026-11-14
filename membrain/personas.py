@@ -124,6 +124,8 @@ def personas() -> list[dict]:
                                            {"activity": "Going to the mosque alone", "change": "Now accompanied",
                                             "when": "about 3 months ago", "who_took_over": "son", "why": "Family preference after a fall"}]}
         if p["id"] == "MB-1322":
+            p["genomics"] = {"apoe": "e3/e4", "source": "Partner genome programme (synthetic record)", "date": "2025-09-10",
+                             "counselling": "offered", "prs": {"percentile": 82, "reference_ancestry": "European"}}
             p["informant"] = {"type": "family", "relation": "daughter", "consented": True,
                               "timeline": [{"activity": "Managing money", "change": "Daughter now pays bills", "when": "about 2 months ago",
                                             "who_took_over": "daughter", "why": "Missed payments and repeated transfers"},

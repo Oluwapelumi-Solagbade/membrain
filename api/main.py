@@ -387,7 +387,49 @@ def metrics(r: str = Depends(role)):
     return NAV.programme_metrics(refs, people)
 
 
-# ------------------------------------------------------------- web app
+
+
+# ------------------------------------------------------------- Genomics (consent-gated)
+from membrain import genomics as GX  # noqa: E402
+
+
+@app.get("/participants/{pid}/genomics")
+def get_genomics(pid: str, r: str = Depends(role)):
+    need(r, "clinician")
+    p = DB["participants"].get(pid)
+    if not p:
+        raise HTTPException(404)
+    audit(r, "view_genomics", pid)
+    return GX.genomic_context(p)
+
+
+@app.post("/participants/{pid}/genomics/counselling")
+def genomics_counselling(pid: str, body: dict, r: str = Depends(role)):
+    need(r, "clinician")
+    p = DB["participants"].get(pid)
+    if not p or not p.get("genomics"):
+        raise HTTPException(404)
+    try:
+        p["genomics"]["counselling"] = GX.advance_counselling(p["genomics"].get("counselling", "not_offered"), body.get("state", ""))
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    audit(r, "genomics_counselling_" + p["genomics"]["counselling"], pid)
+    return GX.genomic_context(p)
+
+
+@app.get("/me/{pid}/genomics")
+def participant_genomics(pid: str):
+    """What the PARTICIPANT app may show: nothing unless counselling is completed and they chose to know."""
+    p = DB["participants"].get(pid)
+    if not p:
+        raise HTTPException(404)
+    gc = GX.genomic_context(p)
+    if not gc.get("participant_disclosure_allowed"):
+        return {"shown": False, "message": "Any genetic results are discussed with you by a clinician with counselling."}
+    return {"shown": True, "apoe": gc["apoe"], "limits": gc["limits"]}
+
+
+# ------------------------------------------------------------- web app (keep LAST: the mount catches every unmatched path)
 # Serve the built single-page app at "/" so one in-country App Service hosts
 # both the API and the demo (same origin: microphone + speech work over HTTPS).
 _DIST = pathlib.Path(__file__).resolve().parents[1] / "web" / "dist"

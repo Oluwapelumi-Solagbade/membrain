@@ -92,7 +92,7 @@ The engine computes this for the composite and for each domain, using each test'
 
 Each signal needs its own consent: voice features, raw audio, wearables, clinical record, family history, genomics, caregiver involvement, model training. Each is stored as a FHIR `Consent` resource and can be withdrawn on its own.
 
-The clinician sees BP, HbA1c, LDL, BMI, activity, sleep, PHQ-2, GAD-2, IQCODE-16 and family history, each with its source. The dossier lists which of the 14 modifiable risk factors from the 2024 Lancet Commission are present. MemBrain deliberately computes no combined probability. APOE or other genomic results are shown only if genomics consent is on, and they are disclosed to the person only through clinical counselling.
+The clinician sees BP, HbA1c, LDL, BMI, activity, sleep, PHQ-2, GAD-2, IQCODE-16 and family history, each with its source. The dossier lists which of the 14 modifiable risk factors from the 2024 Lancet Commission are present. MemBrain deliberately computes no combined probability. Genomic results (existing APOE results only) are shown only if genomics consent is on. They add clinician context, a suggestion for closer monitoring, an anti-amyloid treatment-safety flag and research eligibility, but **never change triage**. They reach the person only after counselling, and only if they choose to know (see `GENOMICS.md`).
 
 ## 6. Prevention and timely care (requirement 4)
 

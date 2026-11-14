@@ -16,6 +16,7 @@ from . import config as C
 from .items import form_for_session
 from .scoring import expected_raw
 from .triage import evaluate_history
+from .uae_data import uae_context
 
 ASSUMPTIONS = {
     "dialect_mix": {"Emirati": 0.30, "Other Gulf": 0.15, "Levantine": 0.15, "Egyptian": 0.15, "English": 0.25},
@@ -33,6 +34,7 @@ ASSUMPTIONS = {
     "schedule_weeks": [0, 2, 12, 26, 52],
     "repeat_after_check_again_weeks": 3,
     "meaningful_decline_threshold_z": -0.5,
+    "uae_risk_profile": "Hypertension, diabetes, obesity, physical inactivity and smoking drawn by sex from WHO GHO national estimates for the UAE (see docs/UAE_DATA.md)",
     "usual_care": "single screen at week 0 and 52, education-blind norms, composite z <= -1.5 -> referral",
 }
 A = ASSUMPTIONS
@@ -73,8 +75,11 @@ def make_participant(rng, i: int) -> dict:
         "family_history_dementia": bool(rng.random() < 0.15), "sleep_hours": float(rng.normal(6.5, 1.0)),
         "education": edu,
     }
+    sex = "F" if rng.random() < 0.5 else "M"
+    # UAE-calibrated vascular/lifestyle profile from WHO GHO (separate RNG stream so cognition draws are unchanged)
+    ctx.update(uae_context(np.random.default_rng(100_000 + i), sex, age))
     return {"id": f"SYN{i:05d}", "age": round(age, 1), "age_band": "50-59" if age < 60 else "60-69" if age < 70 else "70-75",
-            "sex": "F" if rng.random() < 0.5 else "M", "education": edu, "dialect": dialect,
+            "sex": sex, "education": edu, "dialect": dialect,
             "language": "en" if dialect == "English" else "ar", "context": ctx,
             "consent": {"voice_features": True, "wearables": rng.random() < 0.6, "clinical_record": True,
                         "family_history": True, "genomics": False, "raw_audio": rng.random() < 0.5},

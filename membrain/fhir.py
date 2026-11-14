@@ -134,5 +134,9 @@ def bundle(p: dict, sessions: list[dict], evals: list[dict]) -> dict:
                 entries.append(review_task(p, ev, ra))
     for ref in p.get("referrals", []) or []:
         entries.append(service_request(p, ref))
+    from .genomics import fhir_observation
+    gx = fhir_observation(p)
+    if gx:
+        entries.append(gx)
     return {"resourceType": "Bundle", "id": _id(), "type": "collection",
             "entry": [{"fullUrl": f"urn:uuid:{e['id']}", "resource": e} for e in entries]}

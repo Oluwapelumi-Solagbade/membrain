@@ -119,3 +119,16 @@ def test_evidence_overrides_restore_config():
     with ev.Overrides({"RCI_CHECK": -3.0, "PRACTICE_ZERO": True, "REQUIRE_CONFIRMATION": False}):
         assert C.RCI_CHECK == -3.0 and C.DOMAINS["fluency"]["practice"] == 0.0 and not C.REQUIRE_CONFIRMATION
     assert (C.RCI_CHECK, C.DOMAINS["fluency"]["practice"], C.REQUIRE_CONFIRMATION) == before
+
+
+def test_synthetic_cohort_matches_uae_who_prevalence():
+    import numpy as np
+    from membrain.simulate import generate_cohort
+    from membrain.uae_data import UAE_INDICATORS as U
+    c = generate_cohort(1500, seed=3)
+    checks = {"obesity": lambda x: x["bmi"] >= 30, "insufficient_activity": lambda x: x["activity_min_week"] < 150,
+              "current_smoking": lambda x: x["smoker"]}
+    for k, f in checks.items():
+        for s in "FM":
+            v = 100 * np.mean([f(p["context"]) for p in c if p["sex"] == s])
+            assert abs(v - U[k][s]) < 5, (k, s, v, U[k][s])

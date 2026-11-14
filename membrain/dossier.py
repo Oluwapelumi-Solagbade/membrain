@@ -1,6 +1,7 @@
 """One-page referral dossier for the receiving clinician."""
 from __future__ import annotations
 
+from .genomics import genomic_context
 from .prevention import risk_context
 from .triage import DOMAIN_LABEL
 
@@ -30,6 +31,7 @@ def build_dossier(p: dict, evaluation: dict) -> dict:
         "trend": trend, "domains": domains,
         "confounders_checked": latest.get("confounders", []) if latest else [],
         "risk_context": risk_context(ctx),
+        "genomics": genomic_context(p),
         "limitations": [
             "Thresholds and norms are provisional until validated in the local population.",
             "Voice features are exploratory and did not contribute to this alert.",
