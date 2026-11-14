@@ -1,5 +1,19 @@
 # Deploy MemBrain to Azure (UAE North): step by step
 
+> **Free Trial subscriptions:** App Service quota in UAE North is 0, which is why `az webapp up` failed with "Operation cannot be completed without additional quota". Use **Option 1, Container Apps**, below. Option 2 (App Service) needs an upgraded (Pay-As-You-Go) subscription; remaining credit is kept when you upgrade.
+
+## Option 1: Azure Container Apps (works on Free Trial)
+```bash
+git pull
+az login
+bash scripts/deploy_containerapp.sh
+```
+Paste **Key 2** when asked. At the end, the script prints the live address, then tells you to commit `web/api_url.txt` so the GitHub Pages link also uses Azure Speech.
+
+If Container Apps is refused in UAE North too, tell Claude. The fallback is a token-only broker hosted elsewhere: audio still streams **browser → Azure UAE North** directly, and only the 10-minute token passes through that broker.
+
+## Option 2: App Service
+
 This puts the API and the demo on one in-country address, `https://membrain-cerebrospark.azurewebsites.net`. Live Arabic speech recognition then works through Azure Speech. The GitHub Pages link keeps working too, and calls this API for speech.
 
 ## Once: install and sign in

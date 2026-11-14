@@ -9,7 +9,7 @@
 ## 1. Regulatory Context & Privacy Rationale
 
 ### 1.1 In-Country Health Data Localisation Mandate
-Under **UAE Federal Decree-Law No. 4 of 2016** (Use of Information and Communication Technology in Health Fields) and the Abu Dhabi Department of Health (DoH) **ADHICS** (Abu Dhabi Healthcare Information and Cyber Security) standards:
+Under **UAE Federal Law No. 2 of 2019** on the use of ICT in health fields (citation to be confirmed with the partner's legal team) and the Abu Dhabi Department of Health (DoH) **ADHICS** (Abu Dhabi Healthcare Information and Cyber Security) standards:
 * **Identifiable and biometric health data must remain strictly within UAE jurisdiction.**
 * Audio recordings contain unique biometric vocal prints that can identify individuals and reveal unintended diagnostic information (e.g. respiratory illness, emotional state).
 

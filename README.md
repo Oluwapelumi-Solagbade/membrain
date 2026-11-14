@@ -56,7 +56,7 @@ docs/          technical documentation, assumptions and limitations, data source
 - [Data sources plan](docs/DATA_SOURCES.md)
 - [Team plan to 20 November](docs/TEAM_PLAN.md)
 - [Demo video script](docs/DEMO_SCRIPT.md)
-- [Azure Speech Dubai integration guide](docs/AZURE_SPEECH_README.md)
+- [Azure Speech integration guide](docs/AZURE_SPEECH.md) (original by Abdulwaliy)
 - [Voice feature specification (openSMILE/Praat)](docs/VOICE_FEATURE_SPEC.md)
 - [On-device voice architecture & edge VAD](docs/ON_DEVICE_VOICE_DESIGN.md)
 - [Arabic ASR dialect benchmark & error analysis](docs/ARABIC_ASR_DIALECT_BENCHMARK.md)

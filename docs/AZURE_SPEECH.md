@@ -1,6 +1,6 @@
 # Azure AI Speech (UAE North) integration
 
-Original guide: Abdulwaliy. Reviewed and implemented on 14 November. This file replaces `membrain/docs/AZURE_SPEECH_README.md`.
+Original guide: Abdulwaliy. Reviewed and implemented on 14 November. This file replaces the earlier `docs/AZURE_SPEECH_README.md`.
 
 ## What is implemented
 

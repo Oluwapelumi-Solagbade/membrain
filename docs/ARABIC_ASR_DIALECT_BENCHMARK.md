@@ -1,7 +1,7 @@
 # MemBrain: Arabic Speech Recognition (ASR) Dialectal Benchmarking, Error Rates & Fairness Protocol
 **Author:** Abdulwaliy (Team Cerebro Spark)  
 **Deliverable:** 7 & 5 Support (Arabic ASR Error Rates & Scoring Bias Mitigation)  
-**Status:** Benchmark Specification & Empirical Dialectal Bias Analysis  
+**Status:** Benchmark protocol. **No results yet**: tables are filled only from `scripts/benchmark_arabic_asr.py` runs on consented or openly licensed recordings.  
 **Dependencies:** `membrain/scoring.py`, `membrain/simulate.py`, `membrain/items.py`, `docs/TECHNICAL_DOCUMENTATION.md`
 
 ---
@@ -25,7 +25,7 @@ When older adults (aged 50–75+) take a voice-first cognitive assessment, **the
 
 ## 2. Dialect Demographics in the Target Pilot Population (UAE)
 
-The simulated UAE cohort (`membrain/simulate.py`, `ASSUMPTIONS["dialect_mix"]`) represents a realistic population distribution:
+The simulated UAE cohort (`membrain/simulate.py`, `ASSUMPTIONS["dialect_mix"]`) uses this **assumed** distribution (to be replaced with partner enrolment data):
 
 | Dialect Group | Population Share | Key Phonological Shifts vs MSA | Distinct Lexical Examples |
 |---|---|---|---|
@@ -50,35 +50,21 @@ We evaluate both open-weights models (deployable in-country for privacy complian
 
 ---
 
-## 4. Benchmark Results: Word Error Rate (WER) by Dialect & Demographics
+## 4. Results tables (to be filled from measured runs)
 
-The table below synthesizes empirical evaluation results across dialectal test splits, stratified by speaker age and education level.
+No word error rates are reported yet. Earlier drafts of this file contained illustrative figures that were not measured; they have been removed.
 
-### 4.1 Word Error Rate (%) Across Models & Dialects
+### 4.1 Word error rate (%) by model and dialect
 
-| ASR Model | Modern Standard Arabic (MSA) | Emirati / Gulf (`ar-AE`) | Other Gulf (`ar-SA`) | Levantine (`ar-LB`/`ar-SY`) | Egyptian (`ar-EG`) | English (Control) |
+| ASR model | MSA | Emirati / Gulf (`ar-AE`) | Other Gulf (`ar-SA`) | Levantine (`ar-LB`) | Egyptian (`ar-EG`) | English |
 |---|---|---|---|---|---|---|
-| **Whisper-large-v3** | **9.2%** | **15.4%** | **16.1%** | **21.8%** | **26.4%** | **6.1%** |
-| **Whisper-medium** | 12.8% | 19.2% | 20.5% | 27.3% | 32.1% | 8.4% |
-| **Meta MMS-1B** | 10.4% | 18.1% | 18.9% | 25.0% | 29.8% | 7.9% |
-| **NVIDIA Canary-1B** | 11.2% | 17.5% | 18.0% | 23.4% | 28.1% | 6.8% |
-| **Google Cloud (Dialect Endpoint)** | 8.8% | 14.1% | 14.8% | 18.5% | 21.2% | 5.5% |
-| **Browser Web Speech API (Default)**| 22.4% | 34.8% | 36.2% | 44.5% | 49.0% | 11.2% |
+| Azure AI Speech (UAE North) | TBD | TBD | TBD | TBD | TBD | TBD |
+| Whisper-large-v3 (self-hosted, in-country) | TBD | TBD | TBD | TBD | TBD | TBD |
+| Browser Web Speech API | TBD | TBD | TBD | TBD | TBD | TBD |
 
-### 4.2 Error Disparity by Age & Education (Whisper-large-v3)
-Older participants and individuals with no formal education show significantly elevated error rates due to acoustic tremor, slower articulation, and the exclusive use of localized dialect without code-switching to MSA:
+### 4.2 Word error rate by age band and education (per model)
 
-```
-Dialectal WER (%) by Age and Education Cohort (Whisper-large-v3):
-┌────────────────────────────────┬────────────┬─────────────┬───────────┬──────────┐
-│ Demographic Stratum            │ Emirati    │ Other Gulf  │ Levantine │ Egyptian │
-├────────────────────────────────┼────────────┼─────────────┼───────────┼──────────┤
-│ Age 50–64, Tertiary Education  │ 12.1%      │ 13.0%       │ 17.5%     │ 20.8%    │
-│ Age 50–64, No Formal Education │ 17.8%      │ 18.5%       │ 24.2%     │ 29.5%    │
-│ Age 65–75, Tertiary Education  │ 15.6%      │ 16.2%       │ 22.1%     │ 27.0%    │
-│ Age 65–75, No Formal Education │ 23.4%      │ 24.8%       │ 32.6%     │ 38.2%    │
-└────────────────────────────────┴────────────┴─────────────┴───────────┴──────────┘
-```
+To be reported for each stratum (50–64 / 65–75 × no formal / primary / secondary / tertiary education). The model is chosen on **worst-subgroup** error rate, not the average.
 
 ---
 
@@ -88,7 +74,7 @@ The ASR error rate directly influences the scoring of each task in the battery:
 
 ### 5.1 Semantic Fluency (0–30 Score)
 * **The Penalty:** Words named in dialect that the ASR model misrecognizes or drops.
-* **Empirical Validation of Simulation Assumptions:**
+* **Simulation assumption (not yet measured; to be replaced by benchmark results):**
   In `membrain/simulate.py`, line 32:
   ```python
   "asr_bias_raw_fluency": {"Emirati": 0.0, "Other Gulf": -0.2, "Levantine": -0.3, "Egyptian": -0.6, "English": 0.0}

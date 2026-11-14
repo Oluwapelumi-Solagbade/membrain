@@ -1,6 +1,6 @@
 # MemBrain — Azure CLI Task & Integration Record
 
-**Contributor:** Abdulwaliy Oyekunle (`abdulwaliyoyekunle@gmail.com`)  
+**Contributor:** Abdulwaliy Oyekunle   
 **Branch:** `Abdulwaliy_membrain`  
 **Target:** Microsoft Azure AI Speech (UAE North - Dubai) Integration & Deliverable 7 Deployment  
 **Timestamp:** November 14–15, 2026  
@@ -22,11 +22,11 @@ Since initiating the Azure CLI task, the repository was reconciled with upstream
 
 2. **Interactive OAuth Device Sign-In:**
    - Initiated non-interactive background authentication via `az login --use-device-code`.
-   - Connected with device code `C7P3GQWET` at `https://login.microsoft.com/device`.
+   - Signed in with the device-code flow.
    - Authenticated subscription details:
-     - **User:** `teamcerebrospark@proton.me`
-     - **Tenant ID:** `183694c4-9a85-40c2-9549-8613e57f311a` (`Default Directory`)
-     - **Subscription:** `Azure subscription 1` (`4ca467af-7f65-46e9-85ad-d22a6316ee1f`)
+     - **User:** team Azure account (redacted)
+     - **Tenant ID:** (redacted) (`Default Directory`)
+     - **Subscription:** `Azure subscription 1` (redacted)
      - **Account State:** `Enabled`
 
 ---

@@ -12,16 +12,9 @@ import pathlib
 import uuid
 from datetime import datetime, timezone
 
-import httpx
-from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-
-load_dotenv()
-
-AZURE_SPEECH_KEY = os.getenv("AZURE_SPEECH_KEY", "")
-AZURE_SPEECH_REGION = os.getenv("AZURE_SPEECH_REGION", "uaenorth")
 
 from membrain import config as C
 from membrain.dossier import build_dossier
@@ -157,59 +150,6 @@ class Action(BaseModel):
 @app.get("/health")
 def health():
     return {"status": "ok", "engine": C.ENGINE_VERSION, "norms": C.NORMS_VERSION}
-
-
-@app.get("/api/speech/token")
-async def get_speech_token():
-    """Mint a 10-minute ephemeral authorization token for Azure Speech (Dubai / uaenorth)."""
-    key = os.getenv("AZURE_SPEECH_KEY") or AZURE_SPEECH_KEY
-    region = os.getenv("AZURE_SPEECH_REGION") or AZURE_SPEECH_REGION
-    if not key:
-        raise HTTPException(503, "Azure Speech key not configured in .env")
-
-    token_url = f"https://{region}.api.cognitive.microsoft.com/sts/v1.0/issueToken"
-    headers = {
-        "Ocp-Apim-Subscription-Key": key,
-        "Content-Type": "application/x-www-form-urlencoded",
-    }
-    async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.post(token_url, headers=headers, timeout=6.0)
-            if resp.status_code != 200:
-                raise HTTPException(resp.status_code, f"Azure token failed: {resp.text}")
-            return {"token": resp.text, "region": region}
-        except httpx.RequestError as e:
-            raise HTTPException(502, f"Network error contacting Azure Dubai endpoint: {e}")
-
-
-@app.post("/api/speech/transcribe")
-async def transcribe_audio(request: Request, dialect: str = "ar-AE"):
-    """Direct audio transcription using Azure Speech in Dubai (uaenorth)."""
-    key = os.getenv("AZURE_SPEECH_KEY") or AZURE_SPEECH_KEY
-    region = os.getenv("AZURE_SPEECH_REGION") or AZURE_SPEECH_REGION
-    if not key:
-        raise HTTPException(503, "Azure Speech key not configured in .env")
-
-    audio_data = await request.body()
-    url = f"https://{region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language={dialect}"
-    headers = {
-        "Ocp-Apim-Subscription-Key": key,
-        "Content-Type": "audio/wav; codecs=audio/pcm; samplerate=16000",
-    }
-    async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.post(url, headers=headers, content=audio_data, timeout=12.0)
-            if resp.status_code != 200:
-                raise HTTPException(resp.status_code, f"Azure transcription failed: {resp.text}")
-            res = resp.json()
-            return {
-                "text": res.get("DisplayText", "").strip(),
-                "status": res.get("RecognitionStatus", ""),
-                "region": region,
-                "dialect": dialect,
-            }
-        except httpx.RequestError as e:
-            raise HTTPException(502, f"Network error contacting Azure Dubai: {e}")
 
 
 @app.get("/items/{form}")
