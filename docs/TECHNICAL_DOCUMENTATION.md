@@ -164,6 +164,12 @@ The run also surfaces a real gap: sensitivity is 67% for people with no formal e
 | Referral | ServiceRequest (pilot) |
 | Diagnosis | Condition, written by clinicians only |
 
+## 9b. Speech recognition
+
+Azure AI Speech runs in the UAE North region. The server holds the key and gives the browser a short-lived token; the browser then streams audio to the in-country endpoint, using a locale chosen from the person's dialect. One microphone stream also feeds the on-device acoustic features.
+
+If Azure is unavailable, the app falls back to browser speech recognition, and then to typed answers. The engine used is recorded with every session, so accuracy can be analysed by engine and subgroup. Details are in `AZURE_SPEECH.md` and `DEPLOY_AZURE.md`.
+
 ## 10. Security and privacy
 
 - **Hosting:** in-country cloud region, with no foreign processing of health data, in line with the ICT Health Law localisation rules.
@@ -175,7 +181,7 @@ The run also surfaces a real gap: sensitivity is 67% for people with no formal e
 
 ## 11. Engineering quality
 
-- 35 pytest tests cover persona pathways, RCI arithmetic, education fairness, mood hold, the audio gate, explanations, Arabic scoring, FHIR validation, API role checks, identity-vault separation, consent withdrawal, the red-flag and first-visit routes, the referral state machine, accessibility matching and FHIR ServiceRequest.
+- 39 pytest tests cover persona pathways, RCI arithmetic, education fairness, mood hold, the audio gate, explanations, Arabic scoring, FHIR validation, API role checks, identity-vault separation, consent withdrawal, the red-flag and first-visit routes, the referral state machine, accessibility matching, FHIR ServiceRequest, and the speech token broker (the key is never returned; rate limiting works).
 - The Python and JavaScript engines agree on all 90 golden cases (461 session evaluations) and on all 15 Navigator programme metrics.
 - `make all` rebuilds data, the demo and tests from one source of truth (`membrain/config.py`).
 

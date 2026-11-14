@@ -7,6 +7,8 @@ demo; production uses SMART on FHIR / OAuth2 + OIDC scopes.
 from __future__ import annotations
 
 import copy
+import os
+import pathlib
 import uuid
 from datetime import datetime, timezone
 
@@ -26,7 +28,14 @@ from membrain.triage import LEVELS, evaluate
 
 app = FastAPI(title="MemBrain API", version=C.ENGINE_VERSION,
               description="Voice-first longitudinal brain-health check-in. Identifies risk and change; never diagnoses.")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+# Only listed origins may call the API from a browser (GitHub Pages demo, local dev, the App Service itself).
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv(
+    "ALLOWED_ORIGINS", "https://oluwapelumi-solagbade.github.io,http://localhost:8000,http://127.0.0.1:8000").split(",") if o.strip()]
+app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, allow_methods=["*"], allow_headers=["*"])
+
+from api.speech import router as speech_router  # noqa: E402
+
+app.include_router(speech_router)
 
 DB: dict = {"participants": {}, "tasks": {}, "audit": []}
 # Identity vault: direct identifiers live here ONLY, keyed by pseudonym.
@@ -376,3 +385,12 @@ def metrics(r: str = Depends(role)):
     people = {p["id"]: {"language": p.get("language"), "funding": p.get("funding"), "sex": p.get("sex"), "age_band": p.get("age_band")}
               for p in DB["participants"].values()}
     return NAV.programme_metrics(refs, people)
+
+
+# ------------------------------------------------------------- web app
+# Serve the built single-page app at "/" so one in-country App Service hosts
+# both the API and the demo (same origin: microphone + speech work over HTTPS).
+_DIST = pathlib.Path(__file__).resolve().parents[1] / "web" / "dist"
+if _DIST.exists():
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/", StaticFiles(directory=str(_DIST), html=True), name="web")

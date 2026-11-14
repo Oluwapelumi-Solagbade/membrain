@@ -103,26 +103,79 @@
   }
 
   // --- speech input + on-device acoustic features (audio never leaves the device)
+  // --- speech engine: Azure AI Speech (UAE North) via the MemBrain API, else browser recognition, else typed
+  const SPEECH = { mode: "browser", locale: null, region: null, note: "" };
+  // Where the MemBrain API lives: ?api=… override, the same origin when served by the API (Azure App Service, localhost),
+  // or the team's in-country App Service when opened from GitHub Pages.
+  const DEFAULT_API = "https://membrain-cerebrospark.azurewebsites.net";
+  const API = (() => { try { const q = new URLSearchParams(location.search).get("api"); if (q) return q.replace(/\/$/, ""); } catch (e) {}
+    if (/github\.io$/.test(location.hostname)) return DEFAULT_API;
+    return /^https?:$/.test(location.protocol) && !/claude\.ai$|claudeusercontent/.test(location.hostname) ? "" : null; })();
+  // Speech SDK (MIT, Microsoft) is vendored and served by the MemBrain App Service; CDN copy pinned as a fallback.
+  const SDK_URL = API !== null ? API + "/vendor/speech-sdk-1.53.0.min.js" : "https://cdn.jsdelivr.net/npm/microsoft-cognitiveservices-speech-sdk@1.53.0/distrib/browser/microsoft.cognitiveservices.speech.sdk.bundle-min.js";
+  async function initSpeech() {
+    if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) SPEECH.mode = "typed";
+    if (API === null) return;
+    try {
+      const ctl = new AbortController(); setTimeout(() => ctl.abort(), 3000);
+      const cfg = await (await fetch(API + "/api/speech/config", { signal: ctl.signal })).json();
+      if (!cfg.enabled) return;
+      await new Promise((res, rej) => { if (window.SpeechSDK) return res(); const sc = document.createElement("script"); sc.src = SDK_URL; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc); });
+      SPEECH.mode = "azure"; SPEECH.region = cfg.region; SPEECH.locales = cfg.locales;
+    } catch (e) { SPEECH.note = "Azure Speech not reachable; using fallback"; }
+    if (S.view === "participant" && S.pt) render();
+  }
+  const speechLabel = () => SPEECH.mode === "azure" ? `Azure AI Speech, ${SPEECH.region} (in-country)` : SPEECH.mode === "browser" ? "Browser speech recognition (not dialect-tuned)" : "Typed or sample answers";
+  async function azureToken() {
+    const r = await fetch(API + "/api/speech/token"); if (!r.ok) throw new Error("token " + r.status); return r.json();
+  }
+
   const Rec = {
-    active: false, fallback: false, async start(lang, onText) {
-      this.text = ""; this.frames = []; this.t0 = performance.now(); this.clip = 0; this.samples = 0;
+    active: false, fallback: false, async start(lang, onText, opts = {}) {
+      this.text = ""; this.finalText = ""; this.frames = []; this.t0 = performance.now(); this.clip = 0; this.samples = 0; this.engine = "none";
       try {
-        this.stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, sampleRate: 16000 } });
+        this.stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, sampleRate: 16000, echoCancellation: true, noiseSuppression: false } });
         this.ctx = new (window.AudioContext || window.webkitAudioContext)(); const src = this.ctx.createMediaStreamSource(this.stream);
         this.an = this.ctx.createAnalyser(); this.an.fftSize = 1024; src.connect(this.an); const buf = new Float32Array(this.an.fftSize);
         this.iv = setInterval(() => { this.an.getFloatTimeDomainData(buf); let s = 0; for (const x of buf) { s += x * x; if (Math.abs(x) > 0.99) this.clip++; this.samples++; }
           const db = 10 * Math.log10(s / buf.length + 1e-10); this.frames.push(db); const m = $("#lvl"); if (m) m.style.width = Math.max(0, Math.min(100, (db + 60) * 1.8)) + "%"; }, 50);
       } catch (e) { this.fallback = true; return false; }
+      this.active = true;
+      if (opts.transcribe === false) return true;
+      const emit = (interim) => { this.text = (this.finalText + " " + (interim || "")).trim(); onText && onText(this.text); };
+      if (SPEECH.mode === "azure") {
+        try {
+          const { token, region } = await azureToken(); const sdk = window.SpeechSDK;
+          const cfg = sdk.SpeechConfig.fromAuthorizationToken(token, region);
+          const dialect = (person(S.pt?.pid) || {}).dialect;
+          cfg.speechRecognitionLanguage = lang === "ar" ? ((SPEECH.locales || {})[dialect] || "ar-AE") : "en-GB";
+          SPEECH.locale = cfg.speechRecognitionLanguage;
+          this.az = new sdk.SpeechRecognizer(cfg, sdk.AudioConfig.fromStreamInput(this.stream));
+          this.az.recognizing = (_s, e) => emit(e.result.text);
+          this.az.canceled = (_s, e) => {
+            if (e.reason === sdk.CancellationReason.Error && this.active) {
+              SPEECH.note = "Azure Speech error (" + (e.errorDetails || "connection") + "); switched to browser recognition"; const st = $("#rec-status"); if (st) st.textContent = SPEECH.note;
+              try { this.az.close(); } catch (x) {} this.az = null; this.browserSR(lang, onText);
+            }
+          };
+          this.az.recognized = (_s, e) => { if (e.result.reason === sdk.ResultReason.RecognizedSpeech && e.result.text) { this.finalText = (this.finalText + " " + e.result.text).trim(); emit(""); } };
+          await new Promise((res, rej) => this.az.startContinuousRecognitionAsync(res, rej));
+          this.engine = "azure"; return true;
+        } catch (e) { SPEECH.note = "Azure Speech failed for this session; using browser recognition"; this.az = null; }
+      }
+      this.browserSR(lang, onText); return true;
+    },
+    browserSR(lang, onText) {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SR) {
         this.sr = new SR(); this.sr.lang = lang === "ar" ? "ar-AE" : "en-US"; this.sr.continuous = true; this.sr.interimResults = true;
         this.sr.onresult = (ev) => { let f = ""; for (let i = 0; i < ev.results.length; i++) f += ev.results[i][0].transcript + " "; this.text = f.trim(); onText && onText(this.text); };
-        this.sr.onerror = () => {}; try { this.sr.start(); } catch (e) {}
+        this.sr.onerror = () => {}; try { this.sr.start(); this.engine = "browser"; } catch (e) {}
       }
-      this.active = true; return true;
     },
-    stop(noiseDb) {
+    async stop(noiseDb) {
       this.active = false; clearInterval(this.iv); try { this.sr && this.sr.stop(); } catch (e) {}
+      if (this.az) { const az = this.az; this.az = null; try { await new Promise((res) => az.stopContinuousRecognitionAsync(res, res)); az.close(); } catch (e) {} }
       try { this.stream.getTracks().forEach((t) => t.stop()); this.ctx.close(); } catch (e) {}
       const dur = (performance.now() - this.t0) / 1000; const fr = this.frames;
       const floor = noiseDb ?? (fr.length ? [...fr].sort((a, b) => a - b)[Math.floor(fr.length * 0.1)] : -60);
@@ -130,7 +183,8 @@
       let pauses = 0, run = 0, pauseLens = []; speech.forEach((s) => { if (!s) run++; else { if (run * 0.05 >= 0.25) { pauses++; pauseLens.push(run * 0.05); } run = 0; } });
       const spDb = fr.filter((d, i) => speech[i]); const meanSp = spDb.length ? spDb.reduce((a, b) => a + b, 0) / spDb.length : floor;
       const words = (this.text || "").split(/\s+/).filter(Boolean);
-      return { audio: { snr_db: +(meanSp - floor).toFixed(1), clipping: this.samples ? +(this.clip / this.samples).toFixed(4) : 0, speech_ratio: fr.length ? +(sp / fr.length).toFixed(2) : 0, duration_s: +dur.toFixed(1) },
+      return { text: this.text, engine: this.engine, locale: this.engine === "azure" ? SPEECH.locale : null,
+               audio: { snr_db: +(meanSp - floor).toFixed(1), clipping: this.samples ? +(this.clip / this.samples).toFixed(4) : 0, speech_ratio: fr.length ? +(sp / fr.length).toFixed(2) : 0, duration_s: +dur.toFixed(1) },
                features: { speech_rate_wpm: sp ? +(words.length / (sp * 0.05 / 60)).toFixed(1) : 0, pause_count: pauses, mean_pause_s: pauseLens.length ? +(pauseLens.reduce((a, b) => a + b, 0) / pauseLens.length).toFixed(2) : 0,
                            type_token_ratio: words.length ? +(new Set(words).size / words.length).toFixed(2) : 0, word_count: words.length } };
     },
@@ -172,7 +226,8 @@
           <div><b>${esc(p.display_name.en)}</b> · ${p.age} y · ${EDU[p.education]} · ${esc(p.dialect)}</div>
           <div class="muted" style="margin-top:6px">${esc(p.story || "New participant.")}</div>
           <div style="margin-top:8px">Session ${p.sessions.filter((s) => s.type !== "intake").length + 1}, alternate form <b>${pt.form}</b></div>
-          <div class="muted tiny" style="margin-top:8px">Hosted preview: browsers block the microphone inside embedded pages, so answers are typed or sampled. Run the repo locally for live speech recognition and on-device voice features.</div></div>
+          <div class="small" style="margin-top:8px"><b>Speech recognition:</b> ${speechLabel()}${SPEECH.note ? `<div class="tiny muted">${esc(SPEECH.note)}</div>` : ""}</div>
+          <div class="muted tiny" style="margin-top:6px">If the microphone is blocked (for example inside an embedded preview), answers can be typed or sampled. Voice features are computed on the device; audio is never stored by MemBrain.</div></div>
       </aside></div>`;
     $("#pt-exit").onclick = () => { try { speechSynthesis.cancel(); } catch (e) {} S.pt = null; render(); };
     $("#pt-lang").onclick = () => { pt.lang = ar ? "en" : "ar"; render(); };
@@ -213,9 +268,11 @@
         if (!ok) { $("#rec-status").textContent = l.typed; m.disabled = true; return; }
         m.classList.add("rec"); m.textContent = l.stop; $("#rec-status").textContent = l.listening;
       } else {
-        const r = Rec.stop(pt.noiseDb); m.classList.remove("rec"); m.textContent = l.tap;
-        pt.audio[task] = r.audio; pt.vf[task] = r.features;
-        $("#rec-status").textContent = `SNR ${r.audio.snr_db} dB · speech ${Math.round(r.audio.speech_ratio * 100)}% · ${r.audio.duration_s}s`;
+        m.disabled = true; m.textContent = "…";
+        const r = await Rec.stop(pt.noiseDb); m.disabled = false; m.classList.remove("rec"); m.textContent = l.tap;
+        if (r.text) { ta.value = r.text; pt.tr[task] = r.text; }
+        pt.audio[task] = r.audio; pt.vf[task] = r.features; pt.asr = { engine: r.engine, locale: r.locale };
+        $("#rec-status").textContent = `SNR ${r.audio.snr_db} dB · speech ${Math.round(r.audio.speech_ratio * 100)}% · ${r.audio.duration_s}s · ${r.engine === "azure" ? "Azure " + r.locale : r.engine}`;
       }
     };
     if (Rec.fallback) { $("#rec-status").textContent = l.typed; }
@@ -238,7 +295,7 @@
       $("#pt-body").innerHTML = sayBlock(l.noiseQ) + `<button class="btn big" id="nz">🎙️ ${l.noiseBtn}</button><div class="meter"><i id="lvl"></i></div><div id="nzr" class="small muted"></div>`;
       bindRepeat(l.noiseQ);
       $("#nz").onclick = async () => {
-        const ok = await Rec.start(pt.lang); if (!ok) { $("#nzr").textContent = l.typed; return; }
+        const ok = await Rec.start(pt.lang, null, { transcribe: false }); if (!ok) { $("#nzr").textContent = l.typed; return; }
         $("#nzr").textContent = "…"; setTimeout(() => { const fr = Rec.frames.slice(); Rec.stop(); const med = fr.sort((a, b) => a - b)[Math.floor(fr.length / 2)] ?? -60; pt.noiseDb = med; pt.precheck.noise_ok = med < -45;
           $("#nzr").textContent = `Room level ${med.toFixed(0)} dBFS — ${pt.precheck.noise_ok ? "OK" : "noisy: please move somewhere quieter"}`; }, 2500);
       };
@@ -327,7 +384,7 @@
                                     speech_ratio: audios.reduce((a, b) => a + b.speech_ratio, 0) / audios.length, duration_s: Math.min(...audios.map((a) => a.duration_s)) } : null;
     const s = { session_id: `${p.id}-s${p.sessions.length}`, date: d.toISOString().slice(0, 10), channel: "app", form: pt.form, raw: sc.raw, audio,
                 precheck: { ...pt.precheck }, phq2: pt.phq[0] + pt.phq[1], gad2: pt.gad[0] + pt.gad[1], sleep_hours: pt.sleep, acute_illness: pt.ill,
-                assisted: pt.assisted, helper_role: pt.assisted ? "family member" : null, input_mode: audio ? "voice" : "typed (demo)",
+                assisted: pt.assisted, helper_role: pt.assisted ? "family member" : null, input_mode: audio ? "voice" : "typed (demo)", asr: pt.asr || null,
                 voice_features: (p.consent || {}).voice_features && vfs.length ? vfs.reduce((acc, f) => { for (const k in f) acc[k] = +(((acc[k] || 0) + f[k] / vfs.length)).toFixed(2); return acc; }, {}) : null, transcripts: tr };
     if (p.pending_iqcode != null && !p.sessions.some((x) => x.type !== "intake")) { s.iqcode = p.pending_iqcode; p.pending_iqcode = null; }
     p.sessions.push(s);
@@ -934,4 +991,5 @@
   const h = (location.hash || "").replace("#", ""); if (["enrol", "participant", "clinician", "referrals", "validation", "how"].includes(h)) S.view = h;
   window.addEventListener("hashchange", () => { const v = (location.hash || "").replace("#", ""); if (v !== S.view && ["enrol", "participant", "clinician", "referrals", "validation", "how"].includes(v)) go(v); });
   go(S.view);
+  initSpeech();
 })();

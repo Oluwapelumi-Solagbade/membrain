@@ -18,6 +18,7 @@ MemBrain is a bilingual (Arabic dialects and English), voice-first cognitive and
 | FHIR R4 mapping (Patient, Consent, Observation, RiskAssessment, Task) | `membrain/fhir.py` | Validated against `fhir.resources` R4B |
 | Synthetic cohort + all requirement-6 metrics, by subgroup | `membrain/simulate.py`, `membrain/validation.py` | Working |
 | REST API with role checks and audit log | `api/main.py` | Working (in-memory store) |
+| Azure AI Speech (UAE North): server-side token broker, streaming transcription by dialect, automatic fallback | `api/speech.py`, `web/app.js` | Working; goes live once deployed with the key |
 | Enrolment: identity vault, consent for each data type, informant, health context, session plan, audited re-identification | `web/app.js`, `api/main.py` | Working, tested |
 | Navigator: red-flag screen, service directory, accessibility matching, closed-loop referral tracking, next-steps pack, programme metrics | `membrain/navigator.py`, Referrals tab | Working, tested |
 | Web prototype: enrolment, participant app, clinician dashboard, referrals, validation, architecture | `web/` | Working; also published as a hosted demo |
@@ -27,7 +28,7 @@ MemBrain is a bilingual (Arabic dialects and English), voice-first cognitive and
 
 ```bash
 pip install -r requirements.txt
-make test          # 35 Python tests + JS parity check
+make test          # 39 Python tests + JS parity check
 make web           # regenerate golden vectors, validation run, and web/dist/index.html
 make api           # http://localhost:8000/docs
 ```
@@ -49,6 +50,7 @@ docs/          technical documentation, assumptions and limitations, data source
 
 - [Technical documentation](docs/TECHNICAL_DOCUMENTATION.md)
 - [Navigator layer: from alert to completed care](docs/NAVIGATOR.md)
+- [Azure Speech integration](docs/AZURE_SPEECH.md) · [Deploy to Azure UAE North](docs/DEPLOY_AZURE.md)
 - [On-device vs cloud architecture + speech stack](docs/ARCHITECTURE_DEVICE_CLOUD.md)
 - [Assumptions and limitations](docs/ASSUMPTIONS_LIMITATIONS.md)
 - [Data sources plan](docs/DATA_SOURCES.md)
