@@ -603,7 +603,19 @@ window.MB_DATA = {"config": {"AUDIO_MAX_CLIPPING": 0.01, "AUDIO_MIN_DURATION_S":
     active: false, fallback: false, async start(lang, onText, opts = {}) {
       this.text = ""; this.finalText = ""; this.frames = []; this.t0 = performance.now(); this.clip = 0; this.samples = 0; this.engine = "none";
       try {
-        this.stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, sampleRate: 16000, echoCancellation: true, noiseSuppression: false } });
+        try { speechSynthesis.cancel(); } catch (x) {}
+        let micDeviceId = null;
+        try {
+          const devs = await navigator.mediaDevices.enumerateDevices();
+          const inputs = devs.filter((d) => d.kind === "audioinput");
+          const realMic = inputs.find((d) => !/stereo\s*mix|what\s*u\s*hear|loopback|wave/i.test(d.label || "") && /mic|array|internal|built/i.test(d.label || ""))
+                       || inputs.find((d) => !/stereo\s*mix|what\s*u\s*hear|loopback|wave/i.test(d.label || ""));
+          if (realMic && realMic.deviceId) micDeviceId = realMic.deviceId;
+        } catch (x) {}
+        const audioConstraints = { channelCount: 1, sampleRate: 16000, echoCancellation: true, noiseSuppression: true };
+        if (micDeviceId) audioConstraints.deviceId = { exact: micDeviceId };
+        this.stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+        this.micDeviceId = micDeviceId;
         this.ctx = new (window.AudioContext || window.webkitAudioContext)(); const src = this.ctx.createMediaStreamSource(this.stream);
         this.an = this.ctx.createAnalyser(); this.an.fftSize = 1024; src.connect(this.an); const buf = new Float32Array(this.an.fftSize);
         this.iv = setInterval(() => { this.an.getFloatTimeDomainData(buf); let s = 0; for (const x of buf) { s += x * x; if (Math.abs(x) > 0.99) this.clip++; this.samples++; }
@@ -619,7 +631,10 @@ window.MB_DATA = {"config": {"AUDIO_MAX_CLIPPING": 0.01, "AUDIO_MIN_DURATION_S":
           const dialect = (person(S.pt?.pid) || {}).dialect;
           cfg.speechRecognitionLanguage = lang === "ar" ? ((SPEECH.locales || {})[dialect] || "ar-AE") : "en-GB";
           SPEECH.locale = cfg.speechRecognitionLanguage;
-          this.az = new sdk.SpeechRecognizer(cfg, sdk.AudioConfig.fromDefaultMicrophoneInput());
+          const azAudio = this.micDeviceId
+            ? sdk.AudioConfig.fromMicrophoneInput(this.micDeviceId)
+            : sdk.AudioConfig.fromDefaultMicrophoneInput();
+          this.az = new sdk.SpeechRecognizer(cfg, azAudio);
           this.az.recognizing = (_s, e) => emit(e.result.text);
           this.az.canceled = (_s, e) => {
             if (e.reason === sdk.CancellationReason.Error && this.active) {
