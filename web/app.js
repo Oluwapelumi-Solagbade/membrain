@@ -18,6 +18,7 @@
     people: D.personas.map((p) => ({ ...p, sessions: p.sessions.map((s) => ({ ...s })) })),
     actions: {}, audit: [], selected: null, sub: "education",
     pt: null,
+    _tm: null, _wordTimer: null, _nzTimer: null,
   };
   S.selected = (S.people.find((p) => p.id === "MB-1322") || S.people[0]).id;
   const toast = (m) => { const t = $("#toast"); t.textContent = m; t.classList.add("on"); setTimeout(() => t.classList.remove("on"), 2200); };
@@ -25,7 +26,7 @@
   $("#ver").textContent = `engine ${C.ENGINE_VERSION} · norms ${C.NORMS_VERSION} · items ${D.items.ITEM_BANK_VERSION}`;
 
   // ---------------------------------------------------------------- routing
-  function go(v) { S.view = v; document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.view === v)); render(); try { history.replaceState(null, "", "#" + v); } catch (e) {} window.scrollTo(0, 0); }
+  function go(v) { stopSpeech(); S.view = v; document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.view === v)); render(); try { history.replaceState(null, "", "#" + v); } catch (e) {} window.scrollTo(0, 0); }
   $("#tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) go(b.dataset.view); });
   function render() {
     document.documentElement.dir = "ltr"; document.documentElement.lang = "en";
@@ -93,7 +94,14 @@
 
   // --- speech output
   let voices = []; try { speechSynthesis.onvoiceschanged = () => (voices = speechSynthesis.getVoices()); voices = speechSynthesis.getVoices(); } catch (e) {}
-  function speak(text, lang, onend) {
+    function stopSpeech() {
+    try { speechSynthesis.cancel(); } catch (e) {}
+    if (S._wordTimer) { clearTimeout(S._wordTimer); S._wordTimer = null; }
+    if (S._nzTimer) { clearTimeout(S._nzTimer); S._nzTimer = null; }
+    if (S._tm) { clearInterval(S._tm); S._tm = null; }
+    if (Rec.active) { try { Rec.stop(); } catch (e) {} }
+  }
+function speak(text, lang, onend) {
     try {
       speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text);
       u.lang = lang === "ar" ? "ar-AE" : "en-GB"; u.rate = S.pt && S.pt.slow ? 0.75 : 0.9;
@@ -258,6 +266,7 @@
   }
 
   function renderParticipant() {
+    stopSpeech();
     if (!S.pt) return renderChoose();
     const pt = S.pt, l = L(), p = person(pt.pid), ar = pt.lang === "ar";
     document.body.classList.toggle("hc", pt.hc); document.documentElement.style.setProperty("--fs", pt.big ? "19px" : "16px");
@@ -282,21 +291,40 @@
           <div class="small" style="margin-top:8px"><b>Speech recognition:</b> ${speechLabel()}${SPEECH.note ? `<div class="tiny muted">${esc(SPEECH.note)}</div>` : ""}</div>
           <div class="muted tiny" style="margin-top:6px">If the microphone is blocked (for example inside an embedded preview), answers can be typed or sampled. Voice features are computed on the device; audio is never stored by MemBrain.</div></div>
       </aside></div>`;
-    $("#pt-exit").onclick = () => { try { speechSynthesis.cancel(); } catch (e) {} S.pt = null; render(); };
-    $("#pt-lang").onclick = () => { pt.lang = ar ? "en" : "ar"; render(); };
+    $("#pt-exit").onclick = () => { stopSpeech(); S.pt = null; render(); };
+    $("#pt-lang").onclick = () => { stopSpeech(); pt.lang = ar ? "en" : "ar"; render(); };
     $("#a-big").onchange = (e) => { pt.big = e.target.checked; render(); };
     $("#a-hc").onchange = (e) => { pt.hc = e.target.checked; render(); };
     $("#a-slow").onchange = (e) => { pt.slow = e.target.checked; };
     $("#a-help").onchange = (e) => { pt.assisted = e.target.checked; };
     STEP[pt.step](pt, l, p);
   }
-  function foot(prev, nextFn, nextLabel, disabled) {
+  function foot(prev, nextFn, nextLabel, disabled, canSkip = true) {
     const l = L();
-    $("#pt-foot").innerHTML = `<button class="btn" id="f-back" ${prev ? "" : "disabled"}>${l.back}</button><button class="btn primary big" id="f-next" ${disabled ? "disabled" : ""}>${nextLabel || l.next}</button>`;
-    $("#f-back").onclick = () => { S.pt.step = STEPS[Math.max(0, STEPS.indexOf(S.pt.step) - 1)]; render(); };
-    $("#f-next").onclick = nextFn || (() => { S.pt.step = STEPS[STEPS.indexOf(S.pt.step) + 1]; render(); });
+    const skipBtn = canSkip ? `<button class="btn ghost" id="f-skip">${l.skip}</button>` : "";
+    $("#pt-foot").innerHTML = `<button class="btn" id="f-back" ${prev ? "" : "disabled"}>${l.back}</button>${skipBtn}<button class="btn primary big" id="f-next" ${disabled ? "disabled" : ""}>${nextLabel || l.next}</button>`;
+    $("#f-back").onclick = () => {
+      stopSpeech();
+      S.pt.step = STEPS[Math.max(0, STEPS.indexOf(S.pt.step) - 1)];
+      render();
+    };
+    $("#f-next").onclick = () => {
+      stopSpeech();
+      if (nextFn) nextFn(); else nextStep();
+    };
+    if (canSkip) {
+      const sb = $("#f-skip");
+      if (sb) sb.onclick = () => {
+        stopSpeech();
+        nextStep();
+      };
+    }
   }
-  const nextStep = () => { S.pt.step = STEPS[STEPS.indexOf(S.pt.step) + 1]; render(); };
+  const nextStep = () => {
+    stopSpeech();
+    S.pt.step = STEPS[STEPS.indexOf(S.pt.step) + 1];
+    render();
+  };
   function sayBlock(text) {
     const l = L();
     return `<div class="say">${esc(text)}</div><div><button class="btn" id="rep">🔊 ${l.repeat}</button></div>`;
@@ -312,12 +340,20 @@
   }
   function bindRecord(task) {
     const pt = S.pt, l = L(); const ta = $("#tr");
-    ta.oninput = () => (pt.tr[task] = ta.value);
-    ["#s-good", "#s-weak"].forEach((id) => ($(id).onclick = (e) => { ta.value = e.target.dataset.t; pt.tr[task] = ta.value; }));
+    const checkDone = () => {
+      const hasText = Boolean(ta.value && ta.value.trim());
+      const fn = $("#f-next"); if (fn) fn.disabled = !hasText;
+    };
+    ta.oninput = () => { pt.tr[task] = ta.value; checkDone(); };
+    ["#s-good", "#s-weak"].forEach((id) => ($(id).onclick = (e) => {
+      ta.value = e.target.dataset.t; pt.tr[task] = ta.value; checkDone();
+    }));
     $("#mic").onclick = async () => {
       const m = $("#mic");
       if (!Rec.active) {
-        const ok = await Rec.start(pt.lang, (t) => { ta.value = t; pt.tr[task] = t; });
+        const ok = await Rec.start(pt.lang, (t) => {
+          ta.value = t; pt.tr[task] = t; checkDone();
+        });
         if (!ok) { $("#rec-status").textContent = l.typed; m.disabled = true; return; }
         m.classList.add("rec"); m.textContent = l.stop;
         const listeningMsg = Rec.engine === "azure"
@@ -327,7 +363,7 @@
       } else {
         m.disabled = true; m.textContent = "…";
         const r = await Rec.stop(pt.noiseDb); m.disabled = false; m.classList.remove("rec"); m.textContent = l.tap;
-        if (r.text) { ta.value = r.text; pt.tr[task] = r.text; }
+        if (r.text) { ta.value = r.text; pt.tr[task] = r.text; checkDone(); }
         pt.audio[task] = r.audio; pt.vf[task] = r.features; pt.asr = { engine: r.engine, locale: r.locale };
         $("#rec-status").textContent = `SNR ${r.audio.snr_db} dB · speech ${Math.round(r.audio.speech_ratio * 100)}% · ${r.audio.duration_s}s · ${r.engine === "azure" ? "Azure " + r.locale : r.engine}`;
       }
@@ -345,57 +381,154 @@
     hear(pt, l) {
       $("#pt-body").innerHTML = sayBlock(l.hearQ) + `<button class="btn big" id="play">🔊 ${l.play}</button><div class="opts"><button class="opt" data-v="1">${l.yes}</button><button class="opt" data-v="0">${l.no}</button></div>`;
       bindRepeat(l.hearQ); $("#play").onclick = () => speak(l.hearQ, pt.lang);
-      document.querySelectorAll(".opt").forEach((b) => (b.onclick = () => { pt.precheck.hearing_ok = b.dataset.v === "1"; nextStep(); }));
-      foot(true, null, l.skip);
+      document.querySelectorAll(".opt").forEach((b) => (b.onclick = () => {
+        stopSpeech();
+        pt.precheck.hearing_ok = b.dataset.v === "1";
+        nextStep();
+      }));
+      foot(true, null, null, true, true);
     },
     noise(pt, l) {
       $("#pt-body").innerHTML = sayBlock(l.noiseQ) + `<button class="btn big" id="nz">🎙️ ${l.noiseBtn}</button><div class="meter"><i id="lvl"></i></div><div id="nzr" class="small muted"></div>`;
       bindRepeat(l.noiseQ);
       $("#nz").onclick = async () => {
-        const ok = await Rec.start(pt.lang, null, { transcribe: false }); if (!ok) { $("#nzr").textContent = l.typed; return; }
-        $("#nzr").textContent = "…"; setTimeout(() => { const fr = Rec.frames.slice(); Rec.stop(); const med = fr.sort((a, b) => a - b)[Math.floor(fr.length / 2)] ?? -60; pt.noiseDb = med; pt.precheck.noise_ok = med < -45;
-          $("#nzr").textContent = `Room level ${med.toFixed(0)} dBFS — ${pt.precheck.noise_ok ? "OK" : "noisy: please move somewhere quieter"}`; }, 2500);
+        const ok = await Rec.start(pt.lang, null, { transcribe: false });
+        if (!ok) {
+          $("#nzr").textContent = l.typed;
+          pt.noiseDb = -50;
+          pt.precheck.noise_ok = true;
+          const fn = $("#f-next"); if (fn) fn.disabled = false;
+          return;
+        }
+        $("#nzr").textContent = "…";
+        if (S._nzTimer) { clearTimeout(S._nzTimer); S._nzTimer = null; }
+        S._nzTimer = setTimeout(() => {
+          const fr = Rec.frames.slice();
+          Rec.stop();
+          const med = fr.sort((a, b) => a - b)[Math.floor(fr.length / 2)] ?? -60;
+          pt.noiseDb = med;
+          pt.precheck.noise_ok = med < -45;
+          $("#nzr").textContent = `Room level ${med.toFixed(0)} dBFS — ${pt.precheck.noise_ok ? "OK" : "noisy: please move somewhere quieter"}`;
+          const fn = $("#f-next"); if (fn) fn.disabled = false;
+          S._nzTimer = null;
+        }, 2500);
       };
-      foot(true, null);
+      foot(true, null, null, pt.noiseDb === null, true);
     },
     see(pt, l) {
       $("#pt-body").innerHTML = sayBlock(l.seeQ) + `<div class="wordshow" style="font-size:1.6em">${pt.lang === "ar" ? "الشَّمْسُ مُشْرِقَةٌ اليَوْمَ" : "The sun is bright today"}</div><div class="opts"><button class="opt" data-v="1">${l.yes}</button><button class="opt" data-v="0">${l.no}</button></div>`;
-      bindRepeat(l.seeQ); document.querySelectorAll(".opt").forEach((b) => (b.onclick = () => { pt.precheck.vision_ok = b.dataset.v === "1"; nextStep(); }));
-      foot(true, null, l.skip);
+      bindRepeat(l.seeQ);
+      document.querySelectorAll(".opt").forEach((b) => (b.onclick = () => {
+        stopSpeech();
+        pt.precheck.vision_ok = b.dataset.v === "1";
+        nextStep();
+      }));
+      foot(true, null, null, true, true);
     },
     words_listen(pt, l) {
       const words = D.items.WORD_LISTS[pt.form][pt.lang];
       $("#pt-body").innerHTML = sayBlock(l.wordsL) + `<div class="wordshow" id="ws"></div><button class="btn big primary" id="pw">▶ ${l.play}</button>`;
       bindRepeat(l.wordsL);
-      $("#pw").onclick = () => { let i = 0; const gap = pt.slow ? 2200 : 1600; const tick = () => { if (i >= words.length) { $("#ws").textContent = "✓"; return; } $("#ws").textContent = words[i]; speak(words[i], pt.lang); i++; setTimeout(tick, gap); }; speak(l.wordsL, pt.lang, tick); };
-      foot(true, null);
+      $("#pw").onclick = () => {
+        let i = 0;
+        const gap = pt.slow ? 2200 : 1600;
+        if (S._wordTimer) { clearTimeout(S._wordTimer); S._wordTimer = null; }
+        const tick = () => {
+          if (i >= words.length) {
+            $("#ws").textContent = "✓";
+            pt._words_listened = true;
+            const fn = $("#f-next"); if (fn) fn.disabled = false;
+            S._wordTimer = null;
+            return;
+          }
+          $("#ws").textContent = words[i];
+          speak(words[i], pt.lang);
+          i++;
+          S._wordTimer = setTimeout(tick, gap);
+        };
+        speak(l.wordsL, pt.lang, tick);
+      };
+      foot(true, null, null, !pt._words_listened, true);
     },
-    words_recall(pt, l) { $("#pt-body").innerHTML = sayBlock(l.wordsR) + recordBlock("words_recall"); bindRepeat(l.wordsR); bindRecord("words_recall"); foot(true, null); speak(l.wordsR, pt.lang); },
+    words_recall(pt, l) {
+      const done = Boolean(pt.tr.words_recall && pt.tr.words_recall.trim());
+      $("#pt-body").innerHTML = sayBlock(l.wordsR) + recordBlock("words_recall");
+      bindRepeat(l.wordsR);
+      foot(true, null, null, !done, true);
+      bindRecord("words_recall");
+      speak(l.wordsR, pt.lang);
+    },
     story_listen(pt, l) {
       const st = D.items.STORIES[pt.form][pt.lang];
       $("#pt-body").innerHTML = sayBlock(l.storyL) + `<button class="btn big primary" id="ps">▶ ${l.play}</button><div class="small muted" id="cap" style="display:none">${esc(st)}</div>`;
-      bindRepeat(l.storyL); $("#ps").onclick = () => { $("#cap").style.display = "block"; speak(l.storyL + " " + st, pt.lang); };
-      foot(true, () => { try { speechSynthesis.cancel(); } catch (e) {} nextStep(); });
+      bindRepeat(l.storyL);
+      $("#ps").onclick = () => {
+        $("#cap").style.display = "block";
+        pt._story_listened = true;
+        const fn = $("#f-next"); if (fn) fn.disabled = false;
+        speak(l.storyL + " " + st, pt.lang);
+      };
+      foot(true, null, null, !pt._story_listened, true);
     },
-    story_recall(pt, l) { $("#pt-body").innerHTML = sayBlock(l.storyR) + recordBlock("story_recall"); bindRepeat(l.storyR); bindRecord("story_recall"); foot(true, null); speak(l.storyR, pt.lang); },
+    story_recall(pt, l) {
+      const done = Boolean(pt.tr.story_recall && pt.tr.story_recall.trim());
+      $("#pt-body").innerHTML = sayBlock(l.storyR) + recordBlock("story_recall");
+      bindRepeat(l.storyR);
+      foot(true, null, null, !done, true);
+      bindRecord("story_recall");
+      speak(l.storyR, pt.lang);
+    },
     fluency(pt, l) {
       const txt = l.flu(D.items.FLUENCY[pt.form].category[pt.lang]);
       $("#pt-body").innerHTML = sayBlock(txt) + `<div class="timer" id="tm">60</div>` + recordBlock("fluency");
-      bindRepeat(txt); bindRecord("fluency"); let t = 60; clearInterval(S._tm);
-      $("#mic").addEventListener("click", () => { if (S._tm) return; S._tm = setInterval(() => { t--; const el = $("#tm"); if (!el) { clearInterval(S._tm); S._tm = null; return; } el.textContent = t; if (t <= 0) { clearInterval(S._tm); S._tm = null; if (Rec.active) $("#mic").click(); } }, 1000); });
-      foot(true, () => { clearInterval(S._tm); S._tm = null; nextStep(); }); speak(txt, pt.lang);
+      bindRepeat(txt);
+      bindRecord("fluency");
+      let t = 60;
+      if (S._tm) { clearInterval(S._tm); S._tm = null; }
+      $("#mic").addEventListener("click", () => {
+        if (S._tm) return;
+        S._tm = setInterval(() => {
+          t--;
+          const el = $("#tm");
+          if (!el) { clearInterval(S._tm); S._tm = null; return; }
+          el.textContent = t;
+          if (t <= 0) {
+            clearInterval(S._tm);
+            S._tm = null;
+            if (Rec.active) $("#mic").click();
+          }
+        }, 1000);
+      });
+      const flDone = Boolean(pt.tr.fluency && pt.tr.fluency.trim());
+      foot(true, () => {
+        if (S._tm) { clearInterval(S._tm); S._tm = null; }
+        nextStep();
+      }, null, !flDone, true);
+      speak(txt, pt.lang);
     },
     judgement(pt, l) {
       const q = D.items.JUDGEMENT[pt.form][pt.lang];
-      $("#pt-body").innerHTML = sayBlock(q) + `<div class="small muted">${l.judg}</div>` + recordBlock("judgement"); bindRepeat(q); bindRecord("judgement"); foot(true, null); speak(l.judg + " " + q, pt.lang);
+      const jdDone = Boolean(pt.tr.judgement && pt.tr.judgement.trim());
+      $("#pt-body").innerHTML = sayBlock(q) + `<div class="small muted">${l.judg}</div>` + recordBlock("judgement");
+      bindRepeat(q);
+      foot(true, null, null, !jdDone, true);
+      bindRecord("judgement");
+      speak(l.judg + " " + q, pt.lang);
     },
-    delayed(pt, l) { $("#pt-body").innerHTML = sayBlock(l.delayed) + recordBlock("delayed"); bindRepeat(l.delayed); bindRecord("delayed"); foot(true, null); speak(l.delayed, pt.lang); },
+    delayed(pt, l) {
+      const dlDone = Boolean(pt.tr.delayed && pt.tr.delayed.trim());
+      $("#pt-body").innerHTML = sayBlock(l.delayed) + recordBlock("delayed");
+      bindRepeat(l.delayed);
+      foot(true, null, null, !dlDone, true);
+      bindRecord("delayed");
+      speak(l.delayed, pt.lang);
+    },
     mood(pt, l) {
       const qs = [...l.phq.map((q, i) => ["phq", i, q]), ...l.gad.map((q, i) => ["gad", i, q])];
       $("#pt-body").innerHTML = `<div class="say">${l.moodT}</div><div class="muted">${l.moodSub}</div>` + qs.map(([k, i, q]) =>
         `<div><div style="font-weight:600;margin:6px 0">${esc(q)}</div><div class="seg">${l.freq.map((f, v) => `<button data-k="${k}" data-i="${i}" data-v="${v}" class="${pt[k][i] === v ? "on" : ""}">${f}</button>`).join("")}</div></div>`).join("");
       document.querySelectorAll(".seg button").forEach((b) => (b.onclick = () => { pt[b.dataset.k][+b.dataset.i] = +b.dataset.v; renderParticipant(); }));
-      foot(true, null); speak(l.moodT + ". " + l.moodSub, pt.lang);
+      foot(true, null, null, false, true); speak(l.moodT + ". " + l.moodSub, pt.lang);
     },
     sleep(pt, l) {
       const hrs = [4.5, 5.5, 6.5, 7.5, 8.5];
@@ -403,7 +536,7 @@
         <div class="say" style="font-size:1.15em;margin-top:8px">${l.illQ}</div><div class="seg"><button data-ill="1" class="${pt.ill ? "on" : ""}">${l.yes}</button><button data-ill="0" class="${!pt.ill ? "on" : ""}">${l.no}</button></div>`;
       document.querySelectorAll(".opt").forEach((b) => (b.onclick = () => { pt.sleep = +b.dataset.h; renderParticipant(); }));
       document.querySelectorAll("[data-ill]").forEach((b) => (b.onclick = () => { pt.ill = b.dataset.ill === "1"; renderParticipant(); }));
-      foot(true, submitSession, l.finish); speak(l.sleepQ, pt.lang);
+      foot(true, submitSession, l.finish, false, false); speak(l.sleepQ, pt.lang);
     },
     done(pt, l, p) {
       const r = pt.result; const ev = r.ev; const key = ev.valid ? ev.level : "INVALID";
@@ -423,14 +556,15 @@
           <ul>${ev.reasons.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
           ${r.unverified.length ? `<div class="muted">Fluency words outside lexicon routed to human audit: ${esc(r.unverified.join(", "))}</div>` : ""}
           <button class="btn primary" id="toClin" style="margin-top:8px">${T.en.openClin} →</button></details>`;
-      $("#toClin").onclick = () => { S.selected = p.id; S.pt = null; go("clinician"); };
+      $("#toClin").onclick = () => { stopSpeech(); S.selected = p.id; S.pt = null; go("clinician"); };
       $("#pt-foot").innerHTML = `<span></span><button class="btn primary" id="again">${pt.lang === "ar" ? "تم" : "Done"}</button>`;
-      $("#again").onclick = () => { S.pt = null; render(); };
+      $("#again").onclick = () => { stopSpeech(); S.pt = null; render(); };
       speak(msg, pt.lang);
     },
   };
 
   function submitSession() {
+    stopSpeech();
     const pt = S.pt, p = person(pt.pid);
     const tr = { memory_immediate: pt.tr.words_recall || "", memory_delayed: pt.tr.delayed || "", fluency: pt.tr.fluency || "", story_recall: pt.tr.story_recall || "", judgement: pt.tr.judgement || "" };
     const sc = E.scoreTranscripts(tr, pt.form, pt.lang);
@@ -467,7 +601,7 @@
       <div class="panel pad small" style="max-width:420px"><b>New participant?</b> Enrolment is done by a coordinator: identity vault, consent for each data type, informant, health context and session plan.
         <div style="margin-top:8px"><button class="btn primary" id="np-go">Go to enrolment →</button></div></div></div>
       <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(330px,1fr))">${cards}</div>`;
-    document.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => { S.pt = newPt(person(b.dataset.go)); S.pt.lang = b.dataset.lang; render(); }));
+    document.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => { stopSpeech(); S.pt = newPt(person(b.dataset.go)); S.pt.lang = b.dataset.lang; render(); }));
     $("#np-go").onclick = () => { S.en = blankEnrol(); go("enrol"); };
   }
 
