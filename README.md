@@ -49,6 +49,7 @@ docs/          technical documentation, assumptions and limitations, data source
 ## Key documents
 
 - [Technical documentation](docs/TECHNICAL_DOCUMENTATION.md)
+- [Evidence pack: robustness, ablation, operating point, decision curve](docs/EVIDENCE_PACK.md)
 - [Navigator layer: from alert to completed care](docs/NAVIGATOR.md)
 - [Azure Speech integration](docs/AZURE_SPEECH.md) · [Deploy to Azure UAE North](docs/DEPLOY_AZURE.md)
 - [On-device vs cloud architecture + speech stack](docs/ARCHITECTURE_DEVICE_CLOUD.md)

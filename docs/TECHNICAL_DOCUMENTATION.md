@@ -145,7 +145,11 @@ Below is a synthetic run with n = 2,000 people, 10,766 sessions and 12 months of
 
 \*Assumes a 3-week review target for MemBrain and a 16-week referral wait for usual care.
 
-The run also surfaces a real gap: sensitivity is 67% for people with no formal education against 81–88% for other groups. MemBrain reports this rather than hiding it, and it is the first target for local norm work in Phase A.
+**Stability and design evidence** (`EVIDENCE_PACK.md`). Across 10 independent synthetic cohorts, sensitivity is 82% ± 1.4 points and specificity 90% ± 0.7.
+- Ablation shows that confirmation on repeat and stratified norms remove the most false referrals.
+- A 72-setting sweep, re-tested on fresh cohorts, shows that our default was not over-fitted: stricter settings halve false referrals but detect far less change.
+- A decision curve shows net benefit over usual care at all thresholds from 5% to 40%.
+- Small-subgroup estimates (for example, no formal education: 72%–96% across cohorts) are unstable, so Phase A enriches these strata.
 
 **Study plan.**
 - Phase A (feasibility and reliability): stratified by dialect, age band and education, with sessions at baseline, about 2 weeks and about 12 weeks. Includes a paper-versus-digital mode-equivalence subsample and ASR word error rate by subgroup.

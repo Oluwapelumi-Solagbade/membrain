@@ -74,7 +74,8 @@ def analyse(cohort: list[dict]) -> dict:
     rows = []
     for p in cohort:
         valid_sessions = [s for s in p["sessions"] if not s.get("incomplete")]
-        evs = evaluate_history(p, valid_sessions) if valid_sessions else []
+        pe = {**p, "education": p.get("eval_education", p["education"])}  # ablation hook: engine-side education
+        evs = evaluate_history(pe, valid_sessions) if valid_sessions else []
         lab = label(p)
         flagged = [e for e in evs if e["level"] in ALERT]
         first_flag_week = None
@@ -83,7 +84,7 @@ def analyse(cohort: list[dict]) -> dict:
             first_flag_week = next(s["week"] for s in valid_sessions if s["session_id"] == sid)
         change_flag = any(e["level"] in ALERT and "rci" in e for e in evs)
         baseline_flag = any(e["level"] in ALERT and "baseline_composite_z" in e for e in evs)
-        abl = evaluate_history(p, strip_confounders(valid_sessions)) if valid_sessions else []
+        abl = evaluate_history(pe, strip_confounders(valid_sessions)) if valid_sessions else []
         # usual care: education-blind single screen at week 0 and 52
         uc = False
         for s in p["sessions"]:

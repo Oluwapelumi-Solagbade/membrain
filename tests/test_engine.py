@@ -109,3 +109,13 @@ def test_very_low_first_visit_goes_to_review_without_waiting():
     s = [{"session_id": "s0", "date": "2026-11-14", "form": "A", "raw": _raw("secondary", 72, -2.6, 0)}]
     ev = evaluate(p, s)["latest"]
     assert ev["level"] == "CLINICIAN_REVIEW" and "first visit" in ev["reasons"][-1]
+
+
+def test_evidence_overrides_restore_config():
+    import importlib.util, pathlib
+    spec = importlib.util.spec_from_file_location("ev", pathlib.Path(__file__).parents[1] / "scripts" / "evidence_pack.py")
+    ev = importlib.util.module_from_spec(spec); spec.loader.exec_module(ev)
+    before = (C.RCI_CHECK, C.DOMAINS["fluency"]["practice"], C.REQUIRE_CONFIRMATION)
+    with ev.Overrides({"RCI_CHECK": -3.0, "PRACTICE_ZERO": True, "REQUIRE_CONFIRMATION": False}):
+        assert C.RCI_CHECK == -3.0 and C.DOMAINS["fluency"]["practice"] == 0.0 and not C.REQUIRE_CONFIRMATION
+    assert (C.RCI_CHECK, C.DOMAINS["fluency"]["practice"], C.REQUIRE_CONFIRMATION) == before

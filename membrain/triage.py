@@ -226,7 +226,7 @@ def evaluate_history(participant: dict, sessions: list[dict]) -> list[dict]:
             ev["pathways"] += ["memory_clinic"] + (["mental_health"] if "mood" in conf_codes else [])
             if conf:
                 ev["reasons"].append("Confounders present and shown to clinician, but size of change requires prompt review")
-        elif decline and prev_decline and "assisted" not in conf_codes:
+        elif decline and (prev_decline or not C.REQUIRE_CONFIRMATION) and "assisted" not in conf_codes:
             ev["level"] = _max(ev["level"], "CLINICIAN_REVIEW")
             ev["reasons"].append("Decline confirmed on repeat with an alternate form")
             ev["pathways"].append("memory_clinic")

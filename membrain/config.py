@@ -45,6 +45,7 @@ RCI_DOMAIN_CHECK = -1.96       # stricter per-domain threshold
 # Only these domains can trigger on their own (others are shown as context;
 # coarse scales such as judgement 0-4 are too noisy to trigger alone).
 TRIGGER_DOMAINS = ["memory_delayed"]
+REQUIRE_CONFIRMATION = True    # a single unconfirmed decline never triggers review (ablation switch)
 RCI_LARGE = -2.576             # large decline -> urgent
 LOW_BASELINE_Z = -1.5          # entry composite below stratified norm -> review
 FIRST_VISIT_REVIEW_Z = -2.0    # very low score at the FIRST visit -> review without waiting for baseline

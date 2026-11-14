@@ -1104,6 +1104,66 @@ function speak(text, lang, onend) {
   $("#modal").addEventListener("click", (e) => { if (e.target.id === "modal") closeModal(); });
 
   // ================================================================ VALIDATION
+  // ---------------------------------------------------------------- evidence pack (robustness, sweep, ablation, decision curve)
+  const EVC = { teal: "#0b8a7a", orange: "#c0761a", blue: "#4b5fc0", ink: "#1d2a2e", muted: "#5f6b6e", grid: "#eee7da" };
+  function evidenceSection() {
+    const X = window.MB_EVIDENCE; if (!X) return "";
+    const R = X.robustness.summary; const ms = (k, p = true) => p ? `${pct(R[k].mean)} <span class="muted small">± ${Math.round(R[k].sd * 1000) / 10} pts</span>` : `${Math.round(R[k].mean)} <span class="muted small">± ${Math.round(R[k].sd)}</span>`;
+    const sw = X.sweep.configs; const W = 560, H = 300, pl = 52, pr = 16, pt = 14, pb = 40;
+    const xs = sw.map((s) => s.false_referrals_per_1000), ys = sw.map((s) => s.sensitivity);
+    const x0 = 0, x1 = Math.ceil(Math.max(...xs) / 50) * 50, y0 = Math.floor(Math.min(...ys) * 20) / 20, y1 = Math.min(1, Math.ceil(Math.max(...ys) * 20) / 20);
+    const SX = (v) => pl + ((v - x0) / (x1 - x0)) * (W - pl - pr), SY = (v) => pt + ((y1 - v) / (y1 - y0)) * (H - pt - pb);
+    const col = { "composite only": EVC.orange, "composite + delayed recall": EVC.teal, "any domain": EVC.blue };
+    let g = "";
+    for (let v = x0; v <= x1; v += 50) g += `<line x1="${SX(v)}" x2="${SX(v)}" y1="${pt}" y2="${H - pb}" stroke="${EVC.grid}"/><text x="${SX(v)}" y="${H - pb + 16}" font-size="11" text-anchor="middle" fill="${EVC.muted}">${v}</text>`;
+    for (let v = y0; v <= y1 + 1e-9; v += 0.05) g += `<line x1="${pl}" x2="${W - pr}" y1="${SY(v)}" y2="${SY(v)}" stroke="${EVC.grid}"/><text x="${pl - 6}" y="${SY(v) + 4}" font-size="11" text-anchor="end" fill="${EVC.muted}">${Math.round(v * 100)}%</text>`;
+    const front = sw.filter((s) => s.pareto).sort((a, b) => a.false_referrals_per_1000 - b.false_referrals_per_1000);
+    g += `<polyline fill="none" stroke="${EVC.ink}" stroke-dasharray="5 4" stroke-width="1.3" points="${front.map((s) => SX(s.false_referrals_per_1000) + "," + SY(s.sensitivity)).join(" ")}"/>`;
+    sw.forEach((s) => { g += `<circle cx="${SX(s.false_referrals_per_1000)}" cy="${SY(s.sensitivity)}" r="${s.chosen ? 7 : 5}" fill="${col[s.trigger]}" fill-opacity=".85" stroke="${s.chosen ? EVC.ink : "#fff"}" stroke-width="${s.chosen ? 2.5 : 1.5}"><title>RCI ≤ ${s.rci} · ${s.trigger} · entry z ≤ ${s.low_baseline} · baseline ${s.baseline_k} sessions\nSensitivity ${pct(s.sensitivity)} · ${s.false_referrals_per_1000} false referrals per 1,000 · change detection ${pct(s.change_sensitivity)}${s.chosen ? "\nCHOSEN DEFAULT" : ""}</title></circle>`; });
+    const ch = sw.find((s) => s.chosen);
+    g += `<text x="${SX(ch.false_referrals_per_1000) + 10}" y="${SY(ch.sensitivity) + 18}" font-size="11" fill="${EVC.ink}">chosen default</text>`;
+    g += `<text x="${(pl + W - pr) / 2}" y="${H - 6}" font-size="11" text-anchor="middle" fill="${EVC.muted}">False referrals per 1,000 screened</text>`;
+    const sweepSvg = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Operating point sweep">${g}</svg>
+      <div class="legend">${Object.entries(col).map(([k, c]) => `<span><i style="background:${c}"></i>${k}</span>`).join("")}<span>- - best trade-off</span><span>Hover a point for its settings</span></div>`;
+    // decision curve
+    const dc = X.decision_curve; const DW = 560, DH = 260; const dmax = Math.max(...dc.membrain) * 1.2, dmin = -0.05;
+    const DX = (v) => pl + ((v - 0.05) / 0.35) * (DW - pl - pr), DY = (v) => pt + ((dmax - Math.max(dmin, v)) / (dmax - dmin)) * (DH - pt - pb);
+    let d = "";
+    [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4].forEach((v) => (d += `<line x1="${DX(v)}" x2="${DX(v)}" y1="${pt}" y2="${DH - pb}" stroke="${EVC.grid}"/><text x="${DX(v)}" y="${DH - pb + 16}" font-size="11" text-anchor="middle" fill="${EVC.muted}">${Math.round(v * 100)}%</text>`));
+    [-0.05, 0, 0.05, 0.1].filter((v) => v <= dmax).forEach((v) => (d += `<line x1="${pl}" x2="${DW - pr}" y1="${DY(v)}" y2="${DY(v)}" stroke="${EVC.grid}"/><text x="${pl - 6}" y="${DY(v) + 4}" font-size="11" text-anchor="end" fill="${EVC.muted}">${v.toFixed(2)}</text>`));
+    const line = (arr, c, dash, w) => `<polyline fill="none" stroke="${c}" stroke-width="${w}" ${dash ? `stroke-dasharray="${dash}"` : ""} points="${dc.pt.map((p, i) => [p, arr[i]]).filter(([, v]) => v >= dmin).map(([p, v]) => DX(p) + "," + DY(v)).join(" ")}"/>`;
+    d += line(dc.refer_none, EVC.muted, "", 1.2) + line(dc.refer_all, EVC.blue, "6 4", 1.5) + line(dc.usual_care, EVC.orange, "", 2.2) + line(dc.membrain, EVC.teal, "", 2.2);
+    dc.pt.forEach((p, i) => (d += `<rect x="${DX(p) - 4}" y="${pt}" width="8" height="${DH - pt - pb}" fill="transparent"><title>Threshold ${Math.round(p * 100)}%\nMemBrain ${dc.membrain[i]} · Usual care ${dc.usual_care[i]} · Refer all ${dc.refer_all[i]}</title></rect>`));
+    d += `<text x="${(pl + DW - pr) / 2}" y="${DH - 6}" font-size="11" text-anchor="middle" fill="${EVC.muted}">Threshold probability at which a clinician would refer</text>`;
+    const dcSvg = `<svg viewBox="0 0 ${DW} ${DH}" width="100%" role="img" aria-label="Decision curve">${d}</svg><div class="legend"><span><i style="background:${EVC.teal}"></i>MemBrain</span><span><i style="background:${EVC.orange}"></i>Usual care</span><span><i style="background:${EVC.blue}"></i>Refer everyone</span><span><i style="background:${EVC.muted}"></i>Refer no one</span></div>`;
+    const ab = X.ablation.rows; const full = ab[0];
+    const abRows = ab.map((a) => `<tr ${a.name === "Full MemBrain" ? 'style="font-weight:700"' : ""}><td>${esc(a.name)}</td><td class="num">${pct(a.sensitivity)}</td><td class="num">${pct(a.specificity)}</td>
+      <td class="num">${a.false_referrals_per_1000}</td><td class="num" style="color:${a.false_referrals_per_1000 > full.false_referrals_per_1000 * 1.1 ? "var(--review)" : "inherit"}">${a.name === "Full MemBrain" ? "–" : (a.false_referrals_per_1000 >= full.false_referrals_per_1000 ? "+" : "") + Math.round((a.false_referrals_per_1000 / full.false_referrals_per_1000 - 1) * 100) + "%"}</td>
+      <td class="num">${a.derived ? "–" : pct(a.change_sensitivity)}</td></tr>`).join("");
+    const cc = X.candidate_check.rows;
+    return `<h2 style="margin:26px 0 4px">Evidence pack: is the design doing the work?</h2>
+      <div class="small muted" style="margin-bottom:12px">Same synthetic assumptions as above. These checks show which choices matter, how stable the results are, and whether our default setting was tuned to fit one cohort. Source: <code>scripts/evidence_pack.py</code>.</div>
+      <div class="kpis">${[["Sensitivity", ms("sensitivity")], ["Specificity", ms("specificity")], ["PPV", ms("ppv")], ["False referrals / 1,000", ms("false_referrals_per_1000", false)], ["Usual care sensitivity", ms("uc_sensitivity")], ["False positives at entry, no schooling", `${pct(R.fp_entry_noedu_stratified.mean)} <span class="muted small">vs ${pct(R.fp_entry_noedu_naive.mean)} single cutoff</span>`]]
+        .map(([l, v]) => `<div class="panel kpi"><div class="v" style="font-size:22px">${v}</div><div class="l">${l}</div><div class="ci">mean ± SD, 10 cohorts × 2,000</div></div>`).join("")}</div>
+      <div class="two" style="margin-top:16px">
+        <div class="panel pad"><h3>What each design choice contributes</h3><div class="small muted">Same people and sessions (n = 2,000); one component switched off at a time.</div>
+          <table style="margin-top:8px"><tr><th>Engine</th><th class="num">Sens.</th><th class="num">Spec.</th><th class="num">False ref. /1,000</th><th class="num">vs full</th><th class="num">Change det.</th></tr>${abRows}</table>
+          <div class="tiny muted" style="margin-top:6px">Confirmation on repeat and education-stratified norms remove the most false referrals. Practice adjustment buys sensitivity (practice gains otherwise hide decline). In this simulation the confounder rules change little, because confirmation already absorbs one-off dips.</div></div>
+        <div class="panel pad"><h3>Operating point: 72 engine settings</h3>${sweepSvg}</div></div>
+      <div class="two" style="margin-top:16px">
+        <div class="panel pad"><h3>Did we over-fit the default?</h3><div class="small muted">The best-looking settings from one cohort, re-tested on 5 fresh cohorts (n = 2,000 each).</div>
+          <table style="margin-top:8px"><tr><th>Setting</th><th class="num">Sens.</th><th class="num">False ref. /1,000</th><th class="num">PPV</th><th class="num">Change det.</th></tr>
+          ${cc.map((r) => `<tr><td><b>${esc(r.label)}</b><div class="tiny muted">RCI ≤ ${r.config.RCI_CHECK} · ${esc(r.config.TRIGGER_DOMAINS)} · entry z ≤ ${r.config.LOW_BASELINE_Z} · baseline ${r.config.BASELINE_SESSIONS}</div></td><td class="num">${pct(r.sensitivity)}</td><td class="num">${r.false_referrals_per_1000}</td><td class="num">${pct(r.ppv)}</td><td class="num">${pct(r.change_sensitivity)}</td></tr>`).join("")}</table>
+          <div class="tiny muted" style="margin-top:6px">Stricter settings halve false referrals but detect far less change over time. We keep the default because MemBrain's job is earlier detection; the stricter setting is the documented option for clinics with little review capacity. The final operating point is fixed in Phase A on real data, before Phase B starts.</div></div>
+        <div class="panel pad"><h3>Decision curve</h3><div class="small muted">Net benefit of referring by each strategy, at every threshold a clinician might use.</div>${dcSvg}</div></div>
+      <div class="two" style="margin-top:16px">
+        <div class="panel pad"><h3>Positive predictive value depends on the setting</h3><table><tr><th>Setting</th><th class="num">Prevalence</th><th class="num">MemBrain PPV</th><th class="num">Usual care PPV</th></tr>
+          ${X.prevalence_sensitivity.map((r) => `<tr><td>${esc(r.setting)}</td><td class="num">${pct(r.prevalence)}</td><td class="num"><b>${pct(r.membrain_ppv)}</b></td><td class="num">${pct(r.usual_care_ppv)}</td></tr>`).join("")}</table>
+          <div class="tiny muted" style="margin-top:6px">In community outreach most positives are false, so MemBrain is deployed through programmes and clinics, not as an open consumer test.</div></div>
+        <div class="panel pad"><h3>Phase B sample size (preliminary)</h3><div class="small">${esc(X.sample_size.method)}: about <b>${X.sample_size.n_required}</b> participants for a ±7-point confidence interval on sensitivity at ${pct(X.sample_size.prevalence)} prevalence (${X.sample_size.n_for_specificity} would suffice for specificity).</div>
+          <div class="tiny muted" style="margin-top:6px">${esc(X.sample_size.per_subgroup_note)} No-formal-education sensitivity varies between ${pct(R.sens_noedu.min)} and ${pct(R.sens_noedu.max)} across cohorts, so this stratum must be enriched.</div></div></div>`;
+  }
+
   function renderValidation() {
     const V = D.validation, s = V.summary, o = s.overall; const t = s.time_to_assessment_weeks; const ab = s.confounder_rule_ablation;
     const ci = (x) => (x && x[1] != null ? `95% CI ${pct(x[1])}–${pct(x[2])}` : "");
@@ -1122,11 +1182,11 @@ function speak(text, lang, onend) {
         ${kpi((t.membrain_median ?? "–") + " wk", "Median time to clinical assessment", `usual care ${t.usual_care_median} wk*`)}${kpi(fmt(o.change_detection.sensitivity[0] * 100, 0) + "%", "Meaningful change detected", `specificity ${pct(o.change_detection.specificity[0])}`)}</div>
       <div class="two" style="margin-top:16px">
         <div class="panel pad"><h3>MemBrain vs usual care</h3><div class="small muted">Usual care: one education-blind screen at week 0 and week 52.</div>${bars([["Sensitivity", o.membrain.sensitivity[0], o.usual_care.sensitivity[0]], ["Specificity", o.membrain.specificity[0], o.usual_care.specificity[0]], ["PPV", o.membrain.ppv[0], o.usual_care.ppv[0]]], ["MemBrain", "Usual care"])}</div>
-        <div class="panel pad"><h3>Fairness: false-positive rate by education</h3><div class="small muted">Share of cognitively normal people wrongly flagged at entry. Education-blind cutoffs penalise people with little schooling.</div>${bars(eduFair.map((e) => [e.g, e.naive, e.strat]), ["Single cutoff", "MemBrain stratified norms"], ["#c89b5a", "#0f5c63"])}</div></div>
+        <div class="panel pad"><h3>Fairness: false-positive rate by education</h3><div class="small muted">Share of cognitively normal people wrongly flagged at entry. Education-blind cutoffs penalise people with little schooling.</div>${bars(eduFair.map((e) => [e.g, e.naive, e.strat]), ["Single cutoff", "MemBrain stratified norms"], ["#c0761a", "#0b8a7a"])}</div></div>
       <div class="panel pad" style="margin-top:16px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><h3 style="margin:0">Subgroup performance</h3>
         <div class="seg">${[["dialect", "Language / dialect"], ["age_band", "Age band"], ["education", "Education"]].map(([k, v]) => `<button data-sub="${k}" class="${S.sub === k ? "on" : ""}">${v}</button>`).join("")}</div></div>
         <table style="margin-top:10px"><tr><th>Group</th><th class="num">n</th><th class="num">Completion</th><th class="num">ICC</th><th class="num">Sens.</th><th class="num">Spec.</th><th class="num">PPV</th><th class="num">Ref./confirmed</th><th class="num">Usual-care spec.</th></tr>${rows}</table>
-        <div class="tiny muted" style="margin-top:6px">Thresholds are revised if a subgroup falls below the pre-agreed floor. In this run, people with no formal education have lower sensitivity. That gap would trigger local norm work in Phase A.</div></div>
+        <div class="tiny muted" style="margin-top:6px">Thresholds are revised if a subgroup falls below the pre-agreed floor. Small subgroups give unstable estimates: no-formal-education sensitivity is 67% in this cohort but ranges widely across cohorts (see the evidence pack below), so Phase A enriches this group.</div></div>
       <div class="two" style="margin-top:16px">
         <div class="panel pad"><h3>What the confounder rules buy</h3><table>
           <tr><td>Alerts with confounder rules</td><td class="num">${ab.alerts_with_rules}</td></tr><tr><td>Alerts without them</td><td class="num">${ab.alerts_without_rules}</td></tr>
@@ -1134,10 +1194,10 @@ function speak(text, lang, onend) {
           <tr><td>Repeat sessions triggered ("check again")</td><td class="num">${s.workload.check_again_repeats} of ${s.workload.sessions_total}</td></tr></table>
           ${s.exploratory_voice ? `<h3 style="margin-top:14px">Exploratory voice signal</h3><div class="small">Speech rate AUC for impairment: <b>${s.exploratory_voice.speech_rate_auc_impairment}</b> (simulated). Not used for alerts.</div>` : ""}</div>
         <div class="panel pad"><h3>Assumptions</h3><div class="small" style="max-height:260px;overflow:auto">${Object.entries(V.assumptions).map(([k, v]) => `<div style="margin-bottom:4px"><b>${k.replace(/_/g, " ")}:</b> ${esc(typeof v === "object" ? JSON.stringify(v) : v)}</div>`).join("")}</div>
-          <div class="tiny muted" style="margin-top:8px">* ${esc(t.assumptions)}</div></div></div>`;
+          <div class="tiny muted" style="margin-top:8px">* ${esc(t.assumptions)}</div></div></div>${evidenceSection()}`;
     document.querySelectorAll("[data-sub]").forEach((b) => (b.onclick = () => { S.sub = b.dataset.sub; renderValidation(); }));
   }
-  function bars(rows, names, cols = ["#0f5c63", "#c89b5a"]) {
+  function bars(rows, names, cols = ["#0b8a7a", "#c0761a"]) {
     const W = 520, rh = 46, H = rows.length * rh + 30, pl = 150, pr = 50;
     const X = (v) => pl + v * (W - pl - pr);
     let g = "";

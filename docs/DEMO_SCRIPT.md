@@ -24,7 +24,8 @@
 - Synthetic cohort of 2,000 people.
 - Against education-blind usual care: sensitivity 83% vs 61%, PPV 58% vs 46%, referrals per confirmed finding 1.7 vs 2.2.
 - False positives among people with no schooling drop from 44% to 7%.
-- Be honest: "this is a simulation of our pipeline, not clinical evidence. And it already shows a sensitivity gap for people with no formal education, which is the first job of Phase A."
+- Scroll to the evidence pack: the results hold across 10 cohorts, confirmation and stratified norms do the most work, and the default was re-tested against stricter settings on fresh cohorts.
+- Be honest: "this is a simulation of our pipeline, not clinical evidence. Small groups such as people with no schooling give unstable estimates, so Phase A deliberately over-recruits them."
 
 **2:30–3:00 · Safety, deployment, pilot.**
 - "It never diagnoses. Alerts are held for a clinician, explained, and audit-logged."
