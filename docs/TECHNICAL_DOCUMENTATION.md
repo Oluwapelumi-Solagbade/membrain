@@ -26,6 +26,16 @@ Data & trust layer (in-country): FHIR R4 store · per-signal Consent · identity
 
 The prototype implements the analytics, workflow, prevention, FHIR mapping and validation layers end to end. It also includes a working participant app and clinician dashboard. Persistence is in memory. The pilot replaces it with PostgreSQL and a HAPI FHIR or managed FHIR store in an in-country region.
 
+**Enrolment.** A coordinator or clinician enrols the person in 6 steps:
+1. Identity, stored only in the separate identity vault.
+2. Profile: years of schooling map to a norm group; dialect; sensory aids; comfort with phones.
+3. Consent for each of 8 data types, read aloud in Arabic or English.
+4. Informant, with an optional IQCODE-16.
+5. Health context and known conditions.
+6. Session plan (baseline 1 today, baseline 2 at 2 weeks, follow-up at 12 weeks, then every 6 months).
+
+Clinicians can re-identify someone for follow-up only by giving a reason, and every re-identification is audited. Withdrawing consent removes the affected data downstream. On-device versus cloud responsibilities are set out in `ARCHITECTURE_DEVICE_CLOUD.md`.
+
 ## 3. Assessment (requirement 1)
 
 **Tasks.** These are original items covering RUDAS-type domains. They are not copies of licensed instruments, so the prototype has no licensing blocker.
@@ -150,7 +160,7 @@ The run also surfaces a real gap: sensitivity is 67% for people with no formal e
 
 ## 11. Engineering quality
 
-- 23 pytest tests cover persona pathways, RCI arithmetic, education fairness, mood hold, the audio gate, explanations, Arabic scoring, FHIR validation and API role checks.
+- 25 pytest tests cover persona pathways, RCI arithmetic, education fairness, mood hold, the audio gate, explanations, Arabic scoring, FHIR validation, API role checks, identity-vault separation and consent withdrawal.
 - The Python and JavaScript engines agree on all 87 golden cases (457 session evaluations).
 - `make all` rebuilds data, the demo and tests from one source of truth (`membrain/config.py`).
 

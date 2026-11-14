@@ -10,7 +10,7 @@ from membrain import items as I  # noqa: E402
 from membrain.dossier import build_dossier  # noqa: E402
 from membrain.fhir import bundle  # noqa: E402
 from membrain.personas import personas  # noqa: E402
-from membrain.prevention import MESSAGES, prevention_plan, risk_context  # noqa: E402
+from membrain.prevention import ALWAYS, MESSAGES, RULES, prevention_plan, risk_context  # noqa: E402
 from membrain.simulate import ASSUMPTIONS, generate_cohort  # noqa: E402
 from membrain.triage import evaluate  # noqa: E402
 from membrain.validation import analyse  # noqa: E402
@@ -29,6 +29,8 @@ data = {"config": cfg, "items": {"WORD_LISTS": I.WORD_LISTS, "FLUENCY": I.FLUENC
                                  "JUDGEMENT": I.JUDGEMENT, "FLUENCY_LEXICON": I.FLUENCY_LEXICON,
                                  "ITEM_BANK_VERSION": I.ITEM_BANK_VERSION},
         "personas": ps, "messages": MESSAGES,
+        "prevention_rules": [{"id": r[0], "evidence": r[2], "en": r[3], "ar": r[4]} for r in RULES],
+        "prevention_always": {"en": ALWAYS[0], "ar": ALWAYS[1]},
         "validation": {"n": N, "seed": 7, "assumptions": ASSUMPTIONS, "summary": res["summary"]}}
 (ROOT / "web" / "data.js").write_text("window.MB_DATA = " + json.dumps(data, ensure_ascii=False, default=str) + ";\n")
 (ROOT / "docs" / "validation_summary.json").write_text(json.dumps(data["validation"], indent=1, default=str))

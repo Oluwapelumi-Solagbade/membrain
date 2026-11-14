@@ -29,7 +29,7 @@
   $("#tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) go(b.dataset.view); });
   function render() {
     document.documentElement.dir = "ltr"; document.documentElement.lang = "en";
-    ({ participant: renderParticipant, clinician: renderClinician, validation: renderValidation, how: renderHow })[S.view]();
+    ({ enrol: renderEnrol, participant: renderParticipant, clinician: renderClinician, validation: renderValidation, how: renderHow })[S.view]();
   }
 
   // ================================================================ PARTICIPANT
@@ -329,6 +329,7 @@
                 precheck: { ...pt.precheck }, phq2: pt.phq[0] + pt.phq[1], gad2: pt.gad[0] + pt.gad[1], sleep_hours: pt.sleep, acute_illness: pt.ill,
                 assisted: pt.assisted, helper_role: pt.assisted ? "family member" : null, input_mode: audio ? "voice" : "typed (demo)",
                 voice_features: (p.consent || {}).voice_features && vfs.length ? vfs.reduce((acc, f) => { for (const k in f) acc[k] = +(((acc[k] || 0) + f[k] / vfs.length)).toFixed(2); return acc; }, {}) : null, transcripts: tr };
+    if (p.pending_iqcode != null && !p.sessions.length) { s.iqcode = p.pending_iqcode; p.pending_iqcode = null; }
     p.sessions.push(s);
     const ev = E.evaluate(p, p.sessions).latest;
     S.audit.unshift({ ts: new Date().toISOString().slice(0, 19).replace("T", " "), actor: "participant app", action: "session_submitted", target: p.id, detail: ev.level });
@@ -349,24 +350,165 @@
     }).join("");
     $("#main").innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:14px">
       <div><h2>Voice-first check-in</h2><div class="muted">${T.en.chooseSub}</div></div>
-      <div class="panel pad small" style="max-width:520px"><b>New participant.</b> Enrolled by a coordinator with consent recorded for each data type.
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center">
-        <select id="np-age" class="btn">${[52, 57, 63, 68, 73].map((a) => `<option>${a}</option>`).join("")}</select>
-        <select id="np-edu" class="btn">${Object.entries(EDU).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
-        <select id="np-lang" class="btn"><option value="ar">عربي (Emirati)</option><option value="en">English</option></select>
-        <button class="btn primary" id="np-go">Enrol &amp; start</button></div></div></div>
+      <div class="panel pad small" style="max-width:420px"><b>New participant?</b> Enrolment is done by a coordinator: identity vault, consent for each data type, informant, health context and session plan.
+        <div style="margin-top:8px"><button class="btn primary" id="np-go">Go to enrolment →</button></div></div></div>
       <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(330px,1fr))">${cards}</div>`;
     document.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => { S.pt = newPt(person(b.dataset.go)); S.pt.lang = b.dataset.lang; render(); }));
-    $("#np-go").onclick = () => {
-      const lang = $("#np-lang").value; const id = "MB-" + (2000 + S.people.length);
-      const np = { id, display_name: { en: "New participant", ar: "مشارك جديد" }, age: +$("#np-age").value, age_band: "", sex: "U", education: $("#np-edu").value,
-                   dialect: lang === "ar" ? "Emirati" : "English", language: lang, story: "Enrolled during this demo.", context: {},
-                   consent: { voice_features: true, wearables: false, clinical_record: false, family_history: true, genomics: false, raw_audio: false }, sessions: [],
-                   prevention: { en: { items: [{ text: "Aim for 150 minutes of moving each week, for example a 30-minute walk after Maghrib on five days." }, { text: "Keep your mind active: reading, Quran memorisation, learning a skill, or games with grandchildren all count." }] },
-                                 ar: { items: [{ text: "حاول أن تتحرك 150 دقيقة في الأسبوع، مثل المشي 30 دقيقة بعد المغرب خمسة أيام." }, { text: "حافظ على نشاط عقلك: القراءة، حفظ القرآن، تعلّم مهارة جديدة، أو اللعب مع الأحفاد." }] } },
-                   risk_context: { modifiable_factors_present: [], count: 0, of: 14, reversible_cause_checks: [] } };
-      S.people.push(np); S.pt = newPt(np); S.pt.lang = lang; render();
+    $("#np-go").onclick = () => { S.en = blankEnrol(); go("enrol"); };
+  }
+
+  // ================================================================ ENROLMENT (coordinator)
+  const CONSENT_INFO = [
+    ["voice_features", "Voice features", "Measurements of how you speak (speed, pauses). Calculated on your phone; the recording itself is not sent.", "قياسات لطريقة كلامك (السرعة والتوقفات). تُحسب على هاتفك ولا يُرسل التسجيل نفسه.", true],
+    ["raw_audio", "Keep voice recordings", "Keep your recordings for a fixed time so scoring can be checked by a person.", "الاحتفاظ بتسجيلاتك لفترة محددة حتى يتمكن شخص من مراجعة التقييم.", false],
+    ["wearables", "Watch or fitness band", "Daily sleep and activity summaries from your device.", "ملخصات يومية للنوم والنشاط من جهازك.", false],
+    ["clinical_record", "Health record", "Blood pressure, sugar (HbA1c), cholesterol and relevant diagnoses from your clinic record.", "ضغط الدم والسكر التراكمي والكوليسترول والتشخيصات المهمة من ملفك في العيادة.", true],
+    ["family_history", "Family history", "Whether close relatives had memory problems or dementia.", "هل عانى أحد الأقارب من مشاكل في الذاكرة أو الخرف.", true],
+    ["caregiver_involvement", "Family member involvement", "A family member may help with sessions and answer a short questionnaire about daily life.", "يمكن لأحد أفراد العائلة المساعدة في الجلسات والإجابة على استبيان قصير عن الحياة اليومية.", true],
+    ["genomics", "Genetic results", "Use existing genetic results (for example from a national programme). Results are only discussed with you by a clinician with counselling.", "استخدام نتائج جينية موجودة. لا تُناقش النتائج معك إلا من قبل طبيب مع الإرشاد.", false],
+    ["model_training", "Help improve the tool", "Allow your anonymised data to be used to improve the tool. Separate from your care.", "السماح باستخدام بياناتك بعد إخفاء هويتك لتحسين الأداة. منفصل عن رعايتك.", false],
+  ];
+  const CONDITIONS = [["hypertension", "Hypertension"], ["diabetes", "Type 2 diabetes"], ["stroke_tia", "Stroke / TIA"], ["af", "Atrial fibrillation"], ["cvd", "Cardiovascular disease"],
+    ["ckd", "Chronic kidney disease"], ["hypothyroid", "Hypothyroidism"], ["b12", "B12 / folate deficiency"], ["depression", "Depression"], ["anxiety", "Anxiety"],
+    ["sleep_apnoea", "Sleep apnoea"], ["insomnia", "Chronic insomnia"], ["parkinsons", "Parkinson's disease"], ["tbi", "Head injury (TBI)"], ["hearing_loss", "Hearing loss"], ["vision", "Visual impairment"]];
+  const DIALECTS = ["Emirati", "Other Gulf", "Levantine", "Egyptian", "Other Arabic", "English"];
+  const eduBand = (y) => (y <= 0 ? "none" : y <= 6 ? "primary" : y <= 12 ? "secondary" : "tertiary");
+  S.vault = {}; S.people.forEach((p) => (S.vault[p.id] = { identity: { full_name: p.display_name.en + " (synthetic)", national_id: "784-XXXX-XXXXXXX-X", phone: "+971 5X XXX XXXX", preferred_channel: p.language === "ar" ? "whatsapp" : "app" }, informant: p.id === "MB-1322" ? { name: "Daughter (synthetic)", relation: "daughter" } : null }));
+  const blankEnrol = () => ({ step: 0, identity: { full_name: "", national_id: "", phone: "", preferred_channel: "whatsapp" },
+    profile: { age: 64, sex: "F", years: 6, language: "ar", dialect: "Emirati", hearing_aid: false, glasses: false, digital: "some" },
+    consent: Object.fromEntries(CONSENT_INFO.map((c) => [c[0], c[4]])), informant: { name: "", relation: "", phone: "", iqcode: "" },
+    ctx: { sbp: "", dbp: "", hba1c: "", ldl: "", bmi: "", activity_min_week: "", smoker: false, family_history_dementia: false, social_isolation: false, district: "" }, cond: {}, done: null });
+  S.en = blankEnrol();
+  const ESTEPS = ["Identity", "Profile", "Consent", "Informant", "Health context", "Review & schedule"];
+  const inp = (path, val, type = "text", ph = "") => `<input class="btn" style="width:100%;text-align:start" data-path="${path}" type="${type}" value="${esc(val)}" placeholder="${esc(ph)}">`;
+  const fld = (label, html, help) => `<label style="display:grid;gap:4px;margin-bottom:12px"><span class="small" style="font-weight:600">${label}</span>${html}${help ? `<span class="tiny muted">${help}</span>` : ""}</label>`;
+  const sel = (path, val, opts) => `<select class="btn" style="width:100%" data-path="${path}">${opts.map(([v, t]) => `<option value="${v}" ${String(v) === String(val) ? "selected" : ""}>${t}</option>`).join("")}</select>`;
+  const chk = (path, val, label) => `<label class="check"><input type="checkbox" data-path="${path}" ${val ? "checked" : ""}> ${label}</label>`;
+
+  function riskContextJS(ctx, edu) {
+    const m = { hypertension: (ctx.sbp || 0) >= 140 || ctx.hypertension, diabetes: (ctx.hba1c || 0) >= 6.5 || ctx.diabetes, ldl: (ctx.ldl || 0) >= 3.0,
+      physical_inactivity: ctx.activity_min_week != null && ctx.activity_min_week < 150, smoking: ctx.smoker, obesity: (ctx.bmi || 0) >= 30,
+      hearing_loss: ctx.hearing_difficulty, vision_loss: ctx.vision_difficulty, depression: ctx.mood_positive, social_isolation: ctx.social_isolation,
+      low_education: edu === "none" || edu === "primary", tbi: ctx.tbi };
+    const present = Object.keys(m).filter((k) => m[k]);
+    return { modifiable_factors_present: present, count: present.length, of: 14, family_history_dementia: ctx.family_history_dementia,
+      reversible_cause_checks: ["TSH", "Vitamin B12", "Folate", "Full blood count", "HbA1c", "Renal function", "Medication review (anticholinergic burden)", "Depression (PHQ-9)", "Sleep apnoea screen (STOP-BANG)", "Hearing and vision"] };
+  }
+  const RULE_TEST = { bp: (c) => (c.sbp || 0) >= 130 || (c.dbp || 0) >= 80 || c.hypertension, glucose: (c) => (c.hba1c || 0) >= 6.5 || c.diabetes, ldl: (c) => (c.ldl || 0) >= 3.0,
+    activity: (c) => c.activity_min_week != null && c.activity_min_week < 150, sleep: (c) => (c.sleep_hours || 7) < 6 || c.snoring, hearing: (c) => c.hearing_difficulty && !c.hearing_aid,
+    vision: (c) => c.vision_difficulty, smoking: (c) => c.smoker, weight: (c) => (c.bmi || 0) >= 30, social: (c) => c.social_isolation, mood: (c) => c.mood_positive };
+  function preventionJS(ctx, lang) {
+    const items = D.prevention_rules.filter((r) => RULE_TEST[r.id] && RULE_TEST[r.id](ctx)).map((r) => ({ rule: r.id, text: r[lang], evidence: r.evidence }));
+    items.push({ rule: "cognitive_engagement", text: D.prevention_always[lang] });
+    return { items: items.slice(0, 5) };
+  }
+
+  function renderEnrol() {
+    const e = S.en;
+    if (e.done) return renderEnrolDone();
+    const st = e.step; let body = "";
+    if (st === 0) body = `<h3>Identity <span class="tiny muted">(identity vault)</span></h3>
+      <div class="panel pad small" style="background:var(--base-soft);border-color:#c9d1e4;margin-bottom:14px">These details are stored only in the separate, encrypted identity vault so the clinic can contact the person for follow-up. The assessment record, analytics and dashboard use a pseudonymous ID. Showing them again is audited and needs a reason.</div>
+      ${fld("Full name", inp("identity.full_name", e.identity.full_name, "text", "e.g. Mariam Al Hashemi"))}
+      ${fld("Emirates ID or clinic MRN", inp("identity.national_id", e.identity.national_id, "text", "784-XXXX-XXXXXXX-X"))}
+      ${fld("Mobile number", inp("identity.phone", e.identity.phone, "tel", "+971 5X XXX XXXX"))}
+      ${fld("Preferred channel for reminders and check-ins", sel("identity.preferred_channel", e.identity.preferred_channel, [["whatsapp", "WhatsApp"], ["app", "MemBrain app"], ["phone", "Phone call (guided)"]]), "Phone and WhatsApp sessions keep their own baseline. Scores are not pooled across channels until equivalence is shown.")}`;
+    if (st === 1) { const band = eduBand(+e.profile.years);
+      body = `<h3>Profile</h3><div class="two">${fld("Age", inp("profile.age", e.profile.age, "number"), "Eligible: 50–75")}${fld("Sex", sel("profile.sex", e.profile.sex, [["F", "Female"], ["M", "Male"]]))}</div>
+      <div class="two">${fld("Years of schooling", inp("profile.years", e.profile.years, "number"), `Norm group: <b>${EDU[band]}</b>. Scores are compared with people of the same age and education.`)}
+      ${fld("Language for sessions", sel("profile.language", e.profile.language, [["ar", "Arabic"], ["en", "English"]]))}</div>
+      ${fld("Dialect", sel("profile.dialect", e.profile.dialect, DIALECTS.map((d) => [d, d])), "Used to report accuracy by dialect and to pick recorded prompts.")}
+      <div class="two"><div>${chk("profile.hearing_aid", e.profile.hearing_aid, "Uses a hearing aid")}${chk("profile.glasses", e.profile.glasses, "Uses reading glasses")}</div>
+      ${fld("Comfort with smartphones", sel("profile.digital", e.profile.digital, [["none", "Not comfortable"], ["some", "Somewhat"], ["confident", "Confident"]]), e.profile.digital === "none" ? "Suggest caregiver-assisted mode or the guided phone channel." : "")}</div>`; }
+    if (st === 2) body = `<h3>Consent for each type of data</h3><div class="small muted" style="margin-bottom:10px">Each item is optional and can be withdrawn at any time. Withdrawal stops processing and removes that data from downstream stores. Read each one aloud in the person's language.</div>` +
+      CONSENT_INFO.map(([k, en, , ar]) => `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;padding:10px 0;border-bottom:1px solid var(--line)">
+        <input type="checkbox" data-path="consent.${k}" ${e.consent[k] ? "checked" : ""} style="margin-top:4px;width:18px;height:18px">
+        <div><b>${en}</b><div class="small">${esc(CONSENT_INFO.find((c) => c[0] === k)[2])}</div><div class="small ar muted" dir="rtl">${esc(ar)}</div></div>
+        <button class="btn small" data-read="${k}">🔊</button></div>`).join("") + `<div class="tiny muted" style="margin-top:8px">Consent text version consent-ar-en-0.1 · recorded by the coordinator · stored as FHIR Consent resources.</div>`;
+    if (st === 3) body = `<h3>Informant (family member or carer)</h3><div class="small muted" style="margin-bottom:10px">Optional. Someone who knows the person well and can describe changes in everyday life (IQCODE-16 informant questionnaire). New functional loss reported here can trigger an urgent review.</div>
+      ${e.consent.caregiver_involvement ? "" : '<div class="panel pad small" style="background:var(--check-soft);border-color:#f0d4a8;margin-bottom:10px">Family member involvement was not consented. You can skip this step.</div>'}
+      <div class="two">${fld("Name", inp("informant.name", e.informant.name))}${fld("Relation", sel("informant.relation", e.informant.relation, [["", "—"], ["spouse", "Spouse"], ["son", "Son"], ["daughter", "Daughter"], ["sibling", "Sibling"], ["carer", "Paid carer"], ["other", "Other"]]))}</div>
+      <div class="two">${fld("Mobile number", inp("informant.phone", e.informant.phone, "tel"))}${fld("IQCODE-16 average (1–5), if done today", inp("informant.iqcode", e.informant.iqcode, "number", "e.g. 3.1"), `Above ${C.IQCODE_CUTOFF} is flagged to the clinician.`)}</div>`;
+    if (st === 4) body = `<h3>Health context</h3>${e.consent.clinical_record ? "" : '<div class="panel pad small" style="background:var(--check-soft);border-color:#f0d4a8;margin-bottom:10px">Health record use was not consented. Only what the person tells you directly is recorded.</div>'}
+      <div class="small muted" style="margin-bottom:10px">In the pilot these come from the clinic record through the partner's integration. Here they are entered by hand.</div>
+      <div class="two">${fld("Blood pressure (systolic / diastolic)", `<div style="display:flex;gap:6px">${inp("ctx.sbp", e.ctx.sbp, "number", "130")}${inp("ctx.dbp", e.ctx.dbp, "number", "80")}</div>`)}${fld("HbA1c (%)", inp("ctx.hba1c", e.ctx.hba1c, "number", "6.1"))}</div>
+      <div class="two">${fld("LDL cholesterol (mmol/L)", inp("ctx.ldl", e.ctx.ldl, "number", "3.0"))}${fld("BMI", inp("ctx.bmi", e.ctx.bmi, "number", "28"))}</div>
+      <div class="two">${fld("Physical activity (minutes per week)", inp("ctx.activity_min_week", e.ctx.activity_min_week, "number", "90"))}${fld("Home district (optional)", inp("ctx.district", e.ctx.district, "text", "e.g. Al Ain, Khalifa City"), "For later environmental exposure (air quality) and service planning, at district level only.")}</div>
+      <div class="small" style="font-weight:600;margin:6px 0">Known conditions</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">${CONDITIONS.map(([k, v]) => chk("cond." + k, e.cond[k], v)).join("")}</div>
+      <div class="small" style="font-weight:600;margin:10px 0 6px">Lifestyle and family</div>${chk("ctx.smoker", e.ctx.smoker, "Smokes (cigarettes, shisha or medwakh)")}${chk("ctx.social_isolation", e.ctx.social_isolation, "Lives alone or rarely sees family and friends")}${e.consent.family_history ? chk("ctx.family_history_dementia", e.ctx.family_history_dementia, "Parent or sibling with memory problems or dementia") : ""}`;
+    if (st === 5) { const band = eduBand(+e.profile.years); const today = new Date("2026-11-14");
+      const add = (d) => new Date(today.getTime() + d * 86400000).toISOString().slice(0, 10);
+      body = `<h3>Review and schedule</h3><table>
+        <tr><td>Person</td><td>${esc(e.identity.full_name || "—")} · ${e.profile.age} y · ${e.profile.sex === "F" ? "female" : "male"} · ${EDU[band]} · ${esc(e.profile.dialect)}</td></tr>
+        <tr><td>Channel</td><td>${esc(e.identity.preferred_channel)}${e.profile.digital === "none" ? " · caregiver-assisted mode suggested" : ""}</td></tr>
+        <tr><td>Consent</td><td>${CONSENT_INFO.map(([k, l]) => `<span class="chip ${e.consent[k] ? "on" : "off"}">${l}</span>`).join("")}</td></tr>
+        <tr><td>Informant</td><td>${e.informant.name ? esc(e.informant.name + " (" + (e.informant.relation || "relation not set") + ")") : "None"}</td></tr>
+        <tr><td>Conditions</td><td>${CONDITIONS.filter(([k]) => e.cond[k]).map(([, v]) => v).join(", ") || "None recorded"}</td></tr></table>
+        <h3 style="margin-top:14px">Session plan</h3><table>
+        <tr><td>Baseline 1</td><td>${add(0)} (today, with the coordinator)</td><td class="small muted">Form ${E.formForSession(0, 0)}</td></tr>
+        <tr><td>Baseline 2</td><td>${add(14)}</td><td class="small muted">alternate form</td></tr>
+        <tr><td>Follow-up</td><td>${add(84)}</td><td class="small muted">first change check</td></tr>
+        <tr><td>Routine</td><td>every 6 months</td><td class="small muted">or 2–4 weeks after a "check again" result</td></tr></table>
+        <div class="tiny muted" style="margin-top:8px">Reminders are sent through ${esc(e.identity.preferred_channel)} one day before and on the day.</div>`; }
+    $("#main").innerHTML = `<div style="display:grid;grid-template-columns:240px minmax(0,1fr);gap:18px;align-items:start" class="enrol">
+      <div class="panel pad"><h3>Enrol a participant</h3><div class="small muted" style="margin-bottom:10px">Done by a programme coordinator or clinician.</div>
+        ${ESTEPS.map((t, i) => `<div class="check" style="cursor:pointer;${i === st ? "font-weight:700;color:var(--teal)" : ""}" data-step="${i}"><b>${i < st ? "✓" : i + 1}</b>${t}</div>`).join("")}</div>
+      <div class="panel pad">${body}<div style="display:flex;justify-content:space-between;margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
+        <button class="btn" id="e-back" ${st === 0 ? "disabled" : ""}>Back</button>
+        <button class="btn primary big" id="e-next">${st === ESTEPS.length - 1 ? "Enrol and create pseudonymous ID" : "Next"}</button></div></div></div>`;
+    document.querySelectorAll("[data-path]").forEach((el) => {
+      const store = () => { const [a, b] = el.dataset.path.split("."); e[a][b] = el.type === "checkbox" ? el.checked : el.value; };
+      el.oninput = store;
+      el.onchange = () => { store(); if (el.tagName === "SELECT" || el.type === "checkbox" || el.dataset.path === "profile.years") renderEnrol(); };
+    });
+    document.querySelectorAll("[data-step]").forEach((el) => (el.onclick = () => { e.step = +el.dataset.step; renderEnrol(); }));
+    document.querySelectorAll("[data-read]").forEach((b) => (b.onclick = () => { const c = CONSENT_INFO.find((x) => x[0] === b.dataset.read); speak(e.profile.language === "ar" ? c[3] : c[2], e.profile.language); }));
+    $("#e-back").onclick = () => { e.step--; renderEnrol(); };
+    $("#e-next").onclick = () => {
+      if (st === 0 && !e.identity.full_name.trim()) { toast("Enter a name (it stays in the identity vault)"); return; }
+      if (st === 1 && (+e.profile.age < 50 || +e.profile.age > 75)) { toast("MemBrain is for ages 50–75"); return; }
+      if (st < ESTEPS.length - 1) { e.step++; renderEnrol(); return; }
+      finishEnrol();
     };
+  }
+  function finishEnrol() {
+    const e = S.en; const id = "MB-" + (2000 + S.people.length + Math.floor(Math.random() * 7000));
+    const num = (x) => (x === "" || x == null ? null : +x);
+    const ctx = { sbp: num(e.ctx.sbp), dbp: num(e.ctx.dbp), hba1c: num(e.ctx.hba1c), ldl: num(e.ctx.ldl), bmi: num(e.ctx.bmi), activity_min_week: num(e.ctx.activity_min_week),
+      smoker: e.ctx.smoker, social_isolation: e.ctx.social_isolation, family_history_dementia: e.consent.family_history ? e.ctx.family_history_dementia : null, district: e.ctx.district || null,
+      hypertension: !!e.cond.hypertension, diabetes: !!e.cond.diabetes, hearing_difficulty: !!e.cond.hearing_loss, hearing_aid: e.profile.hearing_aid, vision_difficulty: !!e.cond.vision,
+      mood_positive: !!e.cond.depression, tbi: !!e.cond.tbi, conditions: Object.keys(e.cond).filter((k) => e.cond[k]) };
+    if (!e.consent.clinical_record) ["sbp", "dbp", "hba1c", "ldl", "bmi"].forEach((k) => (ctx[k] = null));
+    const band = eduBand(+e.profile.years); const lang = e.profile.language;
+    const p = { id, display_name: { en: "Enrolled participant", ar: "مشارك مسجّل" }, age: +e.profile.age, age_band: +e.profile.age < 60 ? "50-59" : +e.profile.age < 70 ? "60-69" : "70-75",
+      sex: e.profile.sex, education: band, dialect: e.profile.dialect, language: lang, story: "Enrolled during this demo through the enrolment flow.", context: ctx,
+      consent: { ...e.consent }, sessions: [], prevention: { en: preventionJS(ctx, "en"), ar: preventionJS(ctx, "ar") }, risk_context: riskContextJS(ctx, band),
+      pending_iqcode: e.informant.iqcode ? +e.informant.iqcode : null, preferred_channel: e.identity.preferred_channel };
+    S.people.push(p);
+    S.vault[id] = { identity: { ...e.identity }, informant: e.informant.name ? { name: e.informant.name, relation: e.informant.relation, phone: e.informant.phone } : null };
+    S.audit.unshift({ ts: new Date().toISOString().slice(0, 19).replace("T", " "), actor: "coordinator", action: "enrol", target: id, detail: "consent: " + Object.keys(e.consent).filter((k) => e.consent[k]).join(", ") });
+    e.done = id; renderEnrol();
+  }
+  function renderEnrolDone() {
+    const id = S.en.done; const p = person(id);
+    $("#main").innerHTML = `<div class="panel pad" style="max-width:640px;margin:0 auto;text-align:center">
+      <div style="font-size:40px">✓</div><h2>Enrolled</h2><div class="muted">Pseudonymous ID</div><div style="font-size:30px;font-weight:700;color:var(--teal);letter-spacing:.04em">${id}</div>
+      <div class="small muted" style="margin:8px 0 16px">Name and contact details are in the identity vault only. Clinicians see ${id}, and can re-identify for follow-up with a reason (audited).</div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn primary big" id="d-start">Start baseline session 1 now</button><button class="btn big" id="d-new">Enrol another person</button><button class="btn big" id="d-clin">Open in clinician dashboard</button></div></div>`;
+    $("#d-start").onclick = () => { S.pt = newPt(p); S.pt.lang = p.language; go("participant"); };
+    $("#d-new").onclick = () => { S.en = blankEnrol(); renderEnrol(); };
+    $("#d-clin").onclick = () => { S.selected = id; go("clinician"); };
+  }
+  function reidentify(p) {
+    modal(`<h2>Contact details (identity vault)</h2><div class="small muted">Re-identification is restricted to the assigned clinician or coordinator, needs a reason, and is written to the audit log.</div>
+      ${fld("Reason", `<select class="btn" id="ri-r" style="width:100%"><option value="">Choose a reason…</option><option>Arrange clinician review call</option><option>Urgent safety contact</option><option>Schedule repeat session</option><option>Send referral</option></select>`)}
+      <div id="ri-out"></div><div style="margin-top:10px"><button class="btn primary" id="ri-go">Show contact details</button> <button class="btn" id="ri-cl">Close</button></div>`);
+    $("#ri-cl").onclick = closeModal;
+    $("#ri-go").onclick = () => { const r = $("#ri-r").value; if (!r) { toast("A reason is required"); return; }
+      const v = S.vault[p.id] || {}; log("reidentify", p.id, r);
+      $("#ri-out").innerHTML = `<table><tr><td>Name</td><td><b>${esc(v.identity?.full_name || "—")}</b></td></tr><tr><td>ID / MRN</td><td>${esc(v.identity?.national_id || "—")}</td></tr>
+        <tr><td>Mobile</td><td>${esc(v.identity?.phone || "—")}</td></tr><tr><td>Preferred channel</td><td>${esc(v.identity?.preferred_channel || "—")}</td></tr>
+        <tr><td>Informant</td><td>${v.informant ? esc(v.informant.name + " · " + v.informant.relation + (v.informant.phone ? " · " + v.informant.phone : "")) : "None"}</td></tr></table>`; };
   }
 
   // ================================================================ CLINICIAN
@@ -398,7 +540,9 @@
 
   function renderDetail(x) {
     const p = x.p, ev = x.ev; const el = $("#detail");
-    if (!ev) { el.innerHTML = `<div class="panel pad">No sessions yet.</div>`; return; }
+    if (!ev) { el.innerHTML = `<div class="panel pad"><h2 style="margin:0">${esc(p.id)}</h2><div class="small muted">${p.age} y · ${EDU[p.education]} · ${esc(p.dialect)}</div>
+      <div style="margin:8px 0">${Object.entries(p.consent || {}).map(([k, v]) => `<span class="chip ${v ? "on" : "off"}">${k.replace(/_/g, " ")}</span>`).join("")}</div>
+      <p>Enrolled. No sessions yet: the first baseline session is due today.</p><button class="btn" id="b-reid">Contact details 🔒</button></div>`; $("#b-reid").onclick = () => reidentify(p); return; }
     const L_ = ev.latest; const c = p.context || {}; const rc = p.risk_context || {};
     const consent = Object.entries(p.consent || {}).map(([k, v]) => `<span class="chip ${v ? "on" : "off"}">${k.replace(/_/g, " ")}</span>`).join("");
     const drivers = L_.drivers.length ? `<table><tr><th>Input</th><th class="num">Value</th><th class="num">Threshold</th><th class="num">Change</th></tr>${L_.drivers.map((d) =>
@@ -431,7 +575,7 @@
         <div><h2 style="margin:0">${esc(p.id)} <span class="muted small" style="font-weight:400">pseudonymous ID</span></h2>
         <div class="small muted">${p.age} y · ${p.sex === "F" ? "female" : p.sex === "M" ? "male" : ""} · ${EDU[p.education]} · ${esc(p.dialect)} · ${p.sessions.length} sessions</div>
         <div style="margin-top:6px">${consent}</div></div>
-        <div class="noprint" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" id="b-dos">Referral dossier</button><button class="btn" id="b-fhir">FHIR R4 bundle</button></div></div>
+        <div class="noprint" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" id="b-reid">Contact details 🔒</button><button class="btn" id="b-dos">Referral dossier</button><button class="btn" id="b-fhir">FHIR R4 bundle</button></div></div>
         <div class="alertbox lv-${L_.level}" style="margin-top:14px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">${pill(L_.level)}<span class="small muted">Latest session ${L_.date} · form ${L_.form} · ${L_.channel}</span>
           ${L_.held_for_clinician ? '<span class="small"><b>Held:</b> participant was told only that the clinic will contact them.</span>' : ""}</div>
           <ul style="margin:8px 0 4px">${L_.reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>
@@ -464,6 +608,7 @@
       log("task_" + a, p.id, note); toast("Recorded: " + a.replace(/_/g, " ")); renderClinician();
     }));
     $("#b-dos").onclick = () => showDossier(p, ev);
+    $("#b-reid").onclick = () => reidentify(p);
     $("#b-fhir").onclick = () => { const b = fhirBundle(p, ev); log("export_fhir", p.id); modal(`<h2>FHIR R4 bundle</h2><div class="small muted">Patient (pseudonymous), Consent per signal, Observation, RiskAssessment, Task. The system never writes Condition (clinician-only).</div>
       <div style="margin:10px 0"><button class="btn primary" id="cp">Copy JSON</button> <button class="btn" id="cl">Close</button></div><pre class="code">${esc(JSON.stringify(b, null, 1))}</pre>`);
       $("#cp").onclick = () => navigator.clipboard.writeText(JSON.stringify(b, null, 1)).then(() => toast("Copied"), () => toast("Copy blocked here")); $("#cl").onclick = closeModal; };
@@ -609,6 +754,6 @@
   }
 
   // ---------------------------------------------------------------- boot
-  const h = (location.hash || "").replace("#", ""); if (["participant", "clinician", "validation", "how"].includes(h)) S.view = h;
+  const h = (location.hash || "").replace("#", ""); if (["enrol", "participant", "clinician", "validation", "how"].includes(h)) S.view = h;
   go(S.view);
 })();

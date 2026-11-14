@@ -109,7 +109,7 @@ pre.code{background:#0f1f22;color:#d8efe9;padding:14px;border-radius:10px;overfl
 .req .n{width:30px;height:30px;border-radius:50%;background:var(--teal);color:#fff;display:grid;place-items:center;font-weight:700}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .25s;z-index:60;pointer-events:none}
 .toast.on{opacity:1}
-@media (max-width:980px){.pt-wrap,.cl-wrap,.two{grid-template-columns:1fr}}
+@media (max-width:980px){.pt-wrap,.cl-wrap,.two,.enrol{grid-template-columns:1fr !important}}
 @media print{header.top,.banner,.noprint{display:none}}
 </style>
 </head>
@@ -119,6 +119,7 @@ pre.code{background:#0f1f22;color:#d8efe9;padding:14px;border-radius:10px;overfl
   <div class="brand"><svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#0f5c63"/><path d="M8 18c2-6 5-6 8 0s6 6 8 0" stroke="#f5ead9" stroke-width="2.4" fill="none" stroke-linecap="round"/><circle cx="16" cy="10" r="2.2" fill="#c89b5a"/></svg>
     <div>MemBrain<small>Cerebro Spark · brain health check-in</small></div></div>
   <nav class="tabs" id="tabs" role="tablist">
+    <button data-view="enrol">Enrolment</button>
     <button data-view="participant" class="on">Participant app</button>
     <button data-view="clinician">Clinician dashboard</button>
     <button data-view="validation">Validation</button>

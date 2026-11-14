@@ -28,6 +28,9 @@ app = FastAPI(title="MemBrain API", version=C.ENGINE_VERSION,
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 DB: dict = {"participants": {}, "tasks": {}, "audit": []}
+# Identity vault: direct identifiers live here ONLY, keyed by pseudonym.
+# In production this is a separate encrypted store with its own keys and access policy.
+VAULT: dict = {}
 
 
 def audit(actor: str, action: str, target: str, detail: dict | None = None):
@@ -66,7 +69,25 @@ def _seed():
 _seed()
 
 
+class Identity(BaseModel):
+    full_name: str
+    national_id: str | None = None   # Emirates ID or MRN
+    phone: str | None = None
+    preferred_channel: str = Field("app", pattern="^(app|whatsapp|phone)$")
+
+
+class Informant(BaseModel):
+    name: str
+    relation: str
+    phone: str | None = None
+
+
 class Enrol(BaseModel):
+    identity: Identity | None = None
+    informant: Informant | None = None
+    enrolled_by: str = "coordinator"
+    programme: str = "pilot"
+    consent_version: str = "consent-ar-en-0.1"
     age: float = Field(ge=50, le=75)
     sex: str = "U"
     education: str = Field(pattern="^(none|primary|secondary|tertiary)$")
@@ -120,10 +141,26 @@ def items(form: str, lang: str = "en"):
 def enrol(body: Enrol, r: str = Depends(role)):
     need(r, "coordinator", "clinician")
     pid = "MB-" + uuid.uuid4().hex[:6].upper()
-    p = body.model_dump() | {"id": pid, "sessions": []}
+    data = body.model_dump()
+    ident, informant = data.pop("identity"), data.pop("informant")
+    VAULT[pid] = {"identity": ident, "informant": informant}   # identifiers never enter the analytics record
+    p = data | {"id": pid, "sessions": [], "has_informant": informant is not None,
+                "enrolled_at": datetime.now(timezone.utc).isoformat()}
     DB["participants"][pid] = p
-    audit(r, "enrol", pid, {"consent": body.consent})
-    return {"id": pid}
+    audit(r, "enrol", pid, {"consent": body.consent, "consent_version": body.consent_version, "programme": body.programme})
+    return {"id": pid, "schedule": {"baseline_1": "today", "baseline_2": "+2 weeks", "follow_up": "+12 weeks"}}
+
+
+@app.post("/participants/{pid}/reidentify")
+def reidentify(pid: str, reason: dict, r: str = Depends(role)):
+    """Break-glass re-identification for follow-up contact: clinician only, reason required, audited."""
+    need(r, "clinician", "coordinator")
+    if not reason.get("reason"):
+        raise HTTPException(422, "a reason is required to re-identify")
+    if pid not in VAULT:
+        raise HTTPException(404, "no identity on file")
+    audit(r, "reidentify", pid, {"reason": reason["reason"]})
+    return VAULT[pid]
 
 
 @app.patch("/participants/{pid}/consent")
@@ -132,6 +169,14 @@ def update_consent(pid: str, consent: dict, r: str = Depends(role)):
     if not p:
         raise HTTPException(404)
     p["consent"] = {**p.get("consent", {}), **consent}
+    withdrawn = [k for k, v in consent.items() if not v]
+    # withdrawal propagates: stop processing and purge the affected signal downstream
+    if "voice_features" in withdrawn:
+        for s in p["sessions"]:
+            s["voice_features"] = None
+    if "wearables" in withdrawn:
+        for k in ("sleep_hours", "activity_min_week"):
+            (p.get("context") or {}).pop(k, None)
     audit(r, "consent_update", pid, consent)
     return p["consent"]
 

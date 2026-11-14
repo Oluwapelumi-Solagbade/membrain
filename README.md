@@ -18,6 +18,7 @@ MemBrain is a bilingual (Arabic dialects and English), voice-first cognitive and
 | FHIR R4 mapping (Patient, Consent, Observation, RiskAssessment, Task) | `membrain/fhir.py` | Validated against `fhir.resources` R4B |
 | Synthetic cohort + all requirement-6 metrics, by subgroup | `membrain/simulate.py`, `membrain/validation.py` | Working |
 | REST API with role checks and audit log | `api/main.py` | Working (in-memory store) |
+| Enrolment: identity vault, consent for each data type, informant, health context, session plan, audited re-identification | `web/app.js`, `api/main.py` | Working, tested |
 | Web prototype: participant app, clinician dashboard, validation, architecture | `web/` | Working; also published as a hosted demo |
 | Python/JavaScript parity (87 golden cases, 457 session evaluations, 0 mismatches) | `web/parity_test.js` | Passing |
 
@@ -25,7 +26,7 @@ MemBrain is a bilingual (Arabic dialects and English), voice-first cognitive and
 
 ```bash
 pip install -r requirements.txt
-make test          # 23 Python tests + JS parity check
+make test          # 25 Python tests + JS parity check
 make web           # regenerate golden vectors, validation run, and web/dist/index.html
 make api           # http://localhost:8000/docs
 ```
@@ -46,6 +47,7 @@ docs/          technical documentation, assumptions and limitations, data source
 ## Key documents
 
 - [Technical documentation](docs/TECHNICAL_DOCUMENTATION.md)
+- [On-device vs cloud architecture + speech stack](docs/ARCHITECTURE_DEVICE_CLOUD.md)
 - [Assumptions and limitations](docs/ASSUMPTIONS_LIMITATIONS.md)
 - [Data sources plan](docs/DATA_SOURCES.md)
 - [Team plan to 20 November](docs/TEAM_PLAN.md)
