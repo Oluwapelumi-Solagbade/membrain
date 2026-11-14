@@ -150,7 +150,7 @@
           const dialect = (person(S.pt?.pid) || {}).dialect;
           cfg.speechRecognitionLanguage = lang === "ar" ? ((SPEECH.locales || {})[dialect] || "ar-AE") : "en-GB";
           SPEECH.locale = cfg.speechRecognitionLanguage;
-          this.az = new sdk.SpeechRecognizer(cfg, sdk.AudioConfig.fromStreamInput(this.stream));
+          this.az = new sdk.SpeechRecognizer(cfg, sdk.AudioConfig.fromDefaultMicrophoneInput());
           this.az.recognizing = (_s, e) => emit(e.result.text);
           this.az.canceled = (_s, e) => {
             if (e.reason === sdk.CancellationReason.Error && this.active) {
@@ -266,7 +266,11 @@
       if (!Rec.active) {
         const ok = await Rec.start(pt.lang, (t) => { ta.value = t; pt.tr[task] = t; });
         if (!ok) { $("#rec-status").textContent = l.typed; m.disabled = true; return; }
-        m.classList.add("rec"); m.textContent = l.stop; $("#rec-status").textContent = l.listening;
+        m.classList.add("rec"); m.textContent = l.stop;
+        const listeningMsg = Rec.engine === "azure"
+          ? (pt.lang === "ar" ? "أَسْتَمِعُ عَبْرَ Azure دُبَيّ…" : "Listening via Azure Dubai…")
+          : l.listening;
+        $("#rec-status").textContent = listeningMsg;
       } else {
         m.disabled = true; m.textContent = "…";
         const r = await Rec.stop(pt.noiseDb); m.disabled = false; m.classList.remove("rec"); m.textContent = l.tap;
