@@ -1,0 +1,11 @@
+.git
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+*.msi
+*.pdf
+DEPLOY_AZURE.md
+azure-cli-2.92.0.msi
+data/raw/
+.env
