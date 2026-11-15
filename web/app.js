@@ -85,8 +85,9 @@
   function newPt(person) {
     const idx = person.sessions.filter((s) => s.type !== "intake").length;
     return { pid: person.id, lang: person.language, step: "welcome", form: E.formForSession(idx, hashSeed(person.id)), tr: {}, audio: {}, vf: {},
-             precheck: { hearing_ok: true, vision_ok: true, noise_ok: true }, phq: [0, 0], gad: [0, 0], sleep: 6.5, ill: false,
-             assisted: false, big: false, hc: false, slow: false, noiseDb: null, result: null };
+             precheck: { hearing_ok: true, vision_ok: true, noise_ok: true }, phq: [null, null], gad: [null, null], sleep: null, ill: null,
+             assisted: false, big: false, hc: false, slow: false, noiseDb: null, result: null, spoken: {},
+             mood_q: 0, sleep_q: 0 };
   }
   function hashSeed(id) { let h = 0; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) % 997; return h % 3; }
   const L = () => T[S.pt.lang];
@@ -101,13 +102,30 @@
     if (S._tm) { clearInterval(S._tm); S._tm = null; }
     if (Rec.active) { try { Rec.stop(); } catch (e) {} }
   }
-function speak(text, lang, onend) {
+  function speak(text, lang, onend) {
     try {
-      speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text);
-      u.lang = lang === "ar" ? "ar-AE" : "en-GB"; u.rate = S.pt && S.pt.slow ? 0.75 : 0.9;
-      const v = voices.find((v) => v.lang && v.lang.toLowerCase().startsWith(lang)); if (v) u.voice = v;
-      if (onend) u.onend = onend; speechSynthesis.speak(u);
+      speechSynthesis.cancel();
+      setTimeout(() => {
+        try {
+          const u = new SpeechSynthesisUtterance(text);
+          u.lang = lang === "ar" ? "ar-AE" : "en-GB";
+          u.rate = S.pt && S.pt.slow ? 0.68 : 0.88;
+          if (!voices.length) { try { voices = speechSynthesis.getVoices(); } catch (x) {} }
+          const v = voices.find((v) => v.lang && v.lang.toLowerCase().startsWith(lang));
+          if (v) u.voice = v;
+          if (onend) u.onend = onend;
+          speechSynthesis.speak(u);
+        } catch (e) { if (onend) setTimeout(onend, 600); }
+      }, 50);
     } catch (e) { if (onend) setTimeout(onend, 600); }
+  }
+  function speakOnce(step, text, lang, onend) {
+    if (!S.pt) return;
+    S.pt.spoken = S.pt.spoken || {};
+    if (!S.pt.spoken[step]) {
+      S.pt.spoken[step] = true;
+      speak(text, lang, onend);
+    }
   }
 
   // --- speech input + on-device acoustic features (audio never leaves the device)
@@ -271,9 +289,12 @@ function speak(text, lang, onend) {
     const pt = S.pt, l = L(), p = person(pt.pid), ar = pt.lang === "ar";
     document.body.classList.toggle("hc", pt.hc); document.documentElement.style.setProperty("--fs", pt.big ? "19px" : "16px");
     const si = STEPS.indexOf(pt.step);
+    const subProgress = pt.step === "mood" ? (pt.mood_q || 0) / 4 : pt.step === "sleep" ? (pt.sleep_q || 0) / 2 : 0;
+    const progPct = Math.min(100, Math.round(((si + subProgress) / (STEPS.length - 1)) * 100));
     $("#main").innerHTML = `<div class="pt-wrap">
       <div class="panel phone ${ar ? "ar" : ""}" dir="${ar ? "rtl" : "ltr"}" lang="${pt.lang}">
-        <div class="bar"><button class="btn ghost" id="pt-exit" title="Exit">✕</button><div class="progress"><i style="width:${(si / (STEPS.length - 1)) * 100}%"></i></div>
+        <div class="bar"><button class="btn ghost" id="pt-exit" title="Exit">✕</button><div class="progress"><i style="width:${progPct}%"></i></div>
+          <button class="btn ghost" id="pt-slow" title="${l.slow}">${pt.slow ? "🐢 " + (ar ? "بَطِيءٌ" : "Slow") : "⚡ " + (ar ? "عَادِيٌّ" : "Normal")}</button>
           <button class="btn ghost" id="pt-lang">${ar ? "English" : "عربي"}</button></div>
         <div class="body" id="pt-body"></div>
         <div class="foot" id="pt-foot"></div>
@@ -292,7 +313,21 @@ function speak(text, lang, onend) {
           <div class="muted tiny" style="margin-top:6px">If the microphone is blocked (for example inside an embedded preview), answers can be typed or sampled. Voice features are computed on the device; audio is never stored by MemBrain.</div></div>
       </aside></div>`;
     $("#pt-exit").onclick = () => { stopSpeech(); S.pt = null; render(); };
-    $("#pt-lang").onclick = () => { stopSpeech(); pt.lang = ar ? "en" : "ar"; render(); };
+    $("#pt-slow").onclick = () => {
+      pt.slow = !pt.slow;
+      toast(pt.slow ? (ar ? "تَمَّ تَفْعِيلُ الكَلَامِ الأَبْطَإِ 🐢" : "Slow speech mode enabled 🐢") : (ar ? "كَلَامٌ عَادِيٌّ ⚡" : "Normal speech speed ⚡"));
+      render();
+    };
+    $("#pt-lang").onclick = () => {
+      stopSpeech();
+      pt.lang = ar ? "en" : "ar";
+      if (pt.spoken) {
+        delete pt.spoken[pt.step];
+        delete pt.spoken["mood_" + (pt.mood_q || 0)];
+        delete pt.spoken["sleep_" + (pt.sleep_q || 0)];
+      }
+      render();
+    };
     $("#a-big").onchange = (e) => { pt.big = e.target.checked; render(); };
     $("#a-hc").onchange = (e) => { pt.hc = e.target.checked; render(); };
     $("#a-slow").onchange = (e) => { pt.slow = e.target.checked; };
@@ -376,7 +411,8 @@ function speak(text, lang, onend) {
       const name = p.display_name[pt.lang] || p.display_name.en; const txt = l.welcome(name);
       const cons = Object.entries(p.consent || {}).map(([k, v]) => `<span class="chip ${v ? "on" : "off"}">${k.replace(/_/g, " ")}</span>`).join("");
       $("#pt-body").innerHTML = sayBlock(txt) + `<p class="muted">${l.welcomeSub}</p><div><div class="small" style="font-weight:600">${l.consentT}</div>${cons}</div>`;
-      bindRepeat(txt + " " + l.welcomeSub); foot(false, null, l.start); speak(txt, pt.lang);
+      bindRepeat(txt + " " + l.welcomeSub); foot(false, null, l.start, false, false);
+      speakOnce("welcome", txt, pt.lang);
     },
     hear(pt, l) {
       $("#pt-body").innerHTML = sayBlock(l.hearQ) + `<button class="btn big" id="play">🔊 ${l.play}</button><div class="opts"><button class="opt" data-v="1">${l.yes}</button><button class="opt" data-v="0">${l.no}</button></div>`;
@@ -387,6 +423,7 @@ function speak(text, lang, onend) {
         nextStep();
       }));
       foot(true, null, null, true, true);
+      speakOnce("hear", l.hearQ, pt.lang);
     },
     noise(pt, l) {
       $("#pt-body").innerHTML = sayBlock(l.noiseQ) + `<button class="btn big" id="nz">🎙️ ${l.noiseBtn}</button><div class="meter"><i id="lvl"></i></div><div id="nzr" class="small muted"></div>`;
@@ -414,6 +451,7 @@ function speak(text, lang, onend) {
         }, 2500);
       };
       foot(true, null, null, pt.noiseDb === null, true);
+      speakOnce("noise", l.noiseQ, pt.lang);
     },
     see(pt, l) {
       $("#pt-body").innerHTML = sayBlock(l.seeQ) + `<div class="wordshow" style="font-size:1.6em">${pt.lang === "ar" ? "الشَّمْسُ مُشْرِقَةٌ اليَوْمَ" : "The sun is bright today"}</div><div class="opts"><button class="opt" data-v="1">${l.yes}</button><button class="opt" data-v="0">${l.no}</button></div>`;
@@ -424,14 +462,16 @@ function speak(text, lang, onend) {
         nextStep();
       }));
       foot(true, null, null, true, true);
+      speakOnce("see", l.seeQ, pt.lang);
     },
     words_listen(pt, l) {
       const words = D.items.WORD_LISTS[pt.form][pt.lang];
       $("#pt-body").innerHTML = sayBlock(l.wordsL) + `<div class="wordshow" id="ws"></div><button class="btn big primary" id="pw">▶ ${l.play}</button>`;
       bindRepeat(l.wordsL);
       $("#pw").onclick = () => {
+        stopSpeech();
         let i = 0;
-        const gap = pt.slow ? 2200 : 1600;
+        const gap = pt.slow ? 2400 : 1600;
         if (S._wordTimer) { clearTimeout(S._wordTimer); S._wordTimer = null; }
         const tick = () => {
           if (i >= words.length) {
@@ -446,9 +486,10 @@ function speak(text, lang, onend) {
           i++;
           S._wordTimer = setTimeout(tick, gap);
         };
-        speak(l.wordsL, pt.lang, tick);
+        tick();
       };
       foot(true, null, null, !pt._words_listened, true);
+      speakOnce("words_listen", l.wordsL, pt.lang);
     },
     words_recall(pt, l) {
       const done = Boolean(pt.tr.words_recall && pt.tr.words_recall.trim());
@@ -456,19 +497,21 @@ function speak(text, lang, onend) {
       bindRepeat(l.wordsR);
       foot(true, null, null, !done, true);
       bindRecord("words_recall");
-      speak(l.wordsR, pt.lang);
+      speakOnce("words_recall", l.wordsR, pt.lang);
     },
     story_listen(pt, l) {
       const st = D.items.STORIES[pt.form][pt.lang];
       $("#pt-body").innerHTML = sayBlock(l.storyL) + `<button class="btn big primary" id="ps">▶ ${l.play}</button><div class="small muted" id="cap" style="display:none">${esc(st)}</div>`;
       bindRepeat(l.storyL);
       $("#ps").onclick = () => {
+        stopSpeech();
         $("#cap").style.display = "block";
         pt._story_listened = true;
         const fn = $("#f-next"); if (fn) fn.disabled = false;
-        speak(l.storyL + " " + st, pt.lang);
+        speak(st, pt.lang);
       };
       foot(true, null, null, !pt._story_listened, true);
+      speakOnce("story_listen", l.storyL, pt.lang);
     },
     story_recall(pt, l) {
       const done = Boolean(pt.tr.story_recall && pt.tr.story_recall.trim());
@@ -476,7 +519,7 @@ function speak(text, lang, onend) {
       bindRepeat(l.storyR);
       foot(true, null, null, !done, true);
       bindRecord("story_recall");
-      speak(l.storyR, pt.lang);
+      speakOnce("story_recall", l.storyR, pt.lang);
     },
     fluency(pt, l) {
       const txt = l.flu(D.items.FLUENCY[pt.form].category[pt.lang]);
@@ -504,7 +547,7 @@ function speak(text, lang, onend) {
         if (S._tm) { clearInterval(S._tm); S._tm = null; }
         nextStep();
       }, null, !flDone, true);
-      speak(txt, pt.lang);
+      speakOnce("fluency", txt, pt.lang);
     },
     judgement(pt, l) {
       const q = D.items.JUDGEMENT[pt.form][pt.lang];
@@ -513,7 +556,7 @@ function speak(text, lang, onend) {
       bindRepeat(q);
       foot(true, null, null, !jdDone, true);
       bindRecord("judgement");
-      speak(l.judg + " " + q, pt.lang);
+      speakOnce("judgement", l.judg + " " + q, pt.lang);
     },
     delayed(pt, l) {
       const dlDone = Boolean(pt.tr.delayed && pt.tr.delayed.trim());
@@ -521,22 +564,221 @@ function speak(text, lang, onend) {
       bindRepeat(l.delayed);
       foot(true, null, null, !dlDone, true);
       bindRecord("delayed");
-      speak(l.delayed, pt.lang);
+      speakOnce("delayed", l.delayed, pt.lang);
     },
     mood(pt, l) {
-      const qs = [...l.phq.map((q, i) => ["phq", i, q]), ...l.gad.map((q, i) => ["gad", i, q])];
-      $("#pt-body").innerHTML = `<div class="say">${l.moodT}</div><div class="muted">${l.moodSub}</div>` + qs.map(([k, i, q]) =>
-        `<div><div style="font-weight:600;margin:6px 0">${esc(q)}</div><div class="seg">${l.freq.map((f, v) => `<button data-k="${k}" data-i="${i}" data-v="${v}" class="${pt[k][i] === v ? "on" : ""}">${f}</button>`).join("")}</div></div>`).join("");
-      document.querySelectorAll(".seg button").forEach((b) => (b.onclick = () => { pt[b.dataset.k][+b.dataset.i] = +b.dataset.v; renderParticipant(); }));
-      foot(true, null, null, false, true); speak(l.moodT + ". " + l.moodSub, pt.lang);
+      pt.mood_q = pt.mood_q || 0;
+      const qList = [
+        { k: "phq", i: 0, text: l.phq[0] },
+        { k: "phq", i: 1, text: l.phq[1] },
+        { k: "gad", i: 0, text: l.gad[0] },
+        { k: "gad", i: 1, text: l.gad[1] },
+      ];
+      const cur = qList[pt.mood_q];
+      const total = qList.length;
+      const qNumText = pt.lang === "ar"
+        ? `السُّؤَالُ ${pt.mood_q + 1} مِنْ ${total}`
+        : `Question ${pt.mood_q + 1} of ${total}`;
+      
+      const spokenText = pt.mood_q === 0
+        ? (l.moodT + ". " + l.moodSub + " " + cur.text)
+        : cur.text;
+
+      const title = pt.mood_q === 0
+        ? `<div class="say">${esc(l.moodT)}</div><p class="muted" style="margin-top:4px">${esc(l.moodSub)}</p>`
+        : `<div class="say" style="font-size:1.1em">${esc(l.moodSub)}</div>`;
+
+      const optionsHtml = l.freq.map((f, v) => {
+        const isSel = pt[cur.k][cur.i] === v;
+        return `<button class="opt ${isSel ? "sel" : ""}" data-v="${v}">${esc(f)}</button>`;
+      }).join("");
+
+      $("#pt-body").innerHTML = `
+        <div class="small muted" style="font-weight:600;margin-bottom:8px">${qNumText}</div>
+        ${title}
+        <div style="font-weight:600;font-size:1.15em;margin:12px 0 16px">${esc(cur.text)}</div>
+        <div style="margin-bottom:12px"><button class="btn" id="rep">🔊 ${l.repeat}</button></div>
+        <div class="opts">${optionsHtml}</div>
+      `;
+
+      bindRepeat(spokenText);
+
+      let navigating = false;
+      document.querySelectorAll(".opts .opt").forEach((b) => {
+        b.onclick = (e) => {
+          e.preventDefault();
+          if (navigating) return;
+          navigating = true;
+          document.querySelectorAll(".opts .opt").forEach((el) => el.classList.remove("sel"));
+          b.classList.add("sel");
+          stopSpeech();
+          pt[cur.k][cur.i] = +b.dataset.v;
+          const fn = $("#f-next"); if (fn) fn.disabled = false;
+          setTimeout(() => {
+            if (pt.mood_q < total - 1) {
+              pt.mood_q++;
+              render();
+            } else {
+              pt.mood_q = 0;
+              nextStep();
+            }
+          }, 220);
+        };
+      });
+
+      const isAnswered = pt[cur.k][cur.i] !== null && pt[cur.k][cur.i] !== undefined;
+      const skipBtn = `<button class="btn ghost" id="f-skip">${l.skip}</button>`;
+      $("#pt-foot").innerHTML = `<button class="btn" id="f-back">${l.back}</button>${skipBtn}<button class="btn primary big" id="f-next" ${isAnswered ? "" : "disabled"}>${l.next}</button>`;
+      $("#f-back").onclick = () => {
+        stopSpeech();
+        if (pt.mood_q > 0) {
+          pt.mood_q--;
+          render();
+        } else {
+          S.pt.step = "delayed";
+          render();
+        }
+      };
+      $("#f-skip").onclick = () => {
+        stopSpeech();
+        if (pt.mood_q < total - 1) {
+          pt.mood_q++;
+          render();
+        } else {
+          pt.mood_q = 0;
+          nextStep();
+        }
+      };
+      $("#f-next").onclick = () => {
+        stopSpeech();
+        if (pt.mood_q < total - 1) {
+          pt.mood_q++;
+          render();
+        } else {
+          pt.mood_q = 0;
+          nextStep();
+        }
+      };
+
+      speakOnce("mood_" + pt.mood_q, spokenText, pt.lang);
     },
     sleep(pt, l) {
-      const hrs = [4.5, 5.5, 6.5, 7.5, 8.5];
-      $("#pt-body").innerHTML = `<div class="say">${l.sleepQ}</div><div class="opts">${l.sleepO.map((o, i) => `<button class="opt ${pt.sleep === hrs[i] ? "sel" : ""}" data-h="${hrs[i]}">${o}</button>`).join("")}</div>
-        <div class="say" style="font-size:1.15em;margin-top:8px">${l.illQ}</div><div class="seg"><button data-ill="1" class="${pt.ill ? "on" : ""}">${l.yes}</button><button data-ill="0" class="${!pt.ill ? "on" : ""}">${l.no}</button></div>`;
-      document.querySelectorAll(".opt").forEach((b) => (b.onclick = () => { pt.sleep = +b.dataset.h; renderParticipant(); }));
-      document.querySelectorAll("[data-ill]").forEach((b) => (b.onclick = () => { pt.ill = b.dataset.ill === "1"; renderParticipant(); }));
-      foot(true, submitSession, l.finish, false, false); speak(l.sleepQ, pt.lang);
+      pt.sleep_q = pt.sleep_q || 0;
+      const total = 2;
+      const qNumText = pt.lang === "ar"
+        ? `السُّؤَالُ ${pt.sleep_q + 1} مِنْ ${total}`
+        : `Question ${pt.sleep_q + 1} of ${total}`;
+
+      if (pt.sleep_q === 0) {
+        const hrs = [4.5, 5.5, 6.5, 7.5, 8.5];
+        const spokenText = l.sleepQ;
+        const optionsHtml = l.sleepO.map((o, i) => {
+          const isSel = pt.sleep === hrs[i];
+          return `<button class="opt ${isSel ? "sel" : ""}" data-h="${hrs[i]}">${esc(o)}</button>`;
+        }).join("");
+
+        $("#pt-body").innerHTML = `
+          <div class="small muted" style="font-weight:600;margin-bottom:8px">${qNumText}</div>
+          <div class="say">${esc(l.sleepQ)}</div>
+          <div style="margin:10px 0 14px"><button class="btn" id="rep">🔊 ${l.repeat}</button></div>
+          <div class="opts">${optionsHtml}</div>
+        `;
+
+        bindRepeat(spokenText);
+
+        let navigating = false;
+        document.querySelectorAll(".opts .opt").forEach((b) => {
+          b.onclick = (e) => {
+            e.preventDefault();
+            if (navigating) return;
+            navigating = true;
+            document.querySelectorAll(".opts .opt").forEach((el) => el.classList.remove("sel"));
+            b.classList.add("sel");
+            stopSpeech();
+            pt.sleep = +b.dataset.h;
+            const fn = $("#f-next"); if (fn) fn.disabled = false;
+            setTimeout(() => {
+              pt.sleep_q = 1;
+              render();
+            }, 220);
+          };
+        });
+
+        const isAnswered = pt.sleep !== null && pt.sleep !== undefined;
+        const skipBtn = `<button class="btn ghost" id="f-skip">${l.skip}</button>`;
+        $("#pt-foot").innerHTML = `<button class="btn" id="f-back">${l.back}</button>${skipBtn}<button class="btn primary big" id="f-next" ${isAnswered ? "" : "disabled"}>${l.next}</button>`;
+        $("#f-back").onclick = () => {
+          stopSpeech();
+          S.pt.step = "mood";
+          pt.mood_q = 3;
+          render();
+        };
+        $("#f-skip").onclick = () => {
+          stopSpeech();
+          pt.sleep_q = 1;
+          render();
+        };
+        $("#f-next").onclick = () => {
+          stopSpeech();
+          pt.sleep_q = 1;
+          render();
+        };
+
+        speakOnce("sleep_0", spokenText, pt.lang);
+      } else {
+        const spokenText = l.illQ;
+        const optionsHtml = `
+          <button class="opt ${pt.ill === true ? "sel" : ""}" data-ill="1">${esc(l.yes)}</button>
+          <button class="opt ${pt.ill === false ? "sel" : ""}" data-ill="0">${esc(l.no)}</button>
+        `;
+
+        $("#pt-body").innerHTML = `
+          <div class="small muted" style="font-weight:600;margin-bottom:8px">${qNumText}</div>
+          <div class="say">${esc(l.illQ)}</div>
+          <div style="margin:10px 0 14px"><button class="btn" id="rep">🔊 ${l.repeat}</button></div>
+          <div class="opts">${optionsHtml}</div>
+        `;
+
+        bindRepeat(spokenText);
+
+        let navigating = false;
+        document.querySelectorAll(".opts .opt").forEach((b) => {
+          b.onclick = (e) => {
+            e.preventDefault();
+            if (navigating) return;
+            navigating = true;
+            document.querySelectorAll(".opts .opt").forEach((el) => el.classList.remove("sel"));
+            b.classList.add("sel");
+            stopSpeech();
+            pt.ill = b.dataset.ill === "1";
+            setTimeout(() => {
+              pt.sleep_q = 0;
+              submitSession();
+            }, 220);
+          };
+        });
+
+        const isAnswered = pt.ill !== null && pt.ill !== undefined;
+        const skipBtn = `<button class="btn ghost" id="f-skip">${l.skip}</button>`;
+        $("#pt-foot").innerHTML = `<button class="btn" id="f-back">${l.back}</button>${skipBtn}<button class="btn primary big" id="f-next" ${isAnswered ? "" : "disabled"}>${l.finish}</button>`;
+        $("#f-back").onclick = () => {
+          stopSpeech();
+          pt.sleep_q = 0;
+          render();
+        };
+        $("#f-skip").onclick = () => {
+          stopSpeech();
+          pt.sleep_q = 0;
+          submitSession();
+        };
+        $("#f-next").onclick = () => {
+          stopSpeech();
+          pt.sleep_q = 0;
+          submitSession();
+        };
+
+        speakOnce("sleep_1", spokenText, pt.lang);
+      }
     },
     done(pt, l, p) {
       const r = pt.result; const ev = r.ev; const key = ev.valid ? ev.level : "INVALID";
@@ -544,7 +786,13 @@ function speak(text, lang, onend) {
       const support = ev.confounders.some((c) => c.code === "mood") ? D.messages.MOOD_SUPPORT[pt.lang === "ar" ? 1 : 0] : null;
       const showPlan = ["BASELINE", "STABLE", "CHECK_AGAIN"].includes(ev.level);
       const plan = (p.prevention && p.prevention[pt.lang]) ? p.prevention[pt.lang].items : [];
-      const nxt = { BASELINE: pt.lang === "ar" ? "بَعْدَ أُسْبُوعَيْنِ" : "in 2 weeks", STABLE: pt.lang === "ar" ? "بَعْدَ 6 أَشْهُرٍ" : "in 6 months", CHECK_AGAIN: pt.lang === "ar" ? "بعد 2 إلى 4 أسابيع" : "in 2–4 weeks" }[key];
+      const nxt = {
+        BASELINE: pt.lang === "ar" ? "بَعْدَ أُسْبُوعَيْنِ" : "in 2 weeks",
+        STABLE: pt.lang === "ar" ? "بَعْدَ 6 أَشْهُرٍ" : "in 6 months",
+        CHECK_AGAIN: pt.lang === "ar" ? "بَعْدَ 2 إِلَى 4 أَسَابِيعَ" : "in 2–4 weeks",
+        CLINICIAN_REVIEW: pt.lang === "ar" ? "سَتَتَوَاصَلُ مَعَكَ العِيَادَةُ قَرِيبًا" : "your clinic will contact you",
+        URGENT: pt.lang === "ar" ? "فِي أَقْرَبِ وَقْتٍ مُمْكِنٍ" : "as soon as possible",
+      }[key];
       $("#pt-body").innerHTML = `<div class="say">${l.doneT}</div>
         <div class="result-card lv-${ev.held_for_clinician ? "BASELINE" : key}" style="font-size:1.1em">${esc(msg)}</div>
         ${support ? `<div class="result-card" style="background:var(--sand-soft)">${esc(support)}</div>` : ""}
@@ -557,9 +805,9 @@ function speak(text, lang, onend) {
           ${r.unverified.length ? `<div class="muted">Fluency words outside lexicon routed to human audit: ${esc(r.unverified.join(", "))}</div>` : ""}
           <button class="btn primary" id="toClin" style="margin-top:8px">${T.en.openClin} →</button></details>`;
       $("#toClin").onclick = () => { stopSpeech(); S.selected = p.id; S.pt = null; go("clinician"); };
-      $("#pt-foot").innerHTML = `<span></span><button class="btn primary" id="again">${pt.lang === "ar" ? "تم" : "Done"}</button>`;
+      $("#pt-foot").innerHTML = `<span></span><button class="btn primary" id="again">${pt.lang === "ar" ? "تَمَّ" : "Done"}</button>`;
       $("#again").onclick = () => { stopSpeech(); S.pt = null; render(); };
-      speak(msg, pt.lang);
+      speakOnce("done", msg, pt.lang);
     },
   };
 
@@ -574,7 +822,7 @@ function speak(text, lang, onend) {
     const audio = audios.length ? { snr_db: Math.min(...audios.map((a) => a.snr_db)), clipping: Math.max(...audios.map((a) => a.clipping)),
                                     speech_ratio: audios.reduce((a, b) => a + b.speech_ratio, 0) / audios.length, duration_s: Math.min(...audios.map((a) => a.duration_s)) } : null;
     const s = { session_id: `${p.id}-s${p.sessions.length}`, date: d.toISOString().slice(0, 10), channel: "app", form: pt.form, raw: sc.raw, audio,
-                precheck: { ...pt.precheck }, phq2: pt.phq[0] + pt.phq[1], gad2: pt.gad[0] + pt.gad[1], sleep_hours: pt.sleep, acute_illness: pt.ill,
+                precheck: { ...pt.precheck }, phq2: (pt.phq[0] || 0) + (pt.phq[1] || 0), gad2: (pt.gad[0] || 0) + (pt.gad[1] || 0), sleep_hours: pt.sleep != null ? pt.sleep : 6.5, acute_illness: Boolean(pt.ill),
                 assisted: pt.assisted, helper_role: pt.assisted ? "family member" : null, input_mode: audio ? "voice" : "typed (demo)", asr: pt.asr || null,
                 voice_features: (p.consent || {}).voice_features && vfs.length ? vfs.reduce((acc, f) => { for (const k in f) acc[k] = +(((acc[k] || 0) + f[k] / vfs.length)).toFixed(2); return acc; }, {}) : null, transcripts: tr };
     if (p.pending_iqcode != null && !p.sessions.some((x) => x.type !== "intake")) { s.iqcode = p.pending_iqcode; p.pending_iqcode = null; }

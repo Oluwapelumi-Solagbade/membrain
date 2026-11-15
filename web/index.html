@@ -75,7 +75,9 @@ td.num,th.num{text-align:end;font-variant-numeric:tabular-nums}
 .meter{height:10px;border-radius:99px;background:#eee8dc;overflow:hidden} .meter i{display:block;height:100%;background:var(--sand);width:0}
 textarea{width:100%;min-height:84px;border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;background:#fdfcfa}
 .opts{display:grid;gap:10px}
-.opt{border:1.5px solid var(--line);border-radius:12px;padding:13px 16px;background:#fff;text-align:start;font-size:1.05em}
+.opt{border:1.5px solid var(--line);border-radius:12px;padding:13px 16px;background:#fff;text-align:start;font-size:1.05em;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:background .15s ease,border-color .15s ease,transform .1s ease}
+.opt:hover{border-color:var(--teal);background:#fbfdfc}
+.opt:active{transform:scale(0.985);background:var(--teal-soft)}
 .opt.sel{border-color:var(--teal);background:var(--teal-soft)}
 .timer{font-size:42px;font-weight:700;text-align:center;color:var(--teal);font-variant-numeric:tabular-nums}
 .wordshow{font-size:2.1em;font-weight:700;text-align:center;color:var(--teal);min-height:1.5em}
