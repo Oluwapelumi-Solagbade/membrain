@@ -14,6 +14,8 @@ generically so they cannot be mistaken for real providers.
 """
 from __future__ import annotations
 
+import math
+
 import statistics
 from datetime import date, timedelta
 
@@ -81,13 +83,26 @@ def is_unresolved(ref: dict) -> bool:
     return ref["state"] not in CLOSED
 
 
+def _r(x: float, d: int) -> float:
+    """Round half up, exactly as JavaScript's Math.round(x * 10**d) / 10**d (Python's round() is half-to-even)."""
+    f = 10 ** d
+    return math.floor(x * f + 0.5) / f
+
+
 # --- service directory -------------------------------------------------------
 def directory() -> list[dict]:
     S = []
 
+    # capacity: new referrals the service can take per month, and whether it is accepting now (synthetic values)
+    CAP = {"SVC-01": (20, True), "SVC-02": (14, True), "SVC-03": (10, False), "SVC-04": (120, True), "SVC-05": (60, True),
+           "SVC-06": (25, True), "SVC-07": (18, True), "SVC-08": (40, True), "SVC-09": (35, True), "SVC-10": (8, True),
+           "SVC-11": (None, True), "SVC-12": (None, True), "SVC-13": (30, True)}
+
     def add(i, name, pathways, emirate, area, langs, funding, wait, verified, notes, referral="Clinician referral letter"):
+        cap, accepting = CAP[i]
         S.append({"id": i, "name": name + " (synthetic)", "pathways": pathways, "emirate": emirate, "area": area,
                   "languages": langs, "funding": funding, "wait_weeks": wait, "last_verified": verified,
+                  "capacity_per_month": cap, "accepting_referrals": accepting,
                   "referral_process": referral, "notes": notes, "synthetic": True})
 
     add("SVC-01", "Memory Clinic — Abu Dhabi City", ["memory_clinic"], "Abu Dhabi", "Abu Dhabi City", ["ar", "en"],
@@ -140,9 +155,10 @@ def match_services(pathway: str, person: dict, services: list[dict] | None = Non
         lang_ok = bool(langs & set(s["languages"]))
         fund_ok = funding is None or funding in s["funding"]
         stale = (t - date.fromisoformat(s["last_verified"])).days > STALE_AFTER_DAYS
-        barriers = ([] if lang_ok else ["language"]) + ([] if fund_ok else ["funding"])
+        barriers = ([] if lang_ok else ["language"]) + ([] if fund_ok else ["funding"]) + \
+            ([] if s.get("accepting_referrals", True) else ["not accepting referrals"])
         score = (2 if lang_ok else 0) + (2 if fund_ok else 0) + (1 if emirate and s["emirate"] == emirate else 0) - s["wait_weeks"] / 10
-        out.append({**s, "accessible": not barriers, "barriers": barriers, "stale": stale, "score": round(score, 2)})
+        out.append({**s, "accessible": not barriers, "barriers": barriers, "stale": stale, "score": _r(score, 2)})
     out.sort(key=lambda x: (-x["accessible"], -x["score"]))
     gap = not any(x["accessible"] for x in out)
     return {"pathway": pathway, "services": out, "gap": gap,
@@ -210,12 +226,12 @@ def programme_metrics(refs: list[dict], people: dict, today: str = "2026-11-14")
             d = g.setdefault(k, {"sent": 0, "completed": 0})
             d["sent"] += 1
             d["completed"] += 1 if state_date(r, "assessment_completed") else 0
-        return {k: {**v, "completion": round(v["completed"] / v["sent"], 3) if v["sent"] else None} for k, v in sorted(g.items())}
+        return {k: {**v, "completion": _r(v["completed"] / v["sent"], 3) if v["sent"] else None} for k, v in sorted(g.items())}
 
     overdue = [r for r in unresolved if r["state"] in ("sent", "recommended") and _days(r["history"][-1]["date"], today) > 14]
     return {
-        "referrals": len(refs), "sent": len(sent), "accepted_rate": round(len(accepted) / len(sent), 3) if sent else None,
-        "completion_rate": round(len(done) / len(sent), 3) if sent else None,
+        "referrals": len(refs), "sent": len(sent), "accepted_rate": _r(len(accepted) / len(sent), 3) if sent else None,
+        "completion_rate": _r(len(done) / len(sent), 3) if sent else None,
         "median_days_concern_to_review": statistics.median(t_concern_review) if t_concern_review else None,
         "median_days_referral_to_assessment": statistics.median(t_ref_assess) if t_ref_assess else None,
         "unresolved": len(unresolved), "overdue": len(overdue), "non_completion_reasons": reasons,

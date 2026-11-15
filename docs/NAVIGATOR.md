@@ -6,12 +6,15 @@ Built on 14 November from Jeremiah's *MemBrain Navigator* document. MemBrain fin
 
 | Function | Where |
 |---|---|
+| **Two-door start page.** "I'm worried about someone" (family intake, the default) and "Check my own brain health" (voice check-in) lead to the same red-flag screen, review queue and referral loop. | Start tab |
+| **Family intake by voice or text** (Gulf Arabic, English). Facts are shown with the words they came from and a confidence, read back aloud, and confirmed before enrolment. See `NAVIGATOR_AI.md`. | Family intake tab, `intake.py`, `/api/intake/extract` |
+| **Referral reason drafter and grounding verifier.** Drafted from confirmed facts only. Every sentence is checked; diagnosis words, invented numbers and unconfirmed claims are blocked. Clinician edits are tracked. | Referral dialog, `intake.verify_referral` |
 | **Concern-led entry.** Enrolment starts with how the person came to us (programme screening, primary care clinician, family member, household helper) and what was noticed. | Enrolment step 1 |
 | **Red-flag screen before any testing.** Sudden onset, fluctuating confusion, new neurological symptoms, a fall or head injury, rapid worsening, or a safety risk goes straight to an **urgent review** under the emergency protocol. There is no waiting for repeat tests. | `config.RED_FLAGS`, `triage.py` (intake record), enrolment |
 | **First-visit review.** A very low first score (composite z ≤ −2.0 for age and education) goes to clinician review without waiting for a 2-session baseline. | `config.FIRST_VISIT_REVIEW_Z` |
 | **Household helpers as informants.** Separate consent, a language they understand, and never shared with an employer. | Enrolment, Informant step |
 | **Functional change timeline.** For each change: what changed, when, who took over and why. This is context, not automatic evidence of decline. | Enrolment, clinician view |
-| **Service directory** with pathways, languages, funding routes, waiting time and a "last verified" date. Anything not re-verified in 90 days is flagged. | `navigator.directory()` (synthetic entries), Referrals tab |
+| **Service directory** with pathways, languages, funding routes, waiting time, monthly capacity, whether it is accepting referrals, and a "last verified" date. Free-text search in the Referrals tab. Anything not re-verified in 90 days is flagged. | `navigator.directory()` (synthetic entries), Referrals tab |
 | **Matching:** the clinical pathway comes first, then accessibility. Funding never removes a clinically needed pathway. If nothing is accessible, a **pathway gap** is recorded and escalated. | `navigator.match_services()` |
 | **Closed-loop referral tracking:** recommended → sent → accepted or declined → appointment offered → attended or missed → assessment completed → follow-up documented. Declined, missed, lost and no-accessible-service states need a reason and stay visible. | `navigator.TRANSITIONS`, clinician view, Referrals tab |
 | **Next-steps pack** in Arabic and English: what has and has not been established, where to go, what to bring, supporting independence, urgent warning signs (ambulance 998), and caregiver support. | `navigator.next_steps_pack()` |

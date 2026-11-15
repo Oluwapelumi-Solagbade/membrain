@@ -14,7 +14,7 @@
 
   // ---------------------------------------------------------------- state
   const S = {
-    view: "participant",
+    view: "home",
     people: D.personas.map((p) => ({ ...p, sessions: p.sessions.map((s) => ({ ...s })) })),
     actions: {}, audit: [], selected: null, sub: "education",
     pt: null,
@@ -30,7 +30,7 @@
   $("#tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) go(b.dataset.view); });
   function render() {
     document.documentElement.dir = "ltr"; document.documentElement.lang = "en";
-    ({ enrol: renderEnrol, participant: renderParticipant, clinician: renderClinician, referrals: renderReferrals, validation: renderValidation, how: renderHow })[S.view]();
+    ({ home: renderHome, intake: renderIntake, enrol: renderEnrol, participant: renderParticipant, clinician: renderClinician, referrals: renderReferrals, validation: renderValidation, how: renderHow })[S.view]();
   }
 
   // ================================================================ PARTICIPANT
@@ -1026,7 +1026,7 @@
       sex: e.profile.sex, education: band, dialect: e.profile.dialect, language: lang, story: "Enrolled during this demo through the enrolment flow.", context: ctx,
       consent: { ...e.consent }, sessions: [], prevention: { en: preventionJS(ctx, "en"), ar: preventionJS(ctx, "ar") }, risk_context: riskContextJS(ctx, band),
       pending_iqcode: e.informant.iqcode ? +e.informant.iqcode : null, preferred_channel: e.identity.preferred_channel,
-      funding: e.nav.funding, emirate: e.nav.emirate, languages: [lang], entry_route: e.concern.route, referrals: [], genomics: gxImport,
+      funding: e.nav.funding, emirate: e.nav.emirate, languages: [lang], entry_route: e.concern.route, referrals: [], genomics: gxImport, intake: e.intake || null,
       informant: e.inf.type === "none" || (e.inf.type === "household_helper" && !e.inf.helper_consent) ? null
         : { type: e.inf.type, relation: e.informant.relation, language: e.inf.language, consented: true, timeline: e.inf.timeline.filter((t) => t.change || t.when) } };
     const flags = Object.keys(e.flags).filter((k) => e.flags[k]);
@@ -1059,6 +1059,124 @@
         <tr><td>Informant</td><td>${v.informant ? esc(v.informant.name + " · " + v.informant.relation + (v.informant.phone ? " · " + v.informant.phone : "")) : "None"}</td></tr></table>`; };
   }
 
+  // ================================================================ START (two doors) and FAMILY INTAKE
+  const IX = window.makeIntake(D.intake);
+  const IK_AR = { memory: "الذاكرة", language: "إيجاد الكلمات والمحادثة", orientation: "معرفة الوقت والمكان والناس", executive: "الفلوس والتخطيط", daily_function: "الأنشطة اليومية",
+    mood: "المزاج", behaviour: "التصرفات أو الطبع", sleep: "النوم", days: "من أيام", weeks: "من أسابيع", months: "من شهور", years: "من سنة أو أكثر" };
+  const IK_SAMPLES = [
+    ["Gulf Arabic: memory and money", "ar", "أمي من حوالي سنتين صارت تنسى وايد وتعيد نفس السؤال. ما تقدر تدير بطاقة البنك، وأختي الحين تدفع الفواتير عنها. وصارت ضايقة وما تبي تطلع."],
+    ["English: helper's observations", "en", "Our helper says Dad left the gas on twice this month and asks her the same question many times a day. My son now handles his bills. It has been getting worse for about a year. He started a new blood pressure medicine in August."],
+    ["Gulf Arabic: urgent", "ar", "أبوي طاح أمس في الحمام وضرب راسه، ومن يومها نعسان ومتلخبط وكلامه ثقيل."],
+  ];
+  S.ik = { text: "", lang: "ar", res: null, ok: {}, engine: "", busy: false, rec: false };
+  function renderHome() {
+    $("#main").innerHTML = `<div style="max-width:980px;margin:0 auto">
+      <div style="text-align:center;margin:8px 0 22px"><h2 style="margin:0 0 6px">From the first worry to a completed assessment</h2>
+        <div class="muted">MemBrain helps families in the UAE get from "something is not right" to the right clinician, and tracks every step until follow-up is documented. It flags risk and change. It never diagnoses.</div></div>
+      <div class="two" style="gap:18px">
+        <button class="panel pad door" id="door-family" style="text-align:start;cursor:pointer;border-width:2px;border-color:var(--teal)">
+          <div class="tiny" style="color:var(--teal);font-weight:700;letter-spacing:.06em">START HERE · FOR FAMILIES AND HELPERS</div>
+          <h2 style="margin:6px 0">I'm worried about someone</h2><div class="ar" dir="rtl" style="font-size:18px;margin-bottom:8px">أنا قلقان على شخص أحبه</div>
+          <div class="small">Say or type what you have noticed, in Gulf Arabic or English. MemBrain picks out the key facts and checks for urgent warning signs first. It reads them back to you. A clinician confirms everything before any referral.</div>
+          <div style="margin-top:12px"><span class="btn primary">Describe what you've noticed →</span></div></button>
+        <button class="panel pad door" id="door-self" style="text-align:start;cursor:pointer;border-width:2px">
+          <div class="tiny muted" style="font-weight:700;letter-spacing:.06em">FOR ADULTS 50–75 IN A PROGRAMME</div>
+          <h2 style="margin:6px 0">Check my own brain health</h2><div class="ar" dir="rtl" style="font-size:18px;margin-bottom:8px">أبي أفحص صحة دماغي</div>
+          <div class="small">A 6-minute spoken check-in in your dialect, repeated over time. It is compared with your own baseline, not just one cut-off, so real change shows up earlier and fewer people are flagged by mistake.</div>
+          <div style="margin-top:12px"><span class="btn">Start a check-in →</span></div></button></div>
+      <div class="panel pad small" style="margin-top:18px"><b>Both doors lead to the same place:</b> the urgent red-flag screen, one clinician review queue, and closed-loop referral tracking. A referral counts as done only when the assessment has happened and follow-up is written down.
+        <div style="margin-top:10px;line-height:2.1">${["Concern", "Urgent check", "Clinician review", "Referral sent", "Attended", "Assessment completed", "Follow-up documented"].map((x, i) => `<span class="pill ${i === 1 ? "lv-URGENT" : i > 4 ? "lv-STABLE" : "lv-BASELINE"}">${x}</span>`).join(" → ")}</div></div></div>`;
+    $("#door-family").onclick = () => go("intake"); $("#door-self").onclick = () => go("participant");
+  }
+  async function runExtract() {
+    const k = S.ik; if (k.text.trim().length < 3) { toast("Describe what you have noticed first"); return; }
+    k.busy = true; renderIntake(); let r = null;
+    if (API !== null) { try { const ctl = new AbortController(); setTimeout(() => ctl.abort(), 9000);
+      const resp = await fetch(API + "/api/intake/extract", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: k.text, lang: k.lang }), signal: ctl.signal });
+      if (resp.ok) r = await resp.json(); } catch (e) {} }
+    if (!r) { r = IX.extract(k.text, k.lang); r.fallback_reason = "in-browser rules (no server)"; }
+    k.res = r; k.busy = false; k.ok = {};
+    r.fields.forEach((f) => (k.ok[f.kind + ":" + f.key] = f.kind === "red_flag" || !f.needs_confirmation));
+    if (r.onset) k.ok["onset"] = true; (r.timeline || []).forEach((t, i) => (k.ok["tl:" + i] = true));
+    renderIntake();
+  }
+  function highlight(text, res) {
+    const marks = []; const col = { red_flag: "#f6d3dc", domain: "#d9efe9", confounder: "#fbefdc" };
+    res.fields.forEach((f) => f.spans.forEach(([a, b]) => marks.push([a, b, col[f.kind], f.label])));
+    if (res.onset) res.onset.spans.forEach(([a, b]) => marks.push([a, b, "#e3e8f4", "When it started"]));
+    marks.sort((x, y) => x[0] - y[0] || y[1] - x[1]); let out = "", pos = 0;
+    for (const [a, b, c, t] of marks) { if (a < pos) continue; out += esc(text.slice(pos, a)) + `<mark title="${esc(t)}" style="background:${c};border-radius:4px;padding:0 2px">${esc(text.slice(a, b))}</mark>`; pos = b; }
+    return out + esc(text.slice(pos));
+  }
+  function readBack() {
+    const k = S.ik, r = k.res; if (!r) return; const ar = k.lang === "ar";
+    const doms = r.fields.filter((f) => f.kind === "domain" && k.ok["domain:" + f.key]).map((f) => (ar ? IK_AR[f.key] : f.label.toLowerCase()));
+    const rf = r.fields.filter((f) => f.kind === "red_flag" && k.ok["red_flag:" + f.key]);
+    const on = r.onset && k.ok.onset ? (ar ? IK_AR[r.onset.value] : r.onset.label) : "";
+    const t = ar ? `سمعت إنك لاحظت تغير في: ${doms.join("، ") || "ما حددت"} ${on}. ${rf.length ? "وذكرت علامات قد تكون عاجلة، فبنعطي الطبيب خبر الحين. " : ""}هل هذا صحيح؟`
+      : `I heard that you have noticed changes in ${doms.join(", ") || "nothing specific yet"}${on ? ", " + on : ""}. ${rf.length ? "You also mentioned signs that may be urgent, so a clinician will be told now. " : ""}Is that right?`;
+    speak(t, k.lang); toast(ar ? "قراءة الملخص" : "Reading back the summary");
+  }
+  function renderIntake() {
+    const k = S.ik, r = k.res;
+    const conf = (f) => `<span class="pill ${f.needs_confirmation ? "lv-CHECK_AGAIN" : "lv-STABLE"}" title="confidence">${Math.round(f.confidence * 100)}%${f.needs_confirmation ? " · confirm" : ""}</span>`;
+    const row = (id, label, f, ev) => `<label style="display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;padding:8px 0;border-bottom:1px solid var(--line)">
+      <input type="checkbox" data-ok="${id}" ${k.ok[id] ? "checked" : ""} style="margin-top:3px;width:18px;height:18px"><div><b>${esc(label)}</b><div class="small muted" ${k.lang === "ar" ? 'dir="rtl"' : ""}>“${esc(ev)}”</div></div>${f ? conf(f) : ""}</label>`;
+    let out = "";
+    if (r) {
+      const g = (kind) => r.fields.filter((f) => f.kind === kind);
+      const rf = g("red_flag");
+      out = `${rf.length ? `<div class="panel pad" style="background:var(--urgent-soft);border-color:#e8b9c6;margin-bottom:12px"><b style="color:var(--urgent)">Possible urgent warning signs.</b> Follow the emergency protocol now (ambulance 998 if needed). Do not start memory testing. Red flags are tuned to catch too much rather than miss one, so a clinician confirms them.</div>` : ""}
+        <div class="panel pad" style="margin-bottom:12px"><div class="tiny muted" style="margin-bottom:6px">What you said, with the words each fact came from highlighted</div><div ${k.lang === "ar" ? 'dir="rtl" class="ar"' : ""} style="line-height:1.9;font-size:15px">${highlight(k.text, r)}</div>
+          <div class="tiny muted" style="margin-top:8px">Extractor: <b>${esc(r.engine === "rules" ? "rules (" + (r.fallback_reason || "fallback") + ")" : r.engine)}</b> · ${esc(r.version)}${r.latency_ms != null ? " · " + r.latency_ms + " ms" : ""}${r.grounding ? ` · ${r.grounding.unsupported} unsupported item(s) removed` : ""}</div></div>
+        <div class="two">
+          <div class="panel pad">${rf.length ? `<h3 style="color:var(--urgent)">Urgent warning signs</h3>${rf.map((f) => row("red_flag:" + f.key, f.label, f, f.evidence.join(" … "))).join("")}` : ""}
+            <h3 ${rf.length ? 'style="margin-top:12px"' : ""}>What has changed</h3>${g("domain").map((f) => row("domain:" + f.key, f.label, f, f.evidence.join(" … "))).join("") || '<div class="small muted">No specific change recognised. Add more detail, or continue and the clinician will ask.</div>'}
+            ${r.onset ? `<h3 style="margin-top:12px">When it started</h3>${row("onset", r.onset.label, null, k.text.slice(...r.onset.spans[0]))}` : ""}</div>
+          <div class="panel pad"><h3>Who now does what</h3>${(r.timeline || []).map((t, i) => row("tl:" + i, `${t.activity_label}: now ${t.who_label}`, null, k.text.slice(...t.spans[0]).trim())).join("") || '<div class="small muted">No activity taken over by someone else was mentioned.</div>'}
+            <h3 style="margin-top:12px">Things that can affect memory</h3>${g("confounder").map((f) => row("confounder:" + f.key, f.label, f, f.evidence.join(" … "))).join("") || '<div class="small muted">None mentioned (illness, new medicine, hearing, bereavement).</div>'}
+            <div class="tiny muted" style="margin-top:8px">Untick anything that is wrong. Items marked “confirm” were picked up from weaker cues.</div></div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn big" id="ik-read">🔊 Read back to the family</button>
+          <button class="btn primary big" id="ik-go" ${rf.length ? 'style="background:var(--urgent);border-color:var(--urgent)"' : ""}>${rf.length ? "Confirm and escalate now" : "Confirm and continue to enrolment"}</button></div>`;
+    }
+    $("#main").innerHTML = `<div style="max-width:1080px;margin:0 auto"><div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+      <div><h2 style="margin:0">Tell us what you have noticed</h2><div class="muted small">A family member or household helper describes the changes in their own words. Nothing is decided automatically: a clinician reviews every case.</div></div>
+      <div class="seg"><button data-ikl="ar" class="${k.lang === "ar" ? "on" : ""}">عربي (خليجي)</button><button data-ikl="en" class="${k.lang === "en" ? "on" : ""}">English</button></div></div>
+      <div class="panel pad" style="margin-bottom:12px"><textarea id="ik-text" ${k.lang === "ar" ? 'dir="rtl"' : ""} rows="4" style="width:100%;font:inherit;font-size:15px;padding:10px;border:1px solid var(--line);border-radius:10px" placeholder="${k.lang === "ar" ? "مثال: أبوي من حوالي سنة صار ينسى وايد..." : "e.g. For about a year Dad keeps asking the same questions..."}">${esc(k.text)}</textarea>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center"><button class="btn" id="ik-mic">${k.rec ? "■ Stop dictation" : "🎙 Dictate"}</button>
+          <button class="btn primary" id="ik-x" ${k.busy ? "disabled" : ""}>${k.busy ? "Reading…" : "Pick out the key facts"}</button><span class="tiny muted">Samples:</span>
+          ${IK_SAMPLES.map(([l], i) => `<button class="btn small" data-iks="${i}">${esc(l)}</button>`).join("")}</div>
+        <div class="tiny muted" style="margin-top:6px">${esc(speechLabel())}. Voice is turned into text for this step only; the recording is not kept.</div></div>${out}</div>`;
+    $("#ik-text").oninput = (e) => (k.text = e.target.value);
+    document.querySelectorAll("[data-ikl]").forEach((b) => (b.onclick = () => { k.lang = b.dataset.ikl; k.res = null; renderIntake(); }));
+    document.querySelectorAll("[data-iks]").forEach((b) => (b.onclick = () => { const s = IK_SAMPLES[+b.dataset.iks]; k.lang = s[1]; k.text = s[2]; runExtract(); }));
+    $("#ik-x").onclick = runExtract;
+    $("#ik-mic").onclick = async () => {
+      if (k.rec) { k.rec = false; const res = await Rec.stop(); if (res && res.text) k.text = res.text; renderIntake(); return; }
+      const ok = await Rec.start(k.lang, (t) => { const ta = $("#ik-text"); if (ta) ta.value = t; k.text = t; });
+      if (ok === false) { toast("Microphone not available here: type instead"); return; } k.rec = true; renderIntake(); };
+    document.querySelectorAll("[data-ok]").forEach((el) => (el.onchange = () => (k.ok[el.dataset.ok] = el.checked)));
+    const rb = $("#ik-read"); if (rb) rb.onclick = readBack;
+    const g = $("#ik-go"); if (g) g.onclick = () => intakeToEnrol();
+  }
+  function confirmedFromIntake() {
+    const k = S.ik, r = k.res; const pick = (kind) => r.fields.filter((f) => f.kind === kind && k.ok[kind + ":" + f.key]).map((f) => f.key);
+    const c = { narrative: k.text, domains: pick("domain"), red_flags: pick("red_flag"), confounders: pick("confounder"), onset: r.onset && k.ok.onset ? r.onset.value : null,
+      timeline: (r.timeline || []).filter((t, i) => k.ok["tl:" + i]).map((t) => [t.activity, t.who_took_over]) };
+    c.quotes = IX.quotesFrom({ fields: r.fields.filter((f) => f.kind === "domain" && c.domains.includes(f.key)) }, k.text);
+    return c;
+  }
+  function intakeToEnrol() {
+    const k = S.ik, r = k.res, c = confirmedFromIntake(); const e = blankEnrol();
+    e.concern.route = "family"; e.concern.text = k.text; if (c.onset) e.concern.onset = c.onset;
+    c.red_flags.forEach((f) => (e.flags[f] = true)); e.profile.language = k.lang;
+    e.inf.type = "family";   // a helper giving information is set on the Informant step, with their own consent
+    e.inf.timeline = (r.timeline || []).filter((t, i) => k.ok["tl:" + i]).map((t) => ({ activity: t.activity_label, change: "", when: "", who_took_over: t.who_label, why: "Not sure" }));
+    e.intake = { confirmed: c, engine: r.engine, version: r.version, at: TODAY };
+    log("intake_confirmed", "new", `${c.domains.length} concerns, ${c.red_flags.length} red flags, engine ${r.engine}`);
+    S.en = e; go("enrol"); toast(c.red_flags.length ? "Red flags carried over: escalate on the next step" : "Facts carried into the enrolment form");
+  }
+
   // ================================================================ NAVIGATOR (referrals & care navigation)
   const NV = window.makeNavigator(D.navigator); const ND = D.navigator;
   const TODAY = "2026-11-14";
@@ -1066,6 +1184,7 @@
     missed: "Missed", assessment_completed: "Assessment completed", follow_up_documented: "Follow-up documented", lost_to_follow_up: "Lost to follow-up",
     no_accessible_service: "No accessible service", cancelled: "Cancelled" };
   const STATE_COL = (s) => (["declined", "missed", "lost_to_follow_up", "no_accessible_service"].includes(s) ? "lv-CLINICIAN_REVIEW" : ["assessment_completed", "follow_up_documented"].includes(s) ? "lv-STABLE" : s === "cancelled" ? "lv-INVALID" : "lv-BASELINE");
+  const capTxt = (s) => (s.capacity_per_month == null ? "same day" : `${s.capacity_per_month}/month`) + (s.accepting_referrals === false ? " · not accepting" : "");
   const svcById = (id) => ND.directory.find((s) => s.id === id);
   const ENTRY = { programme: "Programme screening", primary_care: "Primary care clinician", family: "Family member", household_helper: "Household helper" };
   const allLiveRefs = () => S.people.flatMap((p) => (p.referrals || []).map((r) => ({ ...r, _p: p })));
@@ -1113,11 +1232,12 @@
     $("#cp").onclick = () => navigator.clipboard.writeText(txt).then(() => toast("Copied"), () => toast("Copy blocked here")); $("#cl").onclick = closeModal;
   }
   function referralModal(p, pathway) {
+    if (!pathway) DR.p = null;   // opened fresh: draft again from current facts
     const ev = p.sessions.length ? E.evaluate(p, p.sessions).latest : null;
     pathway = pathway || (ev && ev.pathways[0]) || "memory_clinic";
     const m = NV.match(pathway, p); const urgent = ev && ev.level === "URGENT";
     const rows = m.services.map((s, i) => `<tr><td><input type="radio" name="svc" value="${s.id}" ${i === 0 && s.accessible ? "checked" : ""}></td><td><b>${esc(s.name)}</b><div class="tiny muted">${esc(s.area)}, ${esc(s.emirate)} · ${esc(s.notes || "")}</div></td>
-      <td class="small">${s.languages.map((l) => ND.languages[l] || l).join(", ")}</td><td class="small">${s.funding.map((f) => ND.funding[f]).join("; ")}</td><td class="num">${s.wait_weeks} wk</td>
+      <td class="small">${s.languages.map((l) => ND.languages[l] || l).join(", ")}</td><td class="small">${s.funding.map((f) => ND.funding[f]).join("; ")}</td><td class="num">${s.wait_weeks} wk</td><td class="small">${capTxt(s)}</td>
       <td>${s.accessible ? '<span class="pill lv-STABLE">accessible</span>' : `<span class="pill lv-CHECK_AGAIN">barrier: ${s.barriers.join(", ")}</span>`}${s.stale ? ' <span class="pill lv-INVALID">info not verified recently</span>' : ""}</td></tr>`).join("");
     modal(`<h2>New referral · ${esc(p.id)}</h2>
       <div class="small muted">Step 1: choose the clinically appropriate pathway. Step 2: choose a service the person can actually reach. Funding or eligibility never removes a clinically needed pathway.</div>
@@ -1125,22 +1245,61 @@
         <label class="small"><b>Urgency</b><select class="btn" id="rf-urg" style="width:100%"><option value="routine">Routine</option><option value="urgent" ${urgent || pathway === "urgent_clinical_assessment" ? "selected" : ""}>Urgent</option></select></label></div>
       <div class="small">Person: ${(p.languages || [p.language]).map((l) => ND.languages[l] || l).join(", ")} · ${ND.funding[p.funding] || "funding not recorded"} · ${esc(p.emirate || "emirate not recorded")}</div>
       ${m.gap ? `<div class="panel pad small" style="background:var(--review-soft);border-color:#efc2b6;margin:8px 0"><b>Pathway gap:</b> no listed service matches this person's language and funding route. Services are still shown. If none can be arranged, record "no accessible service" so the gap is escalated and counted.</div>` : ""}
-      <table style="margin-top:8px"><tr><th></th><th>Service</th><th>Languages</th><th>Funding</th><th class="num">Wait</th><th>Access</th></tr>${rows || '<tr><td colspan="6" class="muted">No service in the directory for this pathway.</td></tr>'}</table>
-      <label class="small" style="display:block;margin-top:10px"><b>Reason for referral</b><input class="btn" id="rf-reason" style="width:100%;text-align:start" value="${esc(ev ? ev.reasons[0] || "" : "")}"></label>
+      <table style="margin-top:8px"><tr><th></th><th>Service</th><th>Languages</th><th>Funding</th><th class="num">Wait</th><th>Capacity</th><th>Access</th></tr>${rows || '<tr><td colspan="7" class="muted">No service in the directory for this pathway.</td></tr>'}</table>
+      ${draftCard(p, ev)}
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="rf-send">Recommend and send</button><button class="btn" id="rf-gap">Record: no accessible service</button><button class="btn" id="rf-cl">Cancel</button></div>
       <div class="tiny muted" style="margin-top:6px">All directory entries are synthetic placeholders. In the pilot the partner maintains them, and anything not verified in ${ND.stale_after_days} days is flagged.</div>`);
+    bindDraft(p, ev);
     $("#rf-path").onchange = (e) => referralModal(p, e.target.value);
     $("#rf-cl").onclick = closeModal;
     const create = () => { p.referrals = p.referrals || []; const r = NV.newReferral(`REF-${p.id}-${p.referrals.length}`, p.id, $("#rf-path").value, null, $("#rf-urg").value, TODAY, $("#rf-reason").value || "Clinician confirmed concern", "dr.demo", p.entry_route || "programme");
       r.concern_date = (p.sessions[0] || {}).date || TODAY; p.referrals.push(r); return r; };
     $("#rf-send").onclick = () => { const sel = document.querySelector('input[name="svc"]:checked'); if (!sel) { toast("Choose a service, or record that none is accessible"); return; }
-      const r = create(); r.service_id = sel.value; NV.advance(r, "sent", TODAY, "", "dr.demo");
+      const r = create(); r.service_id = sel.value; r.reason_meta = draftMeta(); NV.advance(r, "sent", TODAY, "", "dr.demo");
+      if (r.reason_meta.clinician_edits) log("referral_reason_edited", p.id, `${r.reason_meta.clinician_edits} sentence(s) edited by clinician`);
       (S.actions[p.id] = S.actions[p.id] || []).push({ action: "refer", note: PATH[r.pathway], ts: TODAY, session: ev && ev.session_id });
       log("referral_sent", p.id, PATH[r.pathway] + " → " + sel.value); closeModal(); toast("Referral sent"); renderClinician(); };
     $("#rf-gap").onclick = () => { const r = create(); NV.advance(r, "no_accessible_service", TODAY, "No service in language or funding route; escalated to clinical lead", "dr.demo");
       log("pathway_gap", p.id, PATH[r.pathway]); closeModal(); toast("Pathway gap recorded and escalated"); renderClinician(); };
   }
 
+  // ---------------------------------------------------------------- referral reason: drafted from confirmed facts, checked sentence by sentence
+  const DR = { p: null, conf: null, sents: [], engine: "template", removed: 0 };
+  function draftConfirmed(p, ev) {
+    const c = JSON.parse(JSON.stringify((p.intake && p.intake.confirmed) || { narrative: "", domains: [], red_flags: [], confounders: [], onset: null, timeline: [], quotes: [] }));
+    if (ev && ev.level && ev.level !== "BASELINE") c.checkin = { level: ev.level, reasons: (ev.reasons || []).slice(0, 1) };
+    return c;
+  }
+  function draftCard(p, ev) {
+    if (DR.p !== p.id) { DR.p = p.id; DR.conf = draftConfirmed(p, ev); DR.sents = IX.draft(DR.conf).map((x) => x.text); DR.engine = "template"; DR.removed = 0; DR._tried = false; }
+    const v = IX.verify(DR.sents, DR.conf); const src = p.intake ? `family intake (${esc(p.intake.engine)}) and the latest check-in` : "the latest check-in (no family intake on file)";
+    return `<div class="panel pad" style="margin-top:10px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><b>Reason for referral</b>
+        <span class="pill ${v.grounded ? "lv-STABLE" : "lv-CLINICIAN_REVIEW"}" id="rf-badge">Grounding check: ${v.n - v.unsupported}/${v.n} sentences backed by confirmed facts</span></div>
+      <div class="tiny muted" style="margin:4px 0 6px">Drafted by <b>${esc(DR.engine)}</b> from ${src}. Each sentence is checked against the confirmed facts; anything unsupported, any diagnosis word and any number not in the record is ${DR.engine === "template" ? "blocked" : "removed"}${DR.removed ? ` (${DR.removed} removed)` : ""}. Edit freely: your changes are marked as yours.</div>
+      <textarea id="rf-reason" rows="5" style="width:100%;font:inherit;font-size:13.5px;padding:8px;border:1px solid var(--line);border-radius:10px">${esc(DR.sents.join(" "))}</textarea>
+      <div id="rf-ver" class="tiny" style="margin-top:4px"></div></div>`;
+  }
+  function draftMeta() {
+    const ta = $("#rf-reason"); const now = IX.splitSentences(ta ? ta.value : ""); const orig = new Set(IX.splitSentences(DR.sents.join(" ")));
+    const edits = now.filter((x) => !orig.has(x)); const warn = edits.filter((x) => IX.verifySentence(x, DR.conf).reasons.some((r) => r.startsWith("diagnostic")));
+    return { engine: DR.engine, ai_sentences: DR.sents.length, ai_grounded: IX.verify(DR.sents, DR.conf).grounded, clinician_edits: edits.length, diagnosis_words_in_edits: warn.length };
+  }
+  function bindDraft(p, ev) {
+    const ta = $("#rf-reason"); if (!ta) return;
+    const upd = () => { const m = draftMeta(); $("#rf-ver").innerHTML = m.clinician_edits ? `<span class="muted">${m.clinician_edits} sentence(s) written or changed by you (not machine-checked).</span>${m.diagnosis_words_in_edits ? ' <b style="color:var(--review)">Your text names a diagnosis: MemBrain referrals request assessment only.</b>' : ""}` : '<span class="muted">Unchanged machine draft.</span>'; };
+    ta.oninput = upd; upd();
+    if (API !== null && DR.engine === "template" && !DR._tried) { DR._tried = true;
+      const ctl = new AbortController(); setTimeout(() => ctl.abort(), 9000);
+      fetch(API + "/api/referral/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmed: DR.conf }), signal: ctl.signal })
+        .then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.engine !== "template" && j.sentences.length && $("#rf-reason") && $("#rf-reason").value === DR.sents.join(" ")) {
+          DR.sents = j.sentences; DR.engine = j.engine; DR.removed = (j.removed || []).length; referralModal(p, $("#rf-path").value); } }).catch(() => {}); }
+  }
+
+  function dirMatch(s) {
+    const q = (S.dirQ || "").toLowerCase().trim(); if (!q) return true;
+    const hay = [s.name, s.area, s.emirate, s.notes, ...s.pathways.map((x) => PATH[x] || x), ...s.languages.map((l) => ND.languages[l] || l), ...s.funding.map((f) => ND.funding[f] || f)].join(" ").toLowerCase();
+    return q.split(/\s+/).every((w) => hay.includes(w));
+  }
   function renderReferrals() {
     const live = allLiveRefs(); const syn = S.withSyn !== false; const log_ = ND.synthetic_log;
     const refs = [...live.map(({ _p, ...r }) => r), ...(syn ? log_.referrals : [])];
@@ -1167,13 +1326,15 @@
           <div class="panel pad"><h3>Completion by funding route</h3>${barSvg(bars(m.by_funding, { thiqa: "Thiqa (government)", enhanced: "Enhanced / employer", basic: "Basic insurance", self_pay: "Self-pay" }))}</div>
           <div class="panel pad"><h3>Completion by language</h3>${barSvg(bars(m.by_language, ND.languages))}<div class="tiny muted">Gaps by language or funding point to directory or access problems, not to the person.</div></div></div></div>
       <div class="panel pad" style="margin-top:16px"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><h3 style="margin:0">Service directory</h3><span class="small muted">${stale.length} of ${ND.directory.length} entries not verified in the last ${ND.stale_after_days} days</span></div>
-        <table style="margin-top:8px"><tr><th>Service</th><th>Pathways</th><th>Languages</th><th>Funding</th><th class="num">Wait</th><th>Last verified</th></tr>
-        ${ND.directory.map((s) => `<tr><td><b>${esc(s.name)}</b><div class="tiny muted">${esc(s.area)} · ${esc(s.referral_process)}</div></td><td class="small">${s.pathways.map((x) => PATH[x] || x).join("; ")}</td>
-          <td class="small">${s.languages.map((l) => ND.languages[l] || l).join(", ")}</td><td class="small">${s.funding.map((f) => ND.funding[f]).join("; ")}</td><td class="num">${s.wait_weeks} wk</td>
+        <input class="btn" id="dir-q" style="width:100%;text-align:start;margin-top:8px" placeholder="Search services: name, area, pathway, language or funding (e.g. memory Al Ain, Urdu, Thiqa)" value="${esc(S.dirQ || "")}">
+        <table style="margin-top:8px"><tr><th>Service</th><th>Pathways</th><th>Languages</th><th>Funding</th><th class="num">Wait</th><th>Capacity</th><th>Last verified</th></tr>
+        ${ND.directory.filter(dirMatch).map((s) => `<tr><td><b>${esc(s.name)}</b><div class="tiny muted">${esc(s.area)} · ${esc(s.referral_process)}</div></td><td class="small">${s.pathways.map((x) => PATH[x] || x).join("; ")}</td>
+          <td class="small">${s.languages.map((l) => ND.languages[l] || l).join(", ")}</td><td class="small">${s.funding.map((f) => ND.funding[f]).join("; ")}</td><td class="num">${s.wait_weeks} wk</td><td class="small">${capTxt(s)}</td>
           <td class="small">${s.last_verified}${NV.days(s.last_verified, TODAY) > ND.stale_after_days ? ' <span class="pill lv-CHECK_AGAIN">re-verify</span>' : ""}</td></tr>`).join("")}</table>
         <div class="tiny muted" style="margin-top:6px">All entries are synthetic placeholders. In the pilot the partner maintains the directory with providers.</div></div>
       <div class="panel pad small" style="margin-top:16px;background:var(--sand-soft);border-color:#ecdcc0"><b>Synthetic programme log.</b> ${esc(ND.assumptions.notes)} Assumptions: acceptance ${pct(ND.assumptions.acceptance)}, attendance ${pct(ND.assumptions.appointment_attended)}, rebooking after a missed appointment ${pct(ND.assumptions.rebook_after_missed)}. Real baselines come from Phase 0 with the partner.</div>`;
     $("#syn").onchange = (e) => { S.withSyn = e.target.checked; renderReferrals(); };
+    const dq = $("#dir-q"); if (dq) dq.oninput = (e) => { S.dirQ = e.target.value; const pos = e.target.selectionStart; renderReferrals(); const n = $("#dir-q"); n.focus(); n.setSelectionRange(pos, pos); };
     document.querySelectorAll("[data-open]").forEach((el) => (el.onclick = () => { S.selected = el.dataset.open; go("clinician"); }));
   }
 
@@ -1451,6 +1612,7 @@
     $("#main").innerHTML = `
       <div class="panel pad" style="background:var(--sand-soft);border-color:#ecdcc0;margin-bottom:16px"><b>Synthetic validation run (n = ${V.n.toLocaleString()}, seed ${V.seed}).</b>
         This shows the validation pipeline working end-to-end on simulated people with stated assumptions. It is <b>not</b> clinical evidence. The same code runs on Phase A (feasibility and reliability) and Phase B (accuracy against specialist assessment) data.</div>
+      ${navaiGates()}
       <div class="kpis">${kpi(pct(o.completion_unaided), "Sessions completed unaided")}${kpi(fmt(o.test_retest_icc), "Test–retest ICC(2,1), 2 weeks", `${o.n_retest_pairs} stable pairs`)}
         ${kpi(pct(o.membrain.sensitivity[0]), "Sensitivity (12 months)", ci(o.membrain.sensitivity))}${kpi(pct(o.membrain.specificity[0]), "Specificity", ci(o.membrain.specificity))}
         ${kpi(pct(o.membrain.ppv[0]), "Positive predictive value", `prevalence ${pct(s.prevalence.impaired)} impaired`)}${kpi(o.membrain.referrals_per_confirmed, "Referrals per confirmed finding", `usual care ${o.usual_care.referrals_per_confirmed}`)}
@@ -1471,6 +1633,16 @@
         <div class="panel pad"><h3>Assumptions</h3><div class="small" style="max-height:260px;overflow:auto">${Object.entries(V.assumptions).map(([k, v]) => `<div style="margin-bottom:4px"><b>${k.replace(/_/g, " ")}:</b> ${esc(typeof v === "object" ? JSON.stringify(v) : v)}</div>`).join("")}</div>
           <div class="tiny muted" style="margin-top:8px">* ${esc(t.assumptions)}</div></div></div>${evidenceSection()}`;
     document.querySelectorAll("[data-sub]").forEach((b) => (b.onclick = () => { S.sub = b.dataset.sub; renderValidation(); }));
+  }
+  function navaiGates() {
+    const N = D.navai || {}; const r = N.rules, m = N.medgemma; if (!r) return "";
+    const cell = (g) => (g ? `${g.value ?? "–"} <span class="pill ${g.pass ? "lv-STABLE" : "lv-CLINICIAN_REVIEW"}">${g.pass ? "pass" : "not yet"}</span>` : '<span class="muted">run pending (FZJ GPU)</span>');
+    return `<div class="panel pad" style="margin-bottom:16px"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:baseline"><h3 style="margin:0">Navigator AI release gates: family intake extractor</h3>
+      <span class="tiny muted">Held-out test set: ${r.n} synthetic caregiver narratives (Gulf Arabic and English), frozen before the rules were tuned</span></div>
+      <table style="margin-top:8px"><tr><th>Gate</th><th>Target</th><th>Rules extractor (always-on fallback)</th><th>${m ? esc(m.model) : "MedGemma 4B"}</th>${m ? "<th>MedGemma + rule red flags</th>" : ""}</tr>
+      ${r.gates.map((g, i) => `<tr><td>${esc(g.label)}</td><td class="small">${esc(g.target)}</td><td>${cell(g)}</td><td>${m ? cell(m.gates[i]) : cell(null)}</td>${m ? `<td>${cell(m.combined_gates[i])}</td>` : ""}</tr>`).join("")}</table>
+      <div class="tiny muted" style="margin-top:6px">Urgent cases caught by the rules: ${r.urgent_recall_cases}, with ${r.red_flag_false_alarms} false alarms. With so few urgent cases, a perfect score only shows recall above ${r.urgent_recall_wilson_lower95} (95% lower bound); showing 0.99 needs about 300 red-flag narratives, planned for Phase A.
+        The rules pass the safety gates (red flags, nothing unsupported, speed) but not the accuracy gates, which is why the model is evaluated. Whatever the model returns must quote the narrative, and it can never remove a red flag the rules found.${m ? ` Referral drafting: ${m.drafting.unsupported_sentences} of ${m.drafting.sentences} model sentences blocked by the grounding check.` : ""}</div></div>`;
   }
   function bars(rows, names, cols = ["#0b8a7a", "#c0761a"]) {
     const W = 520, rh = 46, H = rows.length * rh + 30, pl = 150, pr = 50;
@@ -1514,8 +1686,8 @@
   }
 
   // ---------------------------------------------------------------- boot
-  const h = (location.hash || "").replace("#", ""); if (["enrol", "participant", "clinician", "referrals", "validation", "how"].includes(h)) S.view = h;
-  window.addEventListener("hashchange", () => { const v = (location.hash || "").replace("#", ""); if (v !== S.view && ["enrol", "participant", "clinician", "referrals", "validation", "how"].includes(v)) go(v); });
+  const h = (location.hash || "").replace("#", ""); if (["home", "intake", "enrol", "participant", "clinician", "referrals", "validation", "how"].includes(h)) S.view = h;
+  window.addEventListener("hashchange", () => { const v = (location.hash || "").replace("#", ""); if (v !== S.view && ["home", "intake", "enrol", "participant", "clinician", "referrals", "validation", "how"].includes(v)) go(v); });
   go(S.view);
   initSpeech();
 })();

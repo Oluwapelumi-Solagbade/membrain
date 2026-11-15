@@ -86,7 +86,7 @@ The engine computes this for the composite and for each domain, using each test'
 - Only the composite and delayed recall can trigger alerts on their own. Coarse scales such as judgement (0–4) are shown as context. Allowing every domain to trigger, and accepting any signal as confirmation, doubled false referrals in the synthetic cohort (specificity 0.76 → 0.90 after the change).
 - Confirmation requires the *same* signal to persist on the repeat session.
 
-**Voice features (exploratory).** Speech rate, pause count, mean pause length, type–token ratio and word count are computed on the device from the audio stream; raw audio never leaves the device. Per-person EWMA control charts (`change.ewma_chart`) track them, but they never drive alerts until they meet pre-set accuracy and stability criteria in each language and dialect subgroup.
+**Voice features (exploratory).** Speech rate, pause count, mean pause length, type–token ratio and word count are computed on the device from the audio stream; raw audio never leaves the device. Per-person EWMA control charts (`change.ewma_chart`) track them, but they never drive alerts until they meet pre-set accuracy and stability criteria in each language and dialect subgroup. This caution matches the current evidence. A January 2026 preprint (Dadgostar et al., medRxiv, doi:10.64898/2026.01.15.26344226; not peer-reviewed) reports eGeMAPS acoustic features separating plasma p-tau217/APOE-defined risk groups in 49 cognitively unimpaired adults. However, it used English speakers recorded in a sound booth and no external test set, and its feature selection appears tuned on the same cross-validation that reports accuracy. It supports collecting eGeMAPS-type features under consent; it does not support using them for triage.
 
 ## 5. Integrated risk context (requirement 3)
 
@@ -115,6 +115,13 @@ See `NAVIGATOR.md`. It covers:
 - programme metrics by entry route, language, funding, sex and age
 
 Each referral is stored as a FHIR `ServiceRequest`.
+
+**Entry and AI (see `NAVIGATOR_AI.md`).**
+- **Two doors.** The app opens on a choice between family intake ("I'm worried about someone") and the voice check-in. Both lead into the same loop.
+- **Family intake.** A narrative is turned into facts that quote their source words, carry a confidence, are read back aloud and are confirmed by a person. The always-on rules extractor runs in the browser. MedGemma 4B runs behind `/api/intake/extract` when an in-country model server is configured.
+- **Safety rules on model output.** A model field without a real quote is dropped, and red flags are the union with the rules.
+- **Referral reasons.** These are drafted from confirmed facts and checked sentence by sentence by a deterministic verifier.
+- **Held-out results for the rules extractor** (30 frozen narratives): it passes the safety gates (12/12 urgent cases, 0 unsupported fields, p95 latency 2 ms) but not yet the accuracy gates (domain F1 0.85 against a 0.90 target). MedGemma is measured on the same set on the FZJ cluster.
 
 ## 7. Safety and human oversight (requirement 5)
 

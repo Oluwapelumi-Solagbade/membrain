@@ -4,7 +4,7 @@ import shutil
 
 W = pathlib.Path(__file__).resolve().parents[1] / "web"
 html = (W / "index.html").read_text(encoding="utf-8")
-for tag, f in (("<!--DATA-->", "data.js"), ("<!--ENGINE-->", "engine.js"), ("<!--NAV-->", "navigator.js"), ("<!--GX-->", "genomics.js"), ("<!--EVIDENCE-->", "evidence.js"), ("<!--APP-->", "app.js")):
+for tag, f in (("<!--DATA-->", "data.js"), ("<!--ENGINE-->", "engine.js"), ("<!--NAV-->", "navigator.js"), ("<!--INTAKE-->", "intake.js"), ("<!--GX-->", "genomics.js"), ("<!--EVIDENCE-->", "evidence.js"), ("<!--APP-->", "app.js")):
     js = (W / f).read_text(encoding="utf-8").replace("</script", "<\\/script")
     html = html.replace(tag, f"<script>\n{js}\n</script>")
 # The hosted API address for the GitHub Pages copy (written by the deploy script).

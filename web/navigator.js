@@ -18,7 +18,7 @@
         if (!s.pathways.includes(pathway)) continue;
         const langOk = s.languages.some((l) => langs.has(l)); const fundOk = !person.funding || s.funding.includes(person.funding);
         const stale = days(s.last_verified, today) > N.stale_after_days;
-        const barriers = [...(langOk ? [] : ["language"]), ...(fundOk ? [] : ["funding"])];
+        const barriers = [...(langOk ? [] : ["language"]), ...(fundOk ? [] : ["funding"]), ...(s.accepting_referrals === false ? ["not accepting referrals"] : [])];
         const score = Math.round(((langOk ? 2 : 0) + (fundOk ? 2 : 0) + (person.emirate && s.emirate === person.emirate ? 1 : 0) - s.wait_weeks / 10) * 100) / 100;
         out.push({ ...s, accessible: !barriers.length, barriers, stale, score });
       }

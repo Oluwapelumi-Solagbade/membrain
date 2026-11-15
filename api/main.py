@@ -36,6 +36,9 @@ app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, allow_methods=
 from api.speech import router as speech_router  # noqa: E402
 
 app.include_router(speech_router)
+from api.navai import router as navai_router  # noqa: E402
+
+app.include_router(navai_router)
 
 DB: dict = {"participants": {}, "tasks": {}, "audit": []}
 # Identity vault: direct identifiers live here ONLY, keyed by pseudonym.

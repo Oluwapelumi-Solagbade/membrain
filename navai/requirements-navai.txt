@@ -1,0 +1,3 @@
+# MedGemma evaluation on a GPU node (torch is already installed in the cluster venv)
+transformers>=4.50.0
+accelerate>=0.34

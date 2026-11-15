@@ -1,0 +1,379 @@
+{
+ "n": 30,
+ "domain_macro_f1": 0.849,
+ "worst_language_f1": 0.834,
+ "by_language": {
+  "ar": {
+   "n": 15,
+   "domain_macro_f1": 0.834,
+   "per_domain": {
+    "memory": 0.667,
+    "language": 0.667,
+    "orientation": 1.0,
+    "executive": 1.0,
+    "daily_function": 0.667,
+    "mood": 1.0,
+    "behaviour": 1.0,
+    "sleep": 0.667
+   }
+  },
+  "en": {
+   "n": 15,
+   "domain_macro_f1": 0.873,
+   "per_domain": {
+    "memory": 0.857,
+    "language": 1.0,
+    "orientation": 0.889,
+    "executive": 0.667,
+    "daily_function": 0.714,
+    "mood": 1.0,
+    "behaviour": 0.857,
+    "sleep": 1.0
+   }
+  },
+  "all": {
+   "n": 30,
+   "domain_macro_f1": 0.849,
+   "per_domain": {
+    "memory": 0.769,
+    "language": 0.857,
+    "orientation": 0.947,
+    "executive": 0.8,
+    "daily_function": 0.692,
+    "mood": 1.0,
+    "behaviour": 0.923,
+    "sleep": 0.8
+   }
+  }
+ },
+ "urgent_recall": 1.0,
+ "urgent_recall_cases": "12/12",
+ "urgent_recall_wilson_lower95": 0.757,
+ "red_flag_false_alarms": "0/18",
+ "red_flag_type_recall": 1.0,
+ "timeline_exact": 0.7,
+ "timeline_cases": "7/10",
+ "onset_exact": 0.633,
+ "confounder_f1": 0.889,
+ "unsupported_rate": 0.0,
+ "unsupported_items": "0/0",
+ "latency_p95_s": 0.002,
+ "gates": [
+  {
+   "metric": "domain_macro_f1",
+   "label": "Concern-domain macro F1",
+   "target": ">= 0.9",
+   "value": 0.849,
+   "pass": false
+  },
+  {
+   "metric": "worst_language_f1",
+   "label": "Macro F1 in the worst language",
+   "target": ">= 0.85",
+   "value": 0.834,
+   "pass": false
+  },
+  {
+   "metric": "timeline_exact",
+   "label": "Delegation timeline exact match",
+   "target": ">= 0.8",
+   "value": 0.7,
+   "pass": false
+  },
+  {
+   "metric": "urgent_recall",
+   "label": "Urgent red-flag recall (any red flag)",
+   "target": ">= 0.99",
+   "value": 1.0,
+   "pass": true
+  },
+  {
+   "metric": "unsupported_rate",
+   "label": "Unsupported field rate",
+   "target": "< 0.01",
+   "value": 0.0,
+   "pass": true
+  },
+  {
+   "metric": "latency_p95_s",
+   "label": "p95 latency (seconds)",
+   "target": "< 5.0",
+   "value": 0.002,
+   "pass": true
+  }
+ ],
+ "engine": "rules",
+ "version": "intake-0.1.0",
+ "set": "test",
+ "errors": [
+  {
+   "id": "t-en-02",
+   "confounders": {
+    "missed": [],
+    "extra": [
+     "bereavement"
+    ]
+   },
+   "onset": {
+    "gold": "days",
+    "pred": "weeks"
+   }
+  },
+  {
+   "id": "t-en-03",
+   "domains": {
+    "missed": [],
+    "extra": [
+     "daily_function"
+    ]
+   }
+  },
+  {
+   "id": "t-en-04",
+   "onset": {
+    "gold": "months",
+    "pred": null
+   }
+  },
+  {
+   "id": "t-en-05",
+   "domains": {
+    "missed": [],
+    "extra": [
+     "memory"
+    ]
+   },
+   "onset": {
+    "gold": "months",
+    "pred": null
+   }
+  },
+  {
+   "id": "t-en-06",
+   "domains": {
+    "missed": [],
+    "extra": [
+     "behaviour"
+    ]
+   },
+   "onset": {
+    "gold": "days",
+    "pred": null
+   }
+  },
+  {
+   "id": "t-en-08",
+   "domains": {
+    "missed": [],
+    "extra": [
+     "daily_function",
+     "executive"
+    ]
+   }
+  },
+  {
+   "id": "t-en-09",
+   "onset": {
+    "gold": "days",
+    "pred": null
+   }
+  },
+  {
+   "id": "t-en-10",
+   "domains": {
+    "missed": [],
+    "extra": [
+     "daily_function"
+    ]
+   }
+  },
+  {
+   "id": "t-en-11",
+   "domains": {
+    "missed": [
+     "orientation"
+    ],
+    "extra": []
+   }
+  },
+  {
+   "id": "t-en-12",
+   "timeline": {
+    "gold": [
+     [
+      "prayer",
+      "son"
+     ]
+    ],
+    "pred": []
+   }
+  },
+  {
+   "id": "t-en-13",
+   "domains": {
+    "missed": [],
+    "extra": [
+     "daily_function"
+    ]
+   },
+   "onset": {
+    "gold": "months",
+    "pred": null
+   }
+  },
+  {
+   "id": "t-en-14",
+   "domains": {
+    "missed": [],
+    "extra": [
+     "memory"
+    ]
+   }
+  },
+  {
+   "id": "t-ar-02",
+   "confounders": {
+    "missed": [],
+    "extra": [
+     "bereavement"
+    ]
+   },
+   "onset": {
+    "gold": "days",
+    "pred": "years"
+   }
+  },
+  {
+   "id": "t-ar-03",
+   "domains": {
+    "missed": [],
+    "extra": [
+     "daily_function"
+    ]
+   },
+   "timeline": {
+    "gold": [
+     [
+      "money",
+      "informant"
+     ]
+    ],
+    "pred": [
+     [
+      "money",
+      "informant"
+     ],
+     [
+      "phone",
+      "informant"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "t-ar-04",
+   "domains": {
+    "missed": [],
+    "extra": [
+     "sleep"
+    ]
+   }
+  },
+  {
+   "id": "t-ar-05",
+   "domains": {
+    "missed": [],
+    "extra": [
+     "memory"
+    ]
+   },
+   "onset": {
+    "gold": "months",
+    "pred": null
+   }
+  },
+  {
+   "id": "t-ar-06",
+   "onset": {
+    "gold": "days",
+    "pred": null
+   }
+  },
+  {
+   "id": "t-ar-07",
+   "domains": {
+    "missed": [
+     "memory"
+    ],
+    "extra": []
+   }
+  },
+  {
+   "id": "t-ar-09",
+   "onset": {
+    "gold": "days",
+    "pred": null
+   }
+  },
+  {
+   "id": "t-ar-11",
+   "domains": {
+    "missed": [
+     "daily_function"
+    ],
+    "extra": []
+   },
+   "timeline": {
+    "gold": [
+     [
+      "prayer",
+      "son"
+     ]
+    ],
+    "pred": []
+   }
+  },
+  {
+   "id": "t-ar-12",
+   "domains": {
+    "missed": [],
+    "extra": [
+     "daily_function"
+    ]
+   },
+   "onset": {
+    "gold": "months",
+    "pred": null
+   }
+  },
+  {
+   "id": "t-ar-13",
+   "domains": {
+    "missed": [],
+    "extra": [
+     "memory"
+    ]
+   }
+  },
+  {
+   "id": "t-ar-14",
+   "domains": {
+    "missed": [
+     "language"
+    ],
+    "extra": []
+   }
+  },
+  {
+   "id": "t-ar-15",
+   "domains": {
+    "missed": [
+     "memory"
+    ],
+    "extra": [
+     "daily_function"
+    ]
+   }
+  }
+ ]
+}

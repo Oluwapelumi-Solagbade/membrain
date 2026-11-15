@@ -52,6 +52,7 @@ docs/          technical documentation, assumptions and limitations, data source
 - [UAE data used (WHO country statistics, Emirati speech) and what partners must provide](docs/UAE_DATA.md)
 - [Genomics: consent-gated context, never a trigger](docs/GENOMICS.md)
 - [Speech recognition benchmark & fine-tuning (existing Whisper + LoRA, Emirati data)](asr/README.md)
+- [Navigator AI: family intake, referral drafting, release gates](docs/NAVIGATOR_AI.md)
 - [Evidence pack: robustness, ablation, operating point, decision curve](docs/EVIDENCE_PACK.md)
 - [Navigator layer: from alert to completed care](docs/NAVIGATOR.md)
 - [Azure Speech integration](docs/AZURE_SPEECH.md) · [Deploy to Azure UAE North](docs/DEPLOY_AZURE.md)

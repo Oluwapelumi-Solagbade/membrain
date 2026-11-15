@@ -25,5 +25,18 @@ for (const c of window.MB_DATA.genomics_cases) {
   for (const k of Object.keys(want)) if (JSON.stringify(want[k]) !== JSON.stringify(j[k])) { fail++; console.log("GX MISMATCH", c.person.id, k, want[k], j[k]); }
 }
 console.log(`genomics: ${window.MB_DATA.genomics_cases.length} cases compared`);
+// intake extractor, drafter and verifier parity
+const makeIntake = require("./intake.js"); const IX = makeIntake(window.MB_DATA.intake);
+const IG = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "tests", "intake_golden.json"), "utf8"));
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+for (const c of IG.cases) {
+  const r = IX.extract(c.text, c.lang);
+  if (!same(r, c.extract)) { fail++; console.log("INTAKE MISMATCH", c.id, JSON.stringify(r).slice(0, 300), "\n want", JSON.stringify(c.extract).slice(0, 300)); }
+  if (!same(IX.quotesFrom(r, c.text), c.quotes)) { fail++; console.log("QUOTES MISMATCH", c.id); }
+  if (!same(IX.draft(c.confirmed), c.draft)) { fail++; console.log("DRAFT MISMATCH", c.id); }
+  if (!same(IX.verify(c.draft, c.confirmed), c.verify)) { fail++; console.log("VERIFY MISMATCH", c.id); }
+}
+for (const a of IG.adversarial) { const v = IX.verify(a.text, a.confirmed); if (!same(v, a.verify)) { fail++; console.log("VERIFY MISMATCH (adversarial)", JSON.stringify(v), "\n want", JSON.stringify(a.verify)); } }
+console.log(`intake: ${IG.cases.length} narratives + ${IG.adversarial.length} adversarial drafts compared`);
 console.log(`${cases.length} cases, ${n} session evaluations, ${fail} mismatches`);
 process.exit(fail ? 1 : 0);
