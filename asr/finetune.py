@@ -39,6 +39,8 @@ def load_model(base: str, lora_r: int, adapter: str | None = None, model=None):
     from transformers import WhisperForConditionalGeneration
     model = model or WhisperForConditionalGeneration.from_pretrained(base)
     model.config.forced_decoder_ids = None
+    if getattr(model, "generation_config", None) is not None:
+        model.generation_config.max_length = None
     if adapter:
         return PeftModel.from_pretrained(model, adapter)
     cfg = LoraConfig(r=lora_r, lora_alpha=2 * lora_r, lora_dropout=0.05, target_modules=["q_proj", "v_proj"], bias="none")
@@ -89,7 +91,7 @@ def evaluate(model, proc, test: list[dict], device: str) -> dict:
     return {**wer_cer(refs, hyps), **keyword_recall(refs, hyps), "examples": [{"ref": r, "hyp": h} for r, h in list(zip(refs, hyps))[:5]]}
 
 
-def train(model, proc, train_set: list[dict], test_set: list[dict], args, device: str) -> dict:
+def train(model, proc, train_set: list[dict], val_set: list[dict], args, device: str) -> dict:
     model.to(device)
     opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=args.lr, weight_decay=0.0)
     steps_per_epoch = math.ceil(len(train_set) / (args.batch * args.grad_accum))
@@ -98,9 +100,9 @@ def train(model, proc, train_set: list[dict], test_set: list[dict], args, device
     sched = torch.optim.lr_scheduler.LambdaLR(opt, lambda s: min(1.0, (s + 1) / warm) * max(0.0, (total - s) / max(1, total - warm)))
     scaler = torch.amp.GradScaler("cuda", enabled=device == "cuda")
     start_id = model.config.decoder_start_token_id
-    log = {"baseline": evaluate(model, proc, test_set, device), "epochs": []}
-    best = log["baseline"]["wer"]
-    print(f"baseline WER {best:.3f}  keyword recall {log['baseline']['keyword_recall']}")
+    log = {"baseline_val": evaluate(model, proc, val_set, device), "epochs": []}
+    best = log["baseline_val"]["wer"]
+    print(f"baseline VALIDATION WER {best:.3f}")
     out = Path(args.out)
     rng = random.Random(args.seed)
     for ep in range(1, args.epochs + 1):
@@ -116,16 +118,20 @@ def train(model, proc, train_set: list[dict], test_set: list[dict], args, device
             losses.append(loss.item() * args.grad_accum)
             if (bi // args.batch + 1) % args.grad_accum == 0 or bi + args.batch >= len(order):
                 scaler.step(opt); scaler.update(); opt.zero_grad(set_to_none=True); sched.step()
-        ev = evaluate(model, proc, test_set, device)
-        ev.update({"epoch": ep, "train_loss": round(float(np.mean(losses)), 4), "minutes": round((time.time() - t0) / 60, 1)})
+        ev = evaluate(model, proc, val_set, device)
+        ev.update({"split": "validation", "epoch": ep, "train_loss": round(float(np.mean(losses)), 4), "minutes": round((time.time() - t0) / 60, 1)})
         log["epochs"].append(ev)
-        print(f"epoch {ep}: loss {ev['train_loss']:.3f}  WER {ev['wer']:.3f}  keyword recall {ev['keyword_recall']}")
+        print(f"epoch {ep}: loss {ev['train_loss']:.3f}  validation WER {ev['wer']:.3f}")
         model.save_pretrained(out / "last")
         if ev["wer"] < best:
             best = ev["wer"]
             model.save_pretrained(out / "best")
             log["best_epoch"] = ep
-    log["best_wer"] = best
+    log["best_val_wer"] = best
+    if "best_epoch" not in log:
+        model.save_pretrained(out / "best")  # no epoch beat the starting model on validation: keep the final one
+        log["best_epoch"] = args.epochs
+        log["note"] = "No epoch improved validation WER over the starting model; final epoch saved as best."
     return log
 
 
@@ -149,15 +155,18 @@ def main(argv=None):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     proc = build_processor(args.processor)
     em = emirati_shows(args.emirati_root)
+    if not em["val"]:  # no validation category present: hold out every 7th training clip instead
+        em["val"], em["train"] = em["train"][::7], [x for i, x in enumerate(em["train"]) if i % 7]
     train_items = em["train"] * args.emirati_oversample + (list(masc_gulf("train", args.masc_limit)) if args.masc_limit else [])
-    train_set, test_set = featurize(proc, train_items), featurize(proc, em["test"])
+    train_set, val_set = featurize(proc, train_items), featurize(proc, em["val"])
     print(f"train {len(train_set)} examples (Emirati x{args.emirati_oversample} + MASC {args.masc_limit}); "
-          f"Emirati held-out test {len(test_set)} clips (categories never trained on)")
+          f"validation {len(val_set)} clips (epoch selection only); held-out test {len(em['test'])} clips (scored once, by asr.benchmark)")
     model = load_model(args.base, args.lora_r)
     model.print_trainable_parameters()
-    log = train(model, proc, train_set, test_set, args, device)
+    log = train(model, proc, train_set, val_set, args, device)
     log["config"] = vars(args)
-    log["data"] = {"train_emirati_clips": len(em["train"]), "test_emirati_clips": len(em["test"]),
+    log["data"] = {"train_emirati_clips": len(em["train"]), "val_emirati_clips": len(em["val"]), "test_emirati_clips": len(em["test"]),
+                   "val_categories": sorted({e["category"] for e in em["val"]}),
                    "test_categories": sorted({e["category"] for e in em["test"]})}
     Path(args.out).mkdir(parents=True, exist_ok=True)
     (Path(args.out) / "metrics.json").write_text(json.dumps(log, ensure_ascii=False, indent=1))

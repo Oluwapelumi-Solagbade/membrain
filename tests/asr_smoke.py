@@ -25,7 +25,7 @@ words = ["جمل", "شباك", "برتقال", "قهوة", "قمر"]
 rng = np.random.default_rng(0)
 with zipfile.ZipFile(root / "audiofiles.zip", "w") as z, open(root / "transcriptions.tsv", "w", encoding="utf-8") as f:
     f.write("audiofilename\ttranscription\t\n")
-    for cat in ("traditions", "cars", "health"):
+    for cat in ("traditions", "cars", "sports", "health"):
         for k in range(6):
             w = words[k % 5]; tone = np.sin(2 * np.pi * (200 + 40 * (k % 5)) * np.arange(16000) / 16000).astype(np.float32) * 0.3
             buf = io.BytesIO(); sf.write(buf, tone + rng.normal(0, 0.01, 16000).astype(np.float32), 16000, format="WAV"); z.writestr(f"{cat}_chunk-{k:02d}.wav", buf.getvalue())
@@ -50,7 +50,7 @@ finetune.main(["--base", str(T / "tiny"), "--processor", str(T / "proc"), "--emi
                "--epochs", "4", "--batch", "4", "--grad-accum", "1", "--lr", "5e-3", "--lora-r", "4", "--out", str(T / "run")])
 log = json.loads((T / "run" / "metrics.json").read_text())
 print("data", log["data"]); print("losses", [e["train_loss"] for e in log["epochs"]])
-assert log["data"]["test_categories"] == ["health"]
+assert log["data"]["test_categories"] == ["health"] and log["data"]["val_categories"] == ["sports"]
 assert log["epochs"][-1]["train_loss"] < log["epochs"][0]["train_loss"], "loss should fall"
 from asr import benchmark
 benchmark.main(["--emirati-root", str(root), "--models", f"hf:{T/'tiny'}", f"lora:{T/'tiny'}@{T/'run'/'best'}" if (T/'run'/'best').exists() else f"hf:{T/'tiny'}",

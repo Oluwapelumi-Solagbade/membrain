@@ -16,8 +16,10 @@ from pathlib import Path
 import numpy as np
 
 SR = 16000
-# Category-level split: test categories are never seen in training (no speaker/show leakage).
+# Category-level split: test categories are never seen in training (no speaker/show leakage);
+# a separate validation category is used ONLY to pick the best epoch, so the test set is touched once.
 EMIRATI_TEST_CATEGORIES = {"health", "police"}
+EMIRATI_VAL_CATEGORIES = {"sports"}
 
 
 def _load_audio(data: bytes | str) -> np.ndarray:
@@ -37,7 +39,7 @@ def emirati_shows(root: str | Path) -> dict[str, list[dict]]:
     root = Path(root)
     zf = zipfile.ZipFile(root / "audiofiles.zip")
     names = {Path(n).stem.replace(" ", "").lower(): n for n in zf.namelist() if n.lower().endswith(".wav")}
-    out = {"train": [], "test": []}
+    out = {"train": [], "val": [], "test": []}
     with open(root / "transcriptions.tsv", encoding="utf-8") as f:
         for row in csv.DictReader(f, delimiter="\t"):
             fid = (row.get("audiofilename") or "").replace(" wav", "").replace(".wav", "").strip()
@@ -48,7 +50,8 @@ def emirati_shows(root: str | Path) -> dict[str, list[dict]]:
             cat = fid.split("_")[0].lower()
             item = {"id": fid, "audio": _load_audio(zf.read(names[key])), "text": text, "dialect": "Emirati",
                     "category": cat, "source": "emirati_shows"}
-            out["test" if cat in EMIRATI_TEST_CATEGORIES else "train"].append(item)
+            split = "test" if cat in EMIRATI_TEST_CATEGORIES else "val" if cat in EMIRATI_VAL_CATEGORIES else "train"
+            out[split].append(item)
     return out
 
 

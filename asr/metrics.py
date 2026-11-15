@@ -51,3 +51,26 @@ def by_group(rows: list[dict], key: str, lang: str = "ar") -> dict:
         g[r.get(key, "unknown")][0].append(r["ref"])
         g[r.get(key, "unknown")][1].append(r["hyp"])
     return {k: {**wer_cer(a, b, lang), **keyword_recall(a, b, lang)} for k, (a, b) in sorted(g.items())}
+
+
+def word_errors(ref: str, hyp: str, lang: str = "ar") -> tuple[int, int]:
+    """(edit operations, reference words) for one utterance, same normalisation as wer_cer."""
+    r = norm(ref, lang) or "<empty>"
+    out = jiwer.process_words(r, norm(hyp, lang))
+    return out.substitutions + out.deletions + out.insertions, len(r.split())
+
+
+def paired_bootstrap(errs_a: list[tuple[int, int]], errs_b: list[tuple[int, int]], n_boot: int = 2000, seed: int = 0) -> dict:
+    """95% CI for WER(b) - WER(a), resampling utterances (paired). Negative = b better."""
+    import numpy as np
+    rng = np.random.default_rng(seed)
+    ea, eb = np.array(errs_a, dtype=float), np.array(errs_b, dtype=float)
+    n = len(ea)
+    diffs = []
+    for _ in range(n_boot):
+        i = rng.integers(0, n, n)
+        diffs.append(eb[i, 0].sum() / eb[i, 1].sum() - ea[i, 0].sum() / ea[i, 1].sum())
+    d = eb[:, 0].sum() / eb[:, 1].sum() - ea[:, 0].sum() / ea[:, 1].sum()
+    lo, hi = np.percentile(diffs, [2.5, 97.5])
+    return {"diff": round(float(d), 4), "ci95": [round(float(lo), 4), round(float(hi), 4)],
+            "p_b_not_better": round(float(np.mean(np.array(diffs) >= 0)), 4), "n_utterances": n}

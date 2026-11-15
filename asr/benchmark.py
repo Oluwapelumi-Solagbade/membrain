@@ -23,7 +23,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .metrics import by_group, keyword_recall, wer_cer
+from .metrics import by_group, keyword_recall, paired_bootstrap, wer_cer, word_errors
 
 LOCALE = {"Emirati": "ar-AE", "Other Gulf": "ar-SA", "Egyptian": "ar-EG", "Levantine": "ar-LB", "English": "en-GB"}
 
@@ -80,8 +80,18 @@ def run(models: list[str], sets: dict[str, list[dict]], processor: str) -> dict:
             res[m][name] = {**wer_cer(refs, hyps), **keyword_recall(refs, hyps), "seconds": round(time.time() - t0, 1),
                             "by_category": by_group(rows, "category"), "by_dialect": by_group(rows, "dialect"),
                             "by_age_band": by_group(rows, "age_band"), "by_education": by_group(rows, "education"),
-                            "examples": rows[:5]}
+                            "examples": rows[:5],
+                            "per_utterance": [{"id": i.get("id"), "errors": e, "ref_words": w}
+                                              for i, (e, w) in zip(items, (word_errors(r, h) for r, h in zip(refs, hyps)))]}
             print(f"{m:60s} {name:16s} WER {res[m][name]['wer']:.3f}  keyword recall {res[m][name]['keyword_recall']}")
+    # paired bootstrap of every model against the first one (the reference model)
+    if len(models) > 1:
+        base = models[0]
+        for m in models[1:]:
+            for name in res[m]:
+                a = [(u["errors"], u["ref_words"]) for u in res[base][name]["per_utterance"]]
+                b = [(u["errors"], u["ref_words"]) for u in res[m][name]["per_utterance"]]
+                res[m][name]["vs_" + base] = paired_bootstrap(a, b)
     return res
 
 
@@ -101,6 +111,12 @@ def write_report(res: dict, out_dir: Path, meta: dict):
             x = r.get(s)
             cells += [f"{x['wer']:.1%}" if x else "–", f"{x['keyword_recall']:.1%}" if x and x["keyword_recall"] is not None else "–"]
         lines.append(f"| `{m}` | " + " | ".join(cells) + " |")
+    base = list(res)[0]
+    cmp = [(m, s_, r[s_]["vs_" + base]) for m, r in res.items() for s_ in r if ("vs_" + base) in r[s_]]
+    if cmp:
+        lines += ["", f"**Paired bootstrap vs `{base}`** (2,000 resamples of utterances; negative = fewer errors):", "",
+                  "| Model | Test set | WER difference | 95% CI | P(no improvement) |", "|---|---|---|---|---|"]
+        lines += [f"| `{m}` | {s_} | {c['diff']:+.1%} | {c['ci95'][0]:+.1%} to {c['ci95'][1]:+.1%} | {c['p_b_not_better']:.3f} |" for m, s_, c in cmp]
     lines += ["", "Per-category, per-dialect, per-age and per-education breakdowns are in `benchmark_results.json`. "
               "The production recogniser is chosen on its WORST subgroup, not the average."]
     (out_dir / "BENCHMARK_RESULTS.md").write_text("\n".join(lines) + "\n")
