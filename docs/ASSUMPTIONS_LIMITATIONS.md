@@ -18,6 +18,7 @@
 - **Simulated metrics are not evidence.** They show that the pipeline, thresholds and safety logic behave as intended under stated assumptions.
 - **Items need review.** Arabic items are drafts that need native-speaker review per dialect (Emirati and Gulf, Levantine, Egyptian) and cultural review before Phase A. Fluency lexicons are small, so unrecognised words go to human audit.
 - **Speech recognition in the hosted demo.** The browser's speech recognition is not dialect-tuned. The pilot benchmarks open and commercial Arabic ASR, all hosted in-country, and chooses on worst-subgroup word error rate.
+- **Speech recognition evidence is narrow.** The Emirati fine-tune result (41.2% against 49.5% WER) comes from 103 broadcast clips of adult speakers in one dialect. Task-word recall rests on only 19 words and did not improve. Older adults, other dialects and the MemBrain task words still need measuring in Phase A.
 - **Microphone in the hosted demo.** The hosted preview cannot use the microphone (iframe sandbox). Running locally enables the full voice path.
 - **Drawing and praxis tasks are not automated.** In the pilot they are clinician-scored.
 - **Voice features stay exploratory.** None drive alerts.

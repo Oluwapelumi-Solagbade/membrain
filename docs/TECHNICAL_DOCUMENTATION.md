@@ -174,6 +174,8 @@ Azure AI Speech runs in the UAE North region. The server holds the key and gives
 
 If Azure is unavailable, the app falls back to browser speech recognition, and then to typed answers. The engine used is recorded with every session, so accuracy can be analysed by engine and subgroup. Details are in `AZURE_SPEECH.md` and `DEPLOY_AZURE.md`.
 
+For an in-country, self-hosted option we adapted an existing open Gulf-Arabic Whisper model to Emirati speech with a small LoRA adapter. On a held-out Emirati test set (103 clips, topics never seen in training), word error rate fell from 49.5% to 41.2% (−8.3 points, 95% CI −16.9 to −1.2, p = 0.011). Task-word recall did not improve on its 19 words, so the production recogniser is chosen on task-word recall and worst-subgroup error from consented recordings. Method and results are in `asr/README.md` and `docs/asr/BENCHMARK_RESULTS.md`.
+
 ## 10. Security and privacy
 
 - **Hosting:** in-country cloud region, with no foreign processing of health data, in line with the ICT Health Law localisation rules.

@@ -38,18 +38,33 @@ This writes `docs/asr/BENCHMARK_RESULTS.md` and `benchmark_results.json`. Commit
 
 **Compute:** use Kaggle or Colab unless your PI confirms in writing that the FZJ cluster may be used for this project.
 
-## First run (15 Nov 2026, FZJ GPU, epoch picked on the test set; superseded by the validation-split rerun)
-| Model | WER, held-out Emirati (103 clips) | Task-keyword recall (19 keywords) |
-|---|---|---|
-| openai/whisper-small | 55.2% | 73.7% |
-| otozz/whisper-small-dialect_gulf | 49.5% | 84.2% |
-| + our LoRA (best epoch) | 41.2% | 84.2% |
+## Results (15 Nov 2026, FZJ GPU)
 
-All three epochs beat the starting model on the test set (47.9%, 41.2%, 43.4%). Because the best epoch was chosen on the test set, the rerun picks it on a separate validation category and adds a paired-bootstrap confidence interval.
+Held-out Emirati test set: 103 clips from the health and police categories, never seen in training and scored once. The epoch was chosen beforehand on the sports category (49 clips): epoch 2, validation WER 44.4% (starting model 57.3%).
+
+| Model | Test WER | Task-keyword recall (19 keywords) |
+|---|---|---|
+| openai/whisper-small | 55.2% | 73.7% (14/19) |
+| otozz/whisper-small-dialect_gulf (starting point) | 49.5% | 84.2% (16/19) |
+| **+ our LoRA (epoch 2, picked on validation)** | **41.2%** | 73.7% (14/19) |
+
+Paired bootstrap, 2,000 resamples of clips:
+
+- **LoRA vs the Gulf model we started from: −8.3 WER points, 95% CI −16.9 to −1.2, p = 0.011.** About 17% fewer word errors.
+- LoRA vs original Whisper-small: −13.9 points, 95% CI −22.5 to −6.8, p < 0.001.
+- The Gulf model vs original Whisper-small: −5.7 points, 95% CI −14.7 to +2.7 (not significant on this test set).
+
+**Reproducibility.** Three earlier runs used the first protocol, which had no validation split. Their final epoch, fixed in advance, scored 43.4%, 43.5% and 43.4% on the same test set; the epoch picked on the test set scored 41.1–42.3%. The validation-split result (41.2%) falls in the same range, so the gain is stable across runs.
+
+**Limitations.**
+- Keyword recall did not improve: 14 of 19 task words against 16 of 19 for the starting model. With 19 keywords one or two words swing it by 5–10 points, so this is inconclusive, not evidence of harm. The deployed recogniser is still chosen on keyword recall measured on consented recordings of the MemBrain task words (`docs/asr/TEAM_RECORDING_PROTOCOL.md`).
+- The test clips are adult broadcast speech (TV and podcasts), not adults aged 50–75 doing a cognitive test.
+- One dialect (Emirati) and 103 clips. Per-dialect, per-age and per-education error rates come in Phase A.
+- Azure AI Speech (UAE North) is not yet in this table.
 
 ## How to read the result
 - **Keyword recall** is the share of MemBrain task words the recogniser catches. It drives scores directly, so it decides the choice, alongside WER on the **worst** subgroup.
-- The held-out Emirati set has about 100–150 clips from a few shows, so differences of a couple of WER points are within noise. Report them as such.
+- The held-out Emirati set has 103 clips from a few shows, so differences of a couple of WER points are within noise. That is why every comparison carries a paired-bootstrap confidence interval.
 - These clips are adult broadcast speech, not older adults with possible impairment. Phase A must re-measure on consented participant audio.
 
 ## Tested

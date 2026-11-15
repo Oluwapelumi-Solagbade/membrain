@@ -1,7 +1,7 @@
 # MemBrain: Arabic Speech Recognition (ASR) Dialectal Benchmarking, Error Rates & Fairness Protocol
 **Author:** Abdulwaliy (Team Cerebro Spark)  
 **Deliverable:** 7 & 5 Support (Arabic ASR Error Rates & Scoring Bias Mitigation)  
-**Status:** Benchmark protocol. **No results yet**: tables are filled only from `scripts/benchmark_arabic_asr.py` runs on consented or openly licensed recordings.  
+**Status:** First measured results for Emirati speech (15 Nov 2026, Section 4.0). Other dialects remain TBD: tables are filled only from measured runs on consented or openly licensed recordings.  
 **Dependencies:** `membrain/scoring.py`, `membrain/simulate.py`, `membrain/items.py`, `docs/TECHNICAL_DOCUMENTATION.md`
 
 ---
@@ -50,9 +50,30 @@ We evaluate both open-weights models (deployable in-country for privacy complian
 
 ---
 
-## 4. Results tables (to be filled from measured runs)
+## 4. Results
 
-No word error rates are reported yet. Earlier drafts of this file contained illustrative figures that were not measured; they have been removed.
+### 4.0 Measured: Emirati speech (15 Nov 2026)
+
+Full report: `docs/asr/BENCHMARK_RESULTS.md`; method and code: `asr/README.md`.
+
+We did not train a new model. We took an existing open Gulf-Arabic Whisper checkpoint (`otozz/whisper-small-dialect_gulf`, Apache-2.0) and added a LoRA adapter (0.7% of the weights) trained on openly licensed Emirati TV and podcast clips (`eabayed/EmiratiDialictShowsAudioTranscription`, AFL-3.0) plus 2,000 Gulf clips from MASC (CC-BY-4.0).
+
+The data were split by topic so that no show segment appears in two sets:
+
+- train: traditions, cars and games;
+- validation: sports, 49 clips, used only to choose the epoch;
+- test: health and police, 103 clips, scored once.
+
+| Model | WER, Emirati test set | Task-keyword recall (19 words) |
+|---|---|---|
+| Whisper-small (original) | 55.2% | 73.7% |
+| Gulf Whisper (starting point) | 49.5% | 84.2% |
+| **MemBrain LoRA** | **41.2%** | 73.7% |
+
+- **The fine-tune cuts word errors by 8.3 points against the model it started from (95% CI 1.2 to 16.9 points; paired bootstrap, p = 0.011), and by 13.9 points against original Whisper (95% CI 6.8 to 22.5; p < 0.001).**
+- Three earlier runs, with the epoch fixed in advance, gave 43.4–43.5%, so the improvement is stable.
+- Keyword recall did not improve (14 against 16 of 19 words). That difference is too small to interpret, but it is why the production choice is made on task-word recall from consented recordings, not on WER alone.
+- These are adult broadcast speakers, not older adults. Phase A re-measures on participant audio.
 
 ### 4.1 Word error rate (%) by model and dialect
 
@@ -143,5 +164,5 @@ To ensure zero demographic or dialectal discrimination, MemBrain implements a fi
 ## 7. Action Items for Team Members
 
 * **Jeremiah (Deliverable 3 — Sat 15 Nov):** Review the Arabic item lists in `membrain/items.py` with native speakers to ensure all colloquial variants (Emirati, Egyptian, Levantine) are included in the unit matching tables.
-* **Oluwapelumi & Abdulwaliy (Deliverable 5 — Tue 18 Nov):** Run `scripts/benchmark_arabic_asr.py` on the FZJ cluster against Mozilla Common Voice Arabic splits to compute exact WER by dialect tag.
+* **Oluwapelumi & Abdulwaliy (Deliverable 5):** ~~Emirati benchmark and LoRA fine-tune~~ done 15 Nov (Section 4.0). Next: add Azure UAE North to the same test set (`azure:uaenorth`), and record the team task-word clips.
 * **John Paul (Deliverable 6 — Tue 18 Nov):** Ensure the browser microphone pipeline in the app gracefully shows the "Human Audit" pill when unverified dialectal words are spoken.
