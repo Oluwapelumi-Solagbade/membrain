@@ -1,6 +1,6 @@
 # Evidence pack
 
-**Everything here comes from the synthetic cohort** (`membrain/simulate.py`, assumptions listed there and in `ASSUMPTIONS_LIMITATIONS.md`). It shows how the engine behaves and which design choices do the work. It is **not** evidence of clinical accuracy; that comes from Phase A and Phase B.
+**Everything here comes from the synthetic cohort** (`membrain/simulate.py`, assumptions listed there and in `ASSUMPTIONS_LIMITATIONS.md`). It shows how the engine behaves and which design choices do the work. It is **not** evidence of clinical accuracy; that comes from Phase 2 (and care-pathway outcomes from Phase 3).
 
 Reproduce it with `python scripts/evidence_pack.py` (about 1–2 minutes on 2 cores). Outputs: `docs/evidence/*.png` and `evidence_summary.json`. It is also shown in the demo's Validation tab.
 
@@ -20,7 +20,7 @@ The full pipeline was run on 10 independent synthetic cohorts of 2,000 people ea
 | False positives at entry, no formal education | **4%** | 42% (single cutoff) |
 | Sensitivity, no formal education | 84% (range 72%–96%) | – |
 
-**Correction to earlier drafts.** The 67% sensitivity for people with no formal education came from a single cohort (seed 7). Across 10 cohorts the mean is 84%, but it varies widely, because this subgroup has few impaired people. The honest conclusion is that **small-subgroup estimates are unstable**, and Phase A must enrich this stratum. It is not evidence of a confirmed gap.
+**Correction to earlier drafts.** The 67% sensitivity for people with no formal education came from a single cohort (seed 7). Across 10 cohorts the mean is 84%, but it varies widely, because this subgroup has few impaired people. The honest conclusion is that **small-subgroup estimates are unstable**, and Phase 2 must enrich this stratum. It is not evidence of a confirmed gap.
 
 ![Robustness](evidence/robustness.png)
 
@@ -56,7 +56,7 @@ We swept the change threshold (RCI ≤ −1.28, −1.645, −1.96 or −2.33), w
 | Candidate 1: RCI ≤ -1.96, composite only, entry z ≤ -2.0, baseline 3 | 78% | 47 | 73% | 38% |
 | Candidate 2: RCI ≤ -1.96, composite + delayed recall, entry z ≤ -2.0, baseline 3 | 76% | 51 | 71% | 40% |
 
-The stricter settings halve false referrals, but they lose sensitivity and, above all, detect far less change over time. **We keep the pre-specified default**, because MemBrain's purpose is earlier detection of change. The stricter setting is documented as the option for clinics with very limited review capacity. In line with the clinical team's principle that thresholds follow evidence, not capacity, the final operating point is fixed on Phase A data and pre-registered before Phase B.
+The stricter settings halve false referrals, but they lose sensitivity and, above all, detect far less change over time. **We keep the pre-specified default**, because MemBrain's purpose is earlier detection of change. The stricter setting is documented as the option for clinics with very limited review capacity. In line with the clinical team's principle that thresholds follow evidence, not capacity, the final operating point is fixed on Phase 2 reliability data and pre-registered before accuracy is assessed.
 
 ![Sweep](evidence/operating_point_sweep.png)
 
@@ -80,8 +80,8 @@ At community prevalence, most positives would be false. This is why MemBrain is 
 
 ![Subgroups](evidence/subgroup_forest.png)
 
-Confidence intervals are wide for small strata (no formal education, some dialects). Each threshold will be checked against a pre-agreed minimum for every subgroup in Phase A.
+Confidence intervals are wide for small strata (no formal education, some dialects). Each threshold will be checked against a pre-agreed minimum for every subgroup in Phase 2.
 
-## 7. Phase B sample size (preliminary)
+## 7. Phase 2 sample size (preliminary)
 
 Using the Buderer (1996), 95% CI half-width 0.07 method, with expected sensitivity 82%, specificity 90% and prevalence 15%: about **770** participants for sensitivity, and 84 for specificity. Subgroup estimates (dialect, age, education) need either this n per stratum or enrichment sampling; final sizes set with the biostatistician.

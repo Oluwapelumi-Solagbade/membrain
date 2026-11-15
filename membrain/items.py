@@ -2,7 +2,7 @@
 
 These are ORIGINAL items written for MemBrain (not copies of licensed
 instruments). Arabic wording is a draft for native-speaker review per
-dialect (Emirati / Gulf, Levantine, Egyptian) before Phase A.
+dialect (Emirati / Gulf, Levantine, Egyptian) before Phase 1.
 Each change to an item creates a new form version and triggers re-equating.
 """
 from __future__ import annotations

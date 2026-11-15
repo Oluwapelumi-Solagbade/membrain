@@ -924,7 +924,7 @@
       ${e.inf.type === "none" ? "" : `
       ${helper ? `<div class="panel pad small" style="background:var(--base-soft);border-color:#c9d1e4;margin-bottom:10px">Household helpers take part voluntarily, under their own consent, in a language they understand. Their observations are <b>never</b> shared with an employer or used for employment decisions.</div>
         ${chk("inf.helper_consent", e.inf.helper_consent, "The helper agrees voluntarily and the participant consents to their involvement")}
-        ${fld("Helper's preferred language", sel("inf.language", e.inf.language, Object.entries(ND.languages)), "Questionnaire translations beyond Arabic and English are planned for Phase A.")}` : (e.consent.caregiver_involvement ? "" : '<div class="panel pad small" style="background:var(--check-soft);border-color:#f0d4a8;margin-bottom:10px">Family member involvement was not consented on the Consent step.</div>')}
+        ${fld("Helper's preferred language", sel("inf.language", e.inf.language, Object.entries(ND.languages)), "Questionnaire translations beyond Arabic and English are planned for Phase 1.")}` : (e.consent.caregiver_involvement ? "" : '<div class="panel pad small" style="background:var(--check-soft);border-color:#f0d4a8;margin-bottom:10px">Family member involvement was not consented on the Consent step.</div>')}
       <div class="two">${fld("Name", inp("informant.name", e.informant.name))}${fld("Relation", sel("informant.relation", e.informant.relation, [["", "—"], ["spouse", "Spouse"], ["son", "Son"], ["daughter", "Daughter"], ["sibling", "Sibling"], ["household_helper", "Household helper"], ["carer", "Paid carer"], ["other", "Other"]]))}</div>
       <div class="two">${fld("Mobile number", inp("informant.phone", e.informant.phone, "tel"))}${fld("IQCODE-16 average (1–5), if done today", inp("informant.iqcode", e.informant.iqcode, "number", "e.g. 3.1"), `Above ${C.IQCODE_CUTOFF} is flagged to the clinician.`)}</div>
       <div class="small" style="font-weight:600;margin:8px 0 4px">Functional change timeline</div><div class="tiny muted" style="margin-bottom:6px">What changed, roughly when, who took over and why. This is context for the clinician, not automatic evidence of decline.</div>
@@ -1030,7 +1030,9 @@
       informant: e.inf.type === "none" || (e.inf.type === "household_helper" && !e.inf.helper_consent) ? null
         : { type: e.inf.type, relation: e.informant.relation, language: e.inf.language, consented: true, timeline: e.inf.timeline.filter((t) => t.change || t.when) } };
     const flags = Object.keys(e.flags).filter((k) => e.flags[k]);
-    p.sessions.push({ session_id: id + "-intake", date: TODAY, type: "intake", channel: "app", concern: e.concern.text || "routine programme screening", onset: e.concern.onset, red_flags: flags });
+    const rcx = e.intake ? e.intake.confirmed : null;
+    p.sessions.push({ session_id: id + "-intake", date: TODAY, type: "intake", channel: "app", concern: e.concern.text || "routine programme screening", onset: e.concern.onset, red_flags: flags,
+      reported_concern: rcx ? { reporter: rcx.reporter, domains: rcx.domains, activities_taken_over: rcx.timeline.map(([a]) => a) } : null });
     S.people.push(p);
     S.vault[id] = { identity: { ...e.identity }, informant: e.informant.name ? { name: e.informant.name, relation: e.informant.relation, phone: e.informant.phone } : null };
     S.audit.unshift({ ts: new Date().toISOString().slice(0, 19).replace("T", " "), actor: "coordinator", action: "enrol", target: id, detail: "consent: " + Object.keys(e.consent).filter((k) => e.consent[k]).join(", ") });
@@ -1068,19 +1070,20 @@
     ["English: helper's observations", "en", "Our helper says Dad left the gas on twice this month and asks her the same question many times a day. My son now handles his bills. It has been getting worse for about a year. He started a new blood pressure medicine in August."],
     ["Gulf Arabic: urgent", "ar", "أبوي طاح أمس في الحمام وضرب راسه، ومن يومها نعسان ومتلخبط وكلامه ثقيل."],
   ];
-  S.ik = { text: "", lang: "ar", res: null, ok: {}, engine: "", busy: false, rec: false };
+  S.ik = { text: "", lang: "ar", res: null, ok: {}, engine: "", busy: false, rec: false, reporter: "family" };
+  const RPT = { self: "About me", family: "Family member", helper: "Household helper", professional: "Healthcare professional", coordinator: "Programme coordinator" };
   function renderHome() {
     $("#main").innerHTML = `<div style="max-width:980px;margin:0 auto">
       <div style="text-align:center;margin:8px 0 22px"><h2 style="margin:0 0 6px">From the first worry to a completed assessment</h2>
-        <div class="muted">MemBrain helps families in the UAE get from "something is not right" to the right clinician, and tracks every step until follow-up is documented. It flags risk and change. It never diagnoses.</div></div>
+        <div class="muted">A concern starts the journey. MemBrain helps people in the UAE understand what has changed, why it may matter and what should happen next, and tracks whether the person actually receives that care. It does not diagnose and it is not an emergency service.</div></div>
       <div class="two" style="gap:18px">
         <button class="panel pad door" id="door-family" style="text-align:start;cursor:pointer;border-width:2px;border-color:var(--teal)">
-          <div class="tiny" style="color:var(--teal);font-weight:700;letter-spacing:.06em">START HERE · FOR FAMILIES AND HELPERS</div>
-          <h2 style="margin:6px 0">I'm worried about someone</h2><div class="ar" dir="rtl" style="font-size:18px;margin-bottom:8px">أنا قلقان على شخص أحبه</div>
-          <div class="small">Say or type what you have noticed, in Gulf Arabic or English. MemBrain picks out the key facts and checks for urgent warning signs first. It reads them back to you. A clinician confirms everything before any referral.</div>
+          <div class="tiny" style="color:var(--teal);font-weight:700;letter-spacing:.06em">START HERE · MAIN ROUTE</div>
+          <h2 style="margin:6px 0">I've noticed a change</h2><div class="ar" dir="rtl" style="font-size:18px;margin-bottom:8px">لاحظت تغيّر</div>
+          <div class="small">In yourself, a relative, someone you care for, or a patient. Say or type what you have noticed, in Gulf Arabic or English. MemBrain checks for urgent warning signs first, picks out the key facts and reads them back. A clinician reviews everything before any referral.</div>
           <div style="margin-top:12px"><span class="btn primary">Describe what you've noticed →</span></div></button>
         <button class="panel pad door" id="door-self" style="text-align:start;cursor:pointer;border-width:2px">
-          <div class="tiny muted" style="font-weight:700;letter-spacing:.06em">FOR ADULTS 50–75 IN A PROGRAMME</div>
+          <div class="tiny muted" style="font-weight:700;letter-spacing:.06em">PROACTIVE CHECK-IN · ADULTS 50–75 IN A PROGRAMME</div>
           <h2 style="margin:6px 0">Check my own brain health</h2><div class="ar" dir="rtl" style="font-size:18px;margin-bottom:8px">أبي أفحص صحة دماغي</div>
           <div class="small">A 6-minute spoken check-in in your dialect, repeated over time. It is compared with your own baseline, not just one cut-off, so real change shows up earlier and fewer people are flagged by mistake.</div>
           <div style="margin-top:12px"><span class="btn">Start a check-in →</span></div></button></div>
@@ -1126,7 +1129,7 @@
     if (r) {
       const g = (kind) => r.fields.filter((f) => f.kind === kind);
       const rf = g("red_flag");
-      out = `${rf.length ? `<div class="panel pad" style="background:var(--urgent-soft);border-color:#e8b9c6;margin-bottom:12px"><b style="color:var(--urgent)">Possible urgent warning signs.</b> Follow the emergency protocol now (ambulance 998 if needed). Do not start memory testing. Red flags are tuned to catch too much rather than miss one, so a clinician confirms them.</div>` : ""}
+      out = `${rf.length ? `<div class="panel pad" style="background:var(--urgent-soft);border-color:#e8b9c6;margin-bottom:12px"><b style="color:var(--urgent)">Possible urgent warning signs.</b> Follow the participating organisation's urgent pathway now; in an emergency call 998. MemBrain is not an emergency service. Do not start memory testing. Red flags are tuned to catch too much rather than miss one, so a clinician confirms them.</div>` : ""}
         <div class="panel pad" style="margin-bottom:12px"><div class="tiny muted" style="margin-bottom:6px">What you said, with the words each fact came from highlighted</div><div ${k.lang === "ar" ? 'dir="rtl" class="ar"' : ""} style="line-height:1.9;font-size:15px">${highlight(k.text, r)}</div>
           <div class="tiny muted" style="margin-top:8px">Extractor: <b>${esc(r.engine === "rules" ? "rules (" + (r.fallback_reason || "fallback") + ")" : r.engine)}</b> · ${esc(r.version)}${r.latency_ms != null ? " · " + r.latency_ms + " ms" : ""}${r.grounding ? ` · ${r.grounding.unsupported} unsupported item(s) removed` : ""}</div></div>
         <div class="two">
@@ -1135,12 +1138,13 @@
             ${r.onset ? `<h3 style="margin-top:12px">When it started</h3>${row("onset", r.onset.label, null, k.text.slice(...r.onset.spans[0]))}` : ""}</div>
           <div class="panel pad"><h3>Who now does what</h3>${(r.timeline || []).map((t, i) => row("tl:" + i, `${t.activity_label}: now ${t.who_label}`, null, k.text.slice(...t.spans[0]).trim())).join("") || '<div class="small muted">No activity taken over by someone else was mentioned.</div>'}
             <h3 style="margin-top:12px">Things that can affect memory</h3>${g("confounder").map((f) => row("confounder:" + f.key, f.label, f, f.evidence.join(" … "))).join("") || '<div class="small muted">None mentioned (illness, new medicine, hearing, bereavement).</div>'}
-            <div class="tiny muted" style="margin-top:8px">Untick anything that is wrong. Items marked “confirm” were picked up from weaker cues.</div></div></div>
+            <div class="tiny muted" style="margin-top:8px">Reported by: <b>${esc(RPT[k.reporter])}</b>. Untick anything that is not what you meant; items marked “confirm” came from weaker cues. Ticked items are kept as <i>your report</i>, not as clinical facts: a clinician assesses them.</div></div></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn big" id="ik-read">🔊 Read back to the family</button>
-          <button class="btn primary big" id="ik-go" ${rf.length ? 'style="background:var(--urgent);border-color:var(--urgent)"' : ""}>${rf.length ? "Confirm and escalate now" : "Confirm and continue to enrolment"}</button></div>`;
+          <button class="btn primary big" id="ik-go" ${rf.length ? 'style="background:var(--urgent);border-color:var(--urgent)"' : ""}>${rf.length ? "This is what I said: escalate now" : "This is what I said: continue"}</button></div>`;
     }
     $("#main").innerHTML = `<div style="max-width:1080px;margin:0 auto"><div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:12px">
-      <div><h2 style="margin:0">Tell us what you have noticed</h2><div class="muted small">A family member or household helper describes the changes in their own words. Nothing is decided automatically: a clinician reviews every case.</div></div>
+      <div><h2 style="margin:0">What changes have you noticed in memory, thinking or everyday activities?</h2><div class="muted small">Describe them in your own words. Nothing is decided automatically: a clinician reviews every case. MemBrain is not an emergency service.</div>
+        <div class="seg" style="margin-top:8px">${Object.entries(RPT).map(([kk, v]) => `<button data-ikr="${kk}" class="${k.reporter === kk ? "on" : ""}">${v}</button>`).join("")}</div></div>
       <div class="seg"><button data-ikl="ar" class="${k.lang === "ar" ? "on" : ""}">عربي (خليجي)</button><button data-ikl="en" class="${k.lang === "en" ? "on" : ""}">English</button></div></div>
       <div class="panel pad" style="margin-bottom:12px"><textarea id="ik-text" ${k.lang === "ar" ? 'dir="rtl"' : ""} rows="4" style="width:100%;font:inherit;font-size:15px;padding:10px;border:1px solid var(--line);border-radius:10px" placeholder="${k.lang === "ar" ? "مثال: أبوي من حوالي سنة صار ينسى وايد..." : "e.g. For about a year Dad keeps asking the same questions..."}">${esc(k.text)}</textarea>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center"><button class="btn" id="ik-mic">${k.rec ? "■ Stop dictation" : "🎙 Dictate"}</button>
@@ -1149,6 +1153,7 @@
         <div class="tiny muted" style="margin-top:6px">${esc(speechLabel())}. Voice is turned into text for this step only; the recording is not kept.</div></div>${out}</div>`;
     $("#ik-text").oninput = (e) => (k.text = e.target.value);
     document.querySelectorAll("[data-ikl]").forEach((b) => (b.onclick = () => { k.lang = b.dataset.ikl; k.res = null; renderIntake(); }));
+    document.querySelectorAll("[data-ikr]").forEach((b) => (b.onclick = () => { k.reporter = b.dataset.ikr; renderIntake(); }));
     document.querySelectorAll("[data-iks]").forEach((b) => (b.onclick = () => { const s = IK_SAMPLES[+b.dataset.iks]; k.lang = s[1]; k.text = s[2]; runExtract(); }));
     $("#ik-x").onclick = runExtract;
     $("#ik-mic").onclick = async () => {
@@ -1161,16 +1166,16 @@
   }
   function confirmedFromIntake() {
     const k = S.ik, r = k.res; const pick = (kind) => r.fields.filter((f) => f.kind === kind && k.ok[kind + ":" + f.key]).map((f) => f.key);
-    const c = { narrative: k.text, domains: pick("domain"), red_flags: pick("red_flag"), confounders: pick("confounder"), onset: r.onset && k.ok.onset ? r.onset.value : null,
+    const c = { reporter: k.reporter, narrative: k.text, domains: pick("domain"), red_flags: pick("red_flag"), confounders: pick("confounder"), onset: r.onset && k.ok.onset ? r.onset.value : null,
       timeline: (r.timeline || []).filter((t, i) => k.ok["tl:" + i]).map((t) => [t.activity, t.who_took_over]) };
     c.quotes = IX.quotesFrom({ fields: r.fields.filter((f) => f.kind === "domain" && c.domains.includes(f.key)) }, k.text);
     return c;
   }
   function intakeToEnrol() {
     const k = S.ik, r = k.res, c = confirmedFromIntake(); const e = blankEnrol();
-    e.concern.route = "family"; e.concern.text = k.text; if (c.onset) e.concern.onset = c.onset;
+    e.concern.route = { self: "self", family: "family", helper: "household_helper", professional: "primary_care", coordinator: "programme" }[k.reporter]; e.concern.text = k.text; if (c.onset) e.concern.onset = c.onset;
     c.red_flags.forEach((f) => (e.flags[f] = true)); e.profile.language = k.lang;
-    e.inf.type = "family";   // a helper giving information is set on the Informant step, with their own consent
+    e.inf.type = k.reporter === "self" || k.reporter === "professional" || k.reporter === "coordinator" ? "none" : "family";   // a helper informant is set on the Informant step, with their own consent
     e.inf.timeline = (r.timeline || []).filter((t, i) => k.ok["tl:" + i]).map((t) => ({ activity: t.activity_label, change: "", when: "", who_took_over: t.who_label, why: "Not sure" }));
     e.intake = { confirmed: c, engine: r.engine, version: r.version, at: TODAY };
     log("intake_confirmed", "new", `${c.domains.length} concerns, ${c.red_flags.length} red flags, engine ${r.engine}`);
@@ -1186,7 +1191,7 @@
   const STATE_COL = (s) => (["declined", "missed", "lost_to_follow_up", "no_accessible_service"].includes(s) ? "lv-CLINICIAN_REVIEW" : ["assessment_completed", "follow_up_documented"].includes(s) ? "lv-STABLE" : s === "cancelled" ? "lv-INVALID" : "lv-BASELINE");
   const capTxt = (s) => (s.capacity_per_month == null ? "same day" : `${s.capacity_per_month}/month`) + (s.accepting_referrals === false ? " · not accepting" : "");
   const svcById = (id) => ND.directory.find((s) => s.id === id);
-  const ENTRY = { programme: "Programme screening", primary_care: "Primary care clinician", family: "Family member", household_helper: "Household helper" };
+  const ENTRY = { self: "The person themselves", programme: "Programme screening", primary_care: "Primary care clinician", family: "Family member", household_helper: "Household helper" };
   const allLiveRefs = () => S.people.flatMap((p) => (p.referrals || []).map((r) => ({ ...r, _p: p })));
 
   function referralPanel(p) {
@@ -1214,6 +1219,9 @@
       <div class="tiny muted" style="margin-top:6px">Context for clinical review, not automatic evidence of decline: changes can reflect preference, physical illness or family arrangements.${inf.type === "household_helper" ? " Helper observations are never shared with an employer." : ""}</div></div>`;
   }
   function bindReferralPanel(p) {
+    document.querySelectorAll("[data-close-intake]").forEach((el) => (el.onclick = () => {
+      (S.actions[p.id] = S.actions[p.id] || []).push({ action: "confirm_concern", note: "intake concern reviewed by clinician", ts: TODAY, session: el.dataset.closeIntake });
+      log("intake_concern_reviewed", p.id, el.dataset.closeIntake); toast("Intake concern marked as reviewed"); renderClinician(); }));
     const b = $("#b-ref"); if (b) b.onclick = () => referralModal(p);
     document.querySelectorAll("[data-adv]").forEach((el) => (el.onclick = () => {
       const r = p.referrals.find((x) => x.id === el.dataset.adv); const reason = ($("#rs-" + r.id) || {}).value || "";
@@ -1272,10 +1280,10 @@
   }
   function draftCard(p, ev) {
     if (DR.p !== p.id) { DR.p = p.id; DR.conf = draftConfirmed(p, ev); DR.sents = IX.draft(DR.conf).map((x) => x.text); DR.engine = "template"; DR.removed = 0; DR._tried = false; }
-    const v = IX.verify(DR.sents, DR.conf); const src = p.intake ? `family intake (${esc(p.intake.engine)}) and the latest check-in` : "the latest check-in (no family intake on file)";
+    const v = IX.verify(DR.sents, DR.conf); const src = p.intake ? `the reported concern (checked by the reporter, not clinically verified; ${esc(p.intake.engine)}) and the latest check-in` : "the latest check-in (no reported concern on file)";
     return `<div class="panel pad" style="margin-top:10px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><b>Reason for referral</b>
-        <span class="pill ${v.grounded ? "lv-STABLE" : "lv-CLINICIAN_REVIEW"}" id="rf-badge">Grounding check: ${v.n - v.unsupported}/${v.n} sentences backed by confirmed facts</span></div>
-      <div class="tiny muted" style="margin:4px 0 6px">Drafted by <b>${esc(DR.engine)}</b> from ${src}. Each sentence is checked against the confirmed facts; anything unsupported, any diagnosis word and any number not in the record is ${DR.engine === "template" ? "blocked" : "removed"}${DR.removed ? ` (${DR.removed} removed)` : ""}. Edit freely: your changes are marked as yours.</div>
+        <span class="pill ${v.grounded ? "lv-STABLE" : "lv-CLINICIAN_REVIEW"}" id="rf-badge">Grounding check: ${v.n - v.unsupported}/${v.n} sentences match the reported facts</span></div>
+      <div class="tiny muted" style="margin:4px 0 6px">Drafted by <b>${esc(DR.engine)}</b> from ${src}. Each sentence is checked against those facts; anything unsupported, any diagnosis word and any number not in the record is ${DR.engine === "template" ? "blocked" : "removed"}${DR.removed ? ` (${DR.removed} removed)` : ""}. Edit freely: your changes are marked as yours.</div>
       <textarea id="rf-reason" rows="5" style="width:100%;font:inherit;font-size:13.5px;padding:8px;border:1px solid var(--line);border-radius:10px">${esc(DR.sents.join(" "))}</textarea>
       <div id="rf-ver" class="tiny" style="margin-top:4px"></div></div>`;
   }
@@ -1365,7 +1373,10 @@
     return S.people.map((p) => {
       const ev = p.sessions.length ? E.evaluate(p, p.sessions) : null; const lv = ev ? ev.latest.level : "BASELINE";
       const acts = S.actions[p.id] || []; const closed = acts.some((a) => ["dismiss", "refer", "confirm_concern"].includes(a.action) && a.session === ev?.latest?.session_id);
-      return { p, ev, lv, closed };
+      const openIntake = ev ? ev.history.filter((h) => h.intake && ["CLINICIAN_REVIEW", "URGENT"].includes(h.level) && h.session_id !== ev.latest.session_id
+        && !acts.some((a) => ["dismiss", "refer", "confirm_concern"].includes(a.action) && a.session === h.session_id)) : [];
+      const lv2 = openIntake.reduce((m, h) => (E.LEVELS.indexOf(h.level) > E.LEVELS.indexOf(m) ? h.level : m), lv);
+      return { p, ev, lv: lv2, closed: closed && lv2 === lv, openIntake };
     }).sort((a, b) => E.LEVELS.indexOf(b.lv) - E.LEVELS.indexOf(a.lv));
   }
   function renderClinician() {
@@ -1388,6 +1399,18 @@
     renderDetail(sel);
   }
 
+  const REPORTER = { self: "The participant", family: "A family member", helper: "A household helper", professional: "A healthcare professional", coordinator: "A programme coordinator" };
+  function reportedPanel(p) {
+    const ik = p.intake; if (!ik) return "";
+    const c = ik.confirmed; const lab = (k, m) => (m[k] || k);
+    const list = (arr, m) => (arr || []).map((k) => `<span class="chip">${esc(lab(k, m))}</span>`).join("") || '<span class="muted">none</span>';
+    return `<div class="panel pad"><h3>Reported concern <span class="tiny muted">(${esc(REPORTER[c.reporter] || "Reporter")}, ${esc(ik.at)} · reported, not clinically verified)</span></h3>
+      <div class="small" style="border-left:3px solid var(--line);padding:4px 10px;margin-bottom:8px" ${/[\u0600-\u06ff]/.test(c.narrative) ? 'dir="rtl"' : ""}>“${esc(c.narrative)}”</div>
+      <table><tr><td>What has changed</td><td>${list(c.domains, D.intake.DOMAINS)}</td></tr><tr><td>When it started</td><td>${c.onset ? esc(D.intake.ONSET[c.onset]) : '<span class="muted">not stated</span>'}</td></tr>
+      <tr><td>Now done by others</td><td>${(c.timeline || []).map(([a, w]) => `<span class="chip">${esc(D.intake.ACTIVITIES[a])}: ${esc(D.intake.WHO[w])}</span>`).join("") || '<span class="muted">none reported</span>'}</td></tr>
+      <tr><td>Possible contributors</td><td>${list(c.confounders, D.intake.CONFOUNDERS)}</td></tr><tr><td>Red flags</td><td>${list(c.red_flags, D.intake.RED_FLAGS)}</td></tr></table>
+      <div class="tiny muted" style="margin-top:6px">The reporter checked that these facts match what they said (extractor: ${esc(ik.engine)}). They are observations to assess, not clinical findings. Still missing: frequency, severity and the level of help needed are not captured yet.</div></div>`;
+  }
   function renderDetail(x) {
     const p = x.p, ev = x.ev; const el = $("#detail");
     if (!ev) { el.innerHTML = `<div class="panel pad"><h2 style="margin:0">${esc(p.id)}</h2><div class="small muted">${p.age} y · ${EDU[p.education]} · ${esc(p.dialect)}</div>
@@ -1429,11 +1452,14 @@
         <div class="alertbox lv-${L_.level}" style="margin-top:14px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">${pill(L_.level)}<span class="small muted">${L_.intake ? `Intake ${L_.date}` : `Latest session ${L_.date} · form ${L_.form} · ${L_.channel}`}</span>
           ${L_.held_for_clinician ? '<span class="small"><b>Held:</b> participant was told only that the clinic will contact them.</span>' : ""}</div>
           <ul style="margin:8px 0 4px">${L_.reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>
-          ${L_.pathways.length ? `<div class="small"><b>Suggested pathway:</b> ${L_.pathways.map((x) => PATH[x] || x).join(" · ")}</div>` : ""}</div></div>
+          ${L_.pathways.length ? `<div class="small"><b>Suggested pathway:</b> ${L_.pathways.map((x) => PATH[x] || x).join(" · ")}</div>` : ""}</div>
+        ${(x.openIntake || []).map((h) => `<div class="alertbox lv-${h.level}" style="margin-top:10px">${pill(h.level)} <span class="small muted">Still open from intake ${h.date}: a later check-in does not close it.</span><ul style="margin:6px 0 2px">${h.reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>
+          <button class="btn small" data-close-intake="${h.session_id}">Mark intake concern reviewed</button></div>`).join("")}</div>
+      ${reportedPanel(p)}
       <div class="panel pad"><h3>Trend against personal baseline</h3>${ev.history.some((h) => h.z) ? trendChart(ev.history) : '<div class="small muted">No scored sessions yet.</div>'}
         <div class="legend">${["BASELINE", "STABLE", "CHECK_AGAIN", "CLINICIAN_REVIEW", "URGENT"].map((k) => `<span><i style="background:${LVCOL[k]}"></i>${LV[k]}</span>`).join("")}<span><i style="background:#fff;border:1.5px solid #888"></i>Not scored</span></div></div>
       <div class="two">
-        <div class="panel pad"><h3>What drove this result</h3>${drivers}<h3 style="margin-top:14px">Domains (raw points, practice-adjusted RCI)</h3>${domTable}</div>
+        <div class="panel pad"><h3>What drove this result</h3>${drivers}<h3 style="margin-top:14px">Domains (raw points, practice-adjusted RCI)</h3>${C.CHANGE_THRESHOLDS_VALIDATED ? "" : '<div class="small" style="background:var(--check-soft);border-radius:8px;padding:6px 9px;margin-bottom:6px"><b>Interpretation not validated.</b> Change thresholds use provisional reliability and practice-effect values until local validation (Phase 2). Read changes as descriptive.</div>'}${domTable}</div>
         <div class="grid">
           <div class="panel pad"><h3>Confounders checked</h3>${confHtml}</div>
           <div class="panel pad"><h3>Integrated risk context</h3><table>${ctxRows}</table>
@@ -1590,13 +1616,13 @@
         <div class="panel pad"><h3>Did we over-fit the default?</h3><div class="small muted">The best-looking settings from one cohort, re-tested on 5 fresh cohorts (n = 2,000 each).</div>
           <table style="margin-top:8px"><tr><th>Setting</th><th class="num">Sens.</th><th class="num">False ref. /1,000</th><th class="num">PPV</th><th class="num">Change det.</th></tr>
           ${cc.map((r) => `<tr><td><b>${esc(r.label)}</b><div class="tiny muted">RCI ≤ ${r.config.RCI_CHECK} · ${esc(r.config.TRIGGER_DOMAINS)} · entry z ≤ ${r.config.LOW_BASELINE_Z} · baseline ${r.config.BASELINE_SESSIONS}</div></td><td class="num">${pct(r.sensitivity)}</td><td class="num">${r.false_referrals_per_1000}</td><td class="num">${pct(r.ppv)}</td><td class="num">${pct(r.change_sensitivity)}</td></tr>`).join("")}</table>
-          <div class="tiny muted" style="margin-top:6px">Stricter settings halve false referrals but detect far less change over time. We keep the default because MemBrain's job is earlier detection; the stricter setting is the documented option for clinics with little review capacity. The final operating point is fixed in Phase A on real data, before Phase B starts.</div></div>
+          <div class="tiny muted" style="margin-top:6px">Stricter settings halve false referrals but detect far less change over time. We keep the default because MemBrain's job is earlier detection; the stricter setting is the documented option for clinics with little review capacity. The final operating point is fixed on real data in Phase 2, before accuracy is assessed.</div></div>
         <div class="panel pad"><h3>Decision curve</h3><div class="small muted">Net benefit of referring by each strategy, at every threshold a clinician might use.</div>${dcSvg}</div></div>
       <div class="two" style="margin-top:16px">
         <div class="panel pad"><h3>Positive predictive value depends on the setting</h3><table><tr><th>Setting</th><th class="num">Prevalence</th><th class="num">MemBrain PPV</th><th class="num">Usual care PPV</th></tr>
           ${X.prevalence_sensitivity.map((r) => `<tr><td>${esc(r.setting)}</td><td class="num">${pct(r.prevalence)}</td><td class="num"><b>${pct(r.membrain_ppv)}</b></td><td class="num">${pct(r.usual_care_ppv)}</td></tr>`).join("")}</table>
           <div class="tiny muted" style="margin-top:6px">In community outreach most positives are false, so MemBrain is deployed through programmes and clinics, not as an open consumer test.</div></div>
-        <div class="panel pad"><h3>Phase B sample size (preliminary)</h3><div class="small">${esc(X.sample_size.method)}: about <b>${X.sample_size.n_required}</b> participants for a ±7-point confidence interval on sensitivity at ${pct(X.sample_size.prevalence)} prevalence (${X.sample_size.n_for_specificity} would suffice for specificity).</div>
+        <div class="panel pad"><h3>Phase 2 sample size (preliminary)</h3><div class="small">${esc(X.sample_size.method)}: about <b>${X.sample_size.n_required}</b> participants for a ±7-point confidence interval on sensitivity at ${pct(X.sample_size.prevalence)} prevalence (${X.sample_size.n_for_specificity} would suffice for specificity).</div>
           <div class="tiny muted" style="margin-top:6px">${esc(X.sample_size.per_subgroup_note)} No-formal-education sensitivity varies between ${pct(R.sens_noedu.min)} and ${pct(R.sens_noedu.max)} across cohorts, so this stratum must be enriched.</div></div></div>`;
   }
 
@@ -1611,7 +1637,7 @@
     const eduFair = Object.entries(s.subgroups.education).map(([g, b]) => ({ g: EDU[g], naive: 1 - b.baseline_naive.specificity[0], strat: 1 - b.baseline_stratified.specificity[0] }));
     $("#main").innerHTML = `
       <div class="panel pad" style="background:var(--sand-soft);border-color:#ecdcc0;margin-bottom:16px"><b>Synthetic validation run (n = ${V.n.toLocaleString()}, seed ${V.seed}).</b>
-        This shows the validation pipeline working end-to-end on simulated people with stated assumptions. It is <b>not</b> clinical evidence. The same code runs on Phase A (feasibility and reliability) and Phase B (accuracy against specialist assessment) data.</div>
+        This shows the validation pipeline working end-to-end on simulated people with stated assumptions. It is <b>not</b> clinical evidence. The same code runs on Phase 1 (feasibility) and Phase 2 (reliability and accuracy against an independent clinical reference) data.</div>
       ${navaiGates()}
       <div class="kpis">${kpi(pct(o.completion_unaided), "Sessions completed unaided")}${kpi(fmt(o.test_retest_icc), "Test–retest ICC(2,1), 2 weeks", `${o.n_retest_pairs} stable pairs`)}
         ${kpi(pct(o.membrain.sensitivity[0]), "Sensitivity (12 months)", ci(o.membrain.sensitivity))}${kpi(pct(o.membrain.specificity[0]), "Specificity", ci(o.membrain.specificity))}
@@ -1623,7 +1649,7 @@
       <div class="panel pad" style="margin-top:16px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><h3 style="margin:0">Subgroup performance</h3>
         <div class="seg">${[["dialect", "Language / dialect"], ["age_band", "Age band"], ["education", "Education"]].map(([k, v]) => `<button data-sub="${k}" class="${S.sub === k ? "on" : ""}">${v}</button>`).join("")}</div></div>
         <table style="margin-top:10px"><tr><th>Group</th><th class="num">n</th><th class="num">Completion</th><th class="num">ICC</th><th class="num">Sens.</th><th class="num">Spec.</th><th class="num">PPV</th><th class="num">Ref./confirmed</th><th class="num">Usual-care spec.</th></tr>${rows}</table>
-        <div class="tiny muted" style="margin-top:6px">Thresholds are revised if a subgroup falls below the pre-agreed floor. Small subgroups give unstable estimates: no-formal-education sensitivity is 67% in this cohort but ranges widely across cohorts (see the evidence pack below), so Phase A enriches this group.</div></div>
+        <div class="tiny muted" style="margin-top:6px">Thresholds are revised if a subgroup falls below the pre-agreed floor. Small subgroups give unstable estimates: no-formal-education sensitivity is 67% in this cohort but ranges widely across cohorts (see the evidence pack below), so Phase 2 enriches this group.</div></div>
       <div class="two" style="margin-top:16px">
         <div class="panel pad"><h3>What the confounder rules buy</h3><table>
           <tr><td>Alerts with confounder rules</td><td class="num">${ab.alerts_with_rules}</td></tr><tr><td>Alerts without them</td><td class="num">${ab.alerts_without_rules}</td></tr>
@@ -1641,7 +1667,7 @@
       <span class="tiny muted">Held-out test set: ${r.n} synthetic caregiver narratives (Gulf Arabic and English), frozen before the rules were tuned</span></div>
       <table style="margin-top:8px"><tr><th>Gate</th><th>Target</th><th>Rules extractor (always-on fallback)</th><th>${m ? esc(m.model) : "MedGemma 4B"}</th>${m ? "<th>MedGemma + rule red flags</th>" : ""}</tr>
       ${r.gates.map((g, i) => `<tr><td>${esc(g.label)}</td><td class="small">${esc(g.target)}</td><td>${cell(g)}</td><td>${m ? cell(m.gates[i]) : cell(null)}</td>${m ? `<td>${cell(m.combined_gates[i])}</td>` : ""}</tr>`).join("")}</table>
-      <div class="tiny muted" style="margin-top:6px">Urgent cases caught by the rules: ${r.urgent_recall_cases}, with ${r.red_flag_false_alarms} false alarms. With so few urgent cases, a perfect score only shows recall above ${r.urgent_recall_wilson_lower95} (95% lower bound); showing 0.99 needs about 300 red-flag narratives, planned for Phase A.
+      <div class="tiny muted" style="margin-top:6px">Urgent cases caught by the rules: ${r.urgent_recall_cases}, with ${r.red_flag_false_alarms} false alarms. With so few urgent cases, a perfect score only shows recall above ${r.urgent_recall_wilson_lower95} (95% lower bound); showing 0.99 needs about 300 red-flag narratives, planned for Phase 1.
         The rules pass the safety gates (red flags, nothing unsupported, speed) but not the accuracy gates, which is why the model is evaluated. Whatever the model returns must quote the narrative, and it can never remove a red flag the rules found.${m ? ` Referral drafting: ${m.drafting.unsupported_sentences} of ${m.drafting.sentences} model sentences blocked by the grounding check.` : ""}</div></div>`;
   }
   function bars(rows, names, cols = ["#0b8a7a", "#c0761a"]) {
@@ -1661,7 +1687,7 @@
       ["Integrated risk context", "Consent-scoped clinical record (BP, HbA1c, LDL), wearables (sleep, activity), mood scales, informant IQCODE, family history and optional genomics, mapped to FHIR R4 and shown with source. No black-box risk score.", "clinician"],
       ["Personalised prevention and timely care", "Clinician-authored, versioned prevention rules in Arabic and English (culturally adapted). Four triage levels with review targets, referral dossier, and suggested reversible-cause work-up.", "participant"],
       ["Safety and human oversight", "Every alert lists its drivers, the confounders checked and a 90% uncertainty range. Review-level results are held until a clinician acts. The system never writes a diagnosis (no Condition resources). Dismissals need a reason. Everything is audit-logged.", "clinician"],
-      ["Validation and local population performance", "Completion, test–retest ICC, sensitivity, specificity, PPV, referrals per confirmed finding, change detection and time to assessment, by dialect, age and education. Pipeline runs now on synthetic data and later on Phase A/B data.", "validation"],
+      ["Validation and local population performance", "Completion, test–retest ICC, sensitivity, specificity, PPV, referrals per confirmed finding, change detection and time to assessment, by dialect, age and education. Pipeline runs now on synthetic data and later on Phase 1–2 data.", "validation"],
     ];
     $("#main").innerHTML = `<div class="two"><div class="panel pad"><h2>How MemBrain meets the six requirements</h2>${reqs.map((r, i) => `<div class="req"><div class="n">${i + 1}</div><div><b>${r[0]}</b><div class="small muted">${r[1]}</div><button class="btn small" style="margin-top:6px" data-go="${r[2]}">See it →</button></div></div>`).join("")}</div>
       <div class="grid"><div class="panel pad"><h2>Architecture</h2>${archSvg()}</div>

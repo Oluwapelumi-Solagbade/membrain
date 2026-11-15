@@ -16,7 +16,7 @@ Source: **WHO Global Health Observatory**, the official OData API, country code 
 
 **How we use them.** `membrain/uae_data.py` draws each synthetic person's hypertension, diabetes, BMI, activity and smoking from these sex-specific UAE rates. Hypertension and diabetes are given a modest age gradient around age 62. A test checks the simulated prevalences stay within 5 points of the WHO figures. The cognition part of the simulation is untouched (separate random stream), so all validation numbers are unchanged.
 
-**Limits.** These are adult-wide rates. Age-specific rates for 50–75-year-olds should come from the UAE National Health Survey or partner programme data (for example IFHAS screening).
+**Limits.** These are adult-wide rates. Age-specific rates for 50–75-year-olds should come from the UAE National Health Survey or partner programme data (for example a screening programme such as IFHAS, if a data agreement is reached).
 
 ## 2. UAE speech data (speech recognition testing and fine-tuning)
 
@@ -32,8 +32,8 @@ Existing model used as the starting point: `otozz/whisper-small-dialect_gulf` (A
 ## 3. Language data
 - `tiiuae/alyah-emirati-benchmark` (TII, Abu Dhabi): an Emirati-dialect benchmark for language models. It is relevant if a language model is ever used to rephrase approved messages; this would let us test that its Emirati wording is appropriate.
 
-## 4. What only partners can provide (Phase A/B)
-- **Local cognitive norms** by age and education for 50–75-year-olds in the UAE. None are public. This is the core of Phase A.
+## 4. What only partners can provide (Phases 1–2)
+- **Local cognitive norms** by age and education for 50–75-year-olds in the UAE. None are public. This is the core of Phase 2.
 - **Longitudinal repeated-testing data** to replace our placeholder reliability and practice-effect values.
 - **Clinical-record context** (blood pressure, HbA1c, lipids, diagnoses) through the partner's integration, with consent.
 - **Existing genomic results** through the partner, for example from a national genome programme, with genomics consent.

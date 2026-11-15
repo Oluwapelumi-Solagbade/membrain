@@ -116,3 +116,26 @@ def test_service_not_accepting_referrals_is_shown_but_not_preselected():
     m = match_services("memory_clinic", {"language": "ar", "funding": "enhanced", "emirate": "Dubai"})
     svc3 = next(s for s in m["services"] if s["id"] == "SVC-03")
     assert not svc3["accessible"] and "not accepting referrals" in svc3["barriers"]
+
+
+def _intake(rc, flags=()):
+    from membrain.triage import evaluate
+    p = {"id": "X", "age": 66, "education": "secondary", "language": "en", "dialect": "English"}
+    return evaluate(p, [{"session_id": "i0", "date": "2026-11-14", "type": "intake", "concern": "x", "red_flags": list(flags),
+                         "reported_concern": rc}])["latest"]
+
+
+def test_significant_reported_concern_goes_to_review_without_baseline():
+    ev = _intake({"reporter": "family", "domains": ["memory"], "activities_taken_over": ["money"]})
+    assert ev["level"] == "CLINICIAN_REVIEW" and "not clinically verified" in ev["reasons"][0]
+    assert _intake({"reporter": "professional", "domains": ["orientation"], "activities_taken_over": []})["level"] == "CLINICIAN_REVIEW"
+    # mood/sleep only, or a memory worry with no loss of independence, waits for the check-in
+    assert _intake({"reporter": "self", "domains": ["mood"], "activities_taken_over": ["cooking"]})["level"] == "BASELINE"
+    assert _intake({"reporter": "family", "domains": ["memory"], "activities_taken_over": []})["level"] == "BASELINE"
+    # red flags still win
+    assert _intake({"reporter": "family", "domains": ["memory"], "activities_taken_over": ["money"]}, ["sudden_onset"])["level"] == "URGENT"
+
+
+def test_draft_names_the_reporter():
+    c = {"narrative": "I forget names.", "domains": ["memory"], "reporter": "self"}
+    assert I.draft_referral(c)[0]["text"].startswith("The participant reports")

@@ -6,12 +6,12 @@ Access terms and timelines below are from our knowledge and must be checked on e
 
 ## What the prototype needs, mapped to sources
 
-| Need | Use now (before 20 Nov) | Apply for (Phase A/B or if approved in time) |
+| Need | Use now (before 20 Nov) | Apply for (Phases 1–2 or if approved in time) |
 |---|---|---|
 | Cognitive scores and trajectories | Our synthetic cohort generator (`membrain/simulate.py`) | NACC Uniform Data Set; ADNI; OASIS-3 (data-use agreements) |
 | Speech in people with impairment (English) | – | DementiaBank (Pitt corpus) and ADReSS / ADReSSo challenge sets via TalkBank membership. Use for the offline exploratory voice-feature analysis on the FZJ cluster. |
 | Arabic dialect speech (ASR benchmark, not clinical) | Mozilla Common Voice Arabic (CC0) | MGB-2/MGB-3 (Arabic broadcast, includes dialects), QASR, MASC. Check each licence for research use. |
-| Normative and local context | Published papers (Arabic RUDAS, Arabic IQCODE, MoCA norms for Qatar and Saudi Arabia) | Partner-collected Phase A norms (UAE) |
+| Normative and local context | Published papers (Arabic RUDAS, Arabic IQCODE, MoCA norms for Qatar and Saudi Arabia) | Partner-collected Phase 2 norms (UAE) |
 | Population risk-factor prevalence (simulation priors) | UAE / Abu Dhabi published health statistics; Abu Dhabi open data portal (data.abudhabi) for population structure | – |
 | Wearable sleep and activity | Synthetic daily summaries | Partner devices in the pilot |
 

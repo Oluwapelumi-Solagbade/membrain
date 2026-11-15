@@ -1,5 +1,5 @@
 """MemBrain evidence pack: robustness, operating-point sweep, ablation, decision curves,
-prevalence sensitivity, subgroup fairness and Phase B sample size.
+prevalence sensitivity, subgroup fairness and Phase 2 sample size.
 
 All results come from the SYNTHETIC cohort (membrain/simulate.py ASSUMPTIONS). They show how
 the engine behaves under stated assumptions and how each design choice contributes. They are

@@ -26,9 +26,9 @@
 - Against education-blind usual care: sensitivity 83% vs 61%, PPV 58% vs 46%, referrals per confirmed finding 1.7 vs 2.2.
 - False positives among people with no schooling drop from 44% to 7%.
 - Scroll to the evidence pack: the results hold across 10 cohorts, confirmation and stratified norms do the most work, and the default was re-tested against stricter settings on fresh cohorts.
-- Be honest: "this is a simulation of our pipeline, not clinical evidence. Small groups such as people with no schooling give unstable estimates, so Phase A deliberately over-recruits them."
+- Be honest: "this is a simulation of our pipeline, not clinical evidence. Small groups such as people with no schooling give unstable estimates, so Phase 2 deliberately over-recruits them."
 
 **2:30–3:00 · Safety, deployment, pilot.**
 - "It never diagnoses. Alerts are held for a clinician, explained, and audit-logged."
 - FHIR R4, in-country hosting, and per-signal consent.
-- Pilot route: IFHAS and the Longevity centres for Phase A, specialist centres for Phase B, under ethics approval while EDE classification is sought.
+- Pilot route (prospective; no partner is agreed yet): Phase 0 pathway discovery, Phase 1 concern-first feasibility in a screening or healthy-longevity programme, Phase 2 validation with specialist centres, and Phase 3 care-pathway outcomes. All under ethics approval while EDE classification is sought. Say: "We do not claim to prevent dementia; we claim to get people from a first concern to the right care, and to show it."

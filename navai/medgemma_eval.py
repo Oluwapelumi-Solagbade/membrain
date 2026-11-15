@@ -113,7 +113,7 @@ def markdown(rep: dict) -> str:
                   f"blocked by the verifier; {s['drafting']['drafts_fully_grounded']}/{s['drafting']['n']} drafts fully grounded. "
                   f"Template drafts: {s['drafting']['template_unsupported_sentences']} blocked sentences.", ""]
     L += ["With 12 urgent cases, 12/12 still only shows recall above about 0.76 (Wilson 95% lower bound). Showing 0.99 "
-          "needs about 300 red-flag narratives with none missed; that is a Phase A task."]
+          "needs about 300 red-flag narratives with none missed; that is a Phase 1 task."]
     return "\n".join(L) + "\n"
 
 

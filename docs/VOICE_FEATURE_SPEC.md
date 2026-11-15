@@ -1,7 +1,7 @@
 # MemBrain: Acoustic Feature Specification & Biomarker Protocol
 **Author:** Abdulwaliy (Team Cerebro Spark)  
 **Deliverable:** 7 (Signal Processing & Acoustic Feature Spec)  
-**Status:** Complete Specification for Phase A Benchmarking & FZJ Cluster Analysis  
+**Status:** Complete Specification for Phase 1–2 Benchmarking & FZJ Cluster Analysis  
 **Dependencies:** `membrain/change.py`, `membrain/config.py`, `web/app.js`
 
 ---
@@ -16,7 +16,7 @@ Cognitive decline in prodromal states (Mild Cognitive Impairment — MCI) and ea
 
 ### Clinical Boundary Condition
 > [!IMPORTANT]
-> **Exploratory Safety Rule:** In accordance with the MemBrain safety architecture (`docs/TECHNICAL_DOCUMENTATION.md` Section 4), **voice biomarkers are strictly exploratory**. They are tracked longitudinally using per-person Exponentially Weighted Moving Average (EWMA) control charts (`membrain.change.ewma_chart`), but **never drive autonomous clinical triage or referral alerts** on their own until prospective subgroup validation in Phase A confirms stability, absence of demographic bias, and high test-retest reliability ($r \ge 0.80$).
+> **Exploratory Safety Rule:** In accordance with the MemBrain safety architecture (`docs/TECHNICAL_DOCUMENTATION.md` Section 4), **voice biomarkers are strictly exploratory**. They are tracked longitudinally using per-person Exponentially Weighted Moving Average (EWMA) control charts (`membrain.change.ewma_chart`), but **never drive autonomous clinical triage or referral alerts** on their own until prospective subgroup validation in Phase 2 confirms stability, absence of demographic bias, and high test-retest reliability ($r \ge 0.80$).
 
 ---
 

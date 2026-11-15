@@ -490,6 +490,8 @@ DRAFT_ACT = {"money": "managing money / bills", "medicines": "managing medicines
 DRAFT_WHO = {"son": "a son", "daughter": "a daughter", "wife": "the wife", "husband": "the husband", "brother": "a brother",
              "sister": "a sister", "driver": "the driver", "helper": "a domestic helper", "informant": "the informant",
              "other": "another relative"}
+DRAFT_REPORTER = {"self": "The participant", "family": "A family member", "helper": "A household helper",
+                  "professional": "A healthcare professional", "coordinator": "A programme coordinator"}
 LEVEL_TXT = {"STABLE": "stable", "CHECK_AGAIN": "check again", "CLINICIAN_REVIEW": "clinician review", "URGENT": "urgent review",
              "BASELINE": "building baseline"}
 
@@ -513,6 +515,8 @@ VOCAB = {
     "who:son": ["son$"], "who:daughter": ["daughter"], "who:wife": ["wife"], "who:husband": ["husband"], "who:brother": ["brother"],
     "who:sister": ["sister"], "who:driver": ["driver"], "who:helper": ["helper", "maid", "housekeeper"],
     "urgent": ["urgent", "red flag", "emergency"], "checkin": ["check-in", "checkin", "membrain"],
+    "rep:self": ["participant"], "rep:family": ["family member"], "rep:helper": ["household helper"],
+    "rep:professional": ["healthcare professional"], "rep:coordinator": ["programme coordinator"],
 }
 BLOCKED = ["dementia", "alzheimer", "mild cognitive impairment", "mci$", "neurodegenera", "cognitive decline is confirmed", "diagnos"]
 DISCLAIMER = re.compile(r"(no|not a|without a) diagnosis")
@@ -529,6 +533,7 @@ def confirmed_items(c: dict) -> set:
         s.add("urgent")
     if c.get("checkin"):
         s.add("checkin")
+    s.add("rep:" + (c.get("reporter") or "family"))
     return s
 
 
@@ -536,11 +541,12 @@ def draft_referral(c: dict) -> list[dict]:
     """Deterministic draft from CONFIRMED facts only. Each sentence lists the items it rests on."""
     out = []
     if c.get("red_flags"):
-        out.append({"text": "Urgent: the family reports " + _join([DRAFT_RF[k] for k in c["red_flags"]]) +
+        out.append({"text": "Urgent: " + _rep_lower(c) + " reports " + _join([DRAFT_RF[k] for k in c["red_flags"]]) +
                             ". Please assess urgently; cognitive testing was not started.", "sources": ["rf:" + k for k in c["red_flags"]]})
     if c.get("domains"):
         on = (" " + ONSET[c["onset"]]) if c.get("onset") else ""
-        out.append({"text": f"A family member reports changes in {_join([DRAFT_DOMAIN[k] for k in c['domains']])}{on}.",
+        who = DRAFT_REPORTER.get(c.get("reporter"), DRAFT_REPORTER["family"])
+        out.append({"text": f"{who} reports changes in {_join([DRAFT_DOMAIN[k] for k in c['domains']])}{on}.",
                     "sources": ["dom:" + k for k in c["domains"]] + (["on:" + c["onset"]] if c.get("onset") else [])})
     q = [x for x in c.get("quotes", []) if x][:2]
     if q:
@@ -557,6 +563,11 @@ def draft_referral(c: dict) -> list[dict]:
                             (f" {ck['reasons'][0]}" if ck.get("reasons") else ""), "sources": ["checkin"]})
     out.append({"text": "This is a request for assessment. No diagnosis has been made.", "sources": []})
     return out
+
+
+def _rep_lower(c):
+    r = c.get("reporter")
+    return "the family" if r not in DRAFT_REPORTER else DRAFT_REPORTER[r][0].lower() + DRAFT_REPORTER[r][1:]
 
 
 def _join(xs):
@@ -600,8 +611,13 @@ def verify_sentence(sent: str, c: dict) -> dict:
             for a, b in _find(nb, tt, rb):
                 hits.setdefault(a, []).append((b, tt, item))
     claims = len(hits)
-    for a, hs in hits.items():
+    covered = -1
+    for a in sorted(hits):
+        hs = hits[a]
         longest = max(b for b, _, _ in hs)
+        if a < covered and longest <= covered:   # inside a longer phrase already checked ("household helper")
+            continue
+        covered = max(covered, longest)
         supporters = {item for b, _, item in hs if b == longest}
         if supporters & conf or _negated(nb, a, "en"):   # negated = absence claim ("no falls reported")
             continue

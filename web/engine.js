@@ -169,6 +169,15 @@
         }
         if (s.type === "intake") {
           ev.valid = false; ev.intake = true;
+          const rc = s.reported_concern || {}; const cog = (rc.domains || []).filter((d) => C.CONCERN_COGNITIVE_DOMAINS.includes(d));
+          const nAct = (rc.activities_taken_over || []).length; const who = C.REPORTER_LABEL[rc.reporter] || "the reporter";
+          if (ev.level === "BASELINE" && cog.length && (nAct >= C.CONCERN_REVIEW_MIN_ACTIVITIES || rc.reporter === "professional")) {
+            ev.level = "CLINICIAN_REVIEW";
+            const why = nAct ? `${nAct} everyday activit${nAct === 1 ? "y" : "ies"} now done by someone else` : "concern raised by a healthcare professional";
+            ev.reasons.push(`Significant reported concern (${cog.map((d) => C.CONCERN_DOMAIN_LABEL[d]).join(", ")}; ${why}); clinician review without waiting for a baseline. Reported by ${who}, not clinically verified`);
+            ev.drivers.push({ input: "Reported loss of everyday independence", value: nAct, threshold: C.CONCERN_REVIEW_MIN_ACTIVITIES });
+            ev.pathways.push("primary_care"); ev.next_action = "clinician_review_task"; evals.push(ev); continue;
+          }
           if (ev.level === "BASELINE") ev.reasons.push("Intake recorded: " + (s.concern || "concern documented") + "; no red flags. First check-in to follow");
           ev.next_action = ev.level === "BASELINE" ? "first_session" : "urgent_review_task";
           evals.push(ev); continue;

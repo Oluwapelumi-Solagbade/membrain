@@ -14,6 +14,7 @@ for g in load("dev") + load("test"):
     r = I.extract_rules(g["text"], g["lang"])
     c = confirmed_from_gold(g)
     c["timeline"] = [list(x) for x in c["timeline"]]
+    c["reporter"] = ["family", "self", "helper", "professional", "coordinator"][len(cases) % 5]
     d = I.draft_referral(c)
     cases.append({"id": g["id"], "text": g["text"], "lang": g["lang"], "extract": r, "confirmed": c, "draft": d,
                   "verify": I.verify_referral(d, c), "quotes": I.quotes_from(r, g["text"])})

@@ -130,6 +130,22 @@ def evaluate_history(participant: dict, sessions: list[dict]) -> list[dict]:
         if s.get("type") == "intake":
             ev["valid"] = False
             ev["intake"] = True
+            rc = s.get("reported_concern") or {}
+            cog = [d for d in rc.get("domains") or [] if d in C.CONCERN_COGNITIVE_DOMAINS]
+            n_act = len(rc.get("activities_taken_over") or [])
+            who = C.REPORTER_LABEL.get(rc.get("reporter"), "the reporter")
+            if ev["level"] == "BASELINE" and cog and (n_act >= C.CONCERN_REVIEW_MIN_ACTIVITIES or rc.get("reporter") == "professional"):
+                ev["level"] = "CLINICIAN_REVIEW"
+                why = (f"{n_act} everyday activit{'y' if n_act == 1 else 'ies'} now done by someone else" if n_act
+                       else "concern raised by a healthcare professional")
+                ev["reasons"].append(f"Significant reported concern ({', '.join(C.CONCERN_DOMAIN_LABEL[d] for d in cog)}; {why}); clinician review "
+                                     f"without waiting for a baseline. Reported by {who}, not clinically verified")
+                ev["drivers"].append({"input": "Reported loss of everyday independence", "value": n_act,
+                                      "threshold": C.CONCERN_REVIEW_MIN_ACTIVITIES})
+                ev["pathways"].append("primary_care")
+                ev["next_action"] = "clinician_review_task"
+                evals.append(ev)
+                continue
             if ev["level"] == "BASELINE":
                 ev["reasons"].append("Intake recorded: " + (s.get("concern") or "concern documented") +
                                      "; no red flags. First check-in to follow")
@@ -264,7 +280,7 @@ def evaluate_history(participant: dict, sessions: list[dict]) -> list[dict]:
         ev["uncertainty"] = (
             "This is a screening signal of change, not a diagnosis. Scores vary from day to day; "
             "the 90% range shows how much the true change could differ from what was measured. "
-            "Thresholds are provisional until validated in the local population (Phase A/B)."
+            "Thresholds are provisional until validated in the local population (Phase 2)."
         )
     return evals
 

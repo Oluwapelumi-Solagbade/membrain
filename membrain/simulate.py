@@ -1,6 +1,6 @@
 """Synthetic cohort generator (NO real participant data).
 
-Purpose: exercise the full validation pipeline end-to-end before Phase A,
+Purpose: exercise the full validation pipeline end-to-end before Phase 1,
 and stress-test thresholds. All parameters are assumptions, listed in
 ASSUMPTIONS below and in docs/ASSUMPTIONS.md. Results describe the
 behaviour of the engine under these assumptions, NOT clinical accuracy.

@@ -77,7 +77,7 @@ def personas() -> list[dict]:
          (27, 0.45, None)],
         {"sbp": 128, "dbp": 82, "hba1c": 5.9, "ldl": 3.4, "bmi": 30, "activity_min_week": 200, "sleep_hours": 6.9})
     add("MB-1455", "Aisha", "عائشة", 55, "F", "secondary", "Other Gulf",
-        "Newly enrolled through the IFHAS screening programme. First session done; building her personal baseline.",
+        "Newly enrolled through a population screening programme. First session done; building her personal baseline.",
         [(0, 0.1, None)],
         {"sbp": 118, "dbp": 74, "hba1c": 5.4, "ldl": 2.4, "bmi": 24, "activity_min_week": 160, "sleep_hours": 7.2})
     add("MB-1510", "Saeed", "سعيد", 70, "M", "none", "Emirati",

@@ -59,13 +59,13 @@ Paired bootstrap, 2,000 resamples of clips:
 **Limitations.**
 - Keyword recall did not improve: 14 of 19 task words against 16 of 19 for the starting model. With 19 keywords one or two words swing it by 5–10 points, so this is inconclusive, not evidence of harm. The deployed recogniser is still chosen on keyword recall measured on consented recordings of the MemBrain task words (`docs/asr/TEAM_RECORDING_PROTOCOL.md`).
 - The test clips are adult broadcast speech (TV and podcasts), not adults aged 50–75 doing a cognitive test.
-- One dialect (Emirati) and 103 clips. Per-dialect, per-age and per-education error rates come in Phase A.
+- One dialect (Emirati) and 103 clips. Per-dialect, per-age and per-education error rates come in Phase 1.
 - Azure AI Speech (UAE North) is not yet in this table.
 
 ## How to read the result
 - **Keyword recall** is the share of MemBrain task words the recogniser catches. It drives scores directly, so it decides the choice, alongside WER on the **worst** subgroup.
 - The held-out Emirati set has 103 clips from a few shows, so differences of a couple of WER points are within noise. That is why every comparison carries a paired-bootstrap confidence interval.
-- These clips are adult broadcast speech, not older adults with possible impairment. Phase A must re-measure on consented participant audio.
+- These clips are adult broadcast speech, not older adults with possible impairment. Phase 1 must re-measure on consented participant audio.
 
 ## Tested
 `/tmp`-style smoke test (tiny random Whisper with a locally built tokenizer, so no downloads) covered: the real dataset format, the category split, featurising, LoRA, the training loop with falling loss, generation, WER, keyword recall and report writing. The first real run happens on the GPU machine.

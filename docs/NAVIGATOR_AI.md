@@ -21,7 +21,9 @@ A narrative in Gulf Arabic or English is turned into reviewable facts. Each fact
 - **onset:** days, weeks, months or years;
 - **who took over which activity:** the delegation timeline.
 
-The family sees their words with each fact highlighted. They can untick anything wrong, and the app reads the summary back aloud in their language. A clinician confirms before any referral.
+The reporter is recorded: the person themselves, a family member, a household helper, a healthcare professional or a programme coordinator. The reporter sees their words with each fact highlighted, unticks anything that isn't what they meant, and hears the summary read back. Ticked facts are kept as **that person's report, not as clinical facts**. The clinician view shows them under "Reported concern (reported, not clinically verified)", next to the original words.
+
+**Significant concern goes straight to review.** A memory or thinking concern combined with loss of everyday independence (at least one activity now done by someone else), or one raised by a healthcare professional, goes to clinician review at intake. It does not wait for a baseline. The review stays open in the queue until a clinician marks it reviewed, even if a check-in happens first. This rule is provisional and needs Jeremiah's clinical sign-off (`config.CONCERN_*`).
 
 There are two extractors, with one output format:
 
@@ -35,7 +37,7 @@ Red flags are tuned to catch too much rather than miss one. Any red flag, at any
 
 ## 3. Referral drafting and the grounding verifier
 
-The referral reason is drafted from **confirmed facts only**: the clinician-confirmed intake and the latest check-in result. A deterministic verifier then checks every sentence (`intake.verify_referral`). It rejects:
+The referral reason is drafted **only from facts the reporter checked and the latest check-in result**. Each sentence names who reported it ("A household helper reports…"). A deterministic verifier then checks every sentence (`intake.verify_referral`). It rejects:
 
 - any diagnosis word (dementia, Alzheimer, MCI, "diagnosis" except in "no diagnosis has been made");
 - any number that is not in the record;
@@ -67,7 +69,7 @@ The gold set (`navai/gold/`) contains 50 synthetic caregiver narratives, written
 **Reading this honestly:**
 
 - **The rules pass the safety gates and fail the accuracy gates.** That is the case for evaluating MedGemma, and the reason the rules remain the always-on fallback.
-- **The urgent-recall gate isn't really demonstrated yet.** 12/12 only shows recall above 0.76 (Wilson 95% lower bound). Showing 0.99 needs about 300 red-flag narratives with none missed, which is a Phase A task.
+- **The urgent-recall gate isn't really demonstrated yet.** 12/12 only shows recall above 0.76 (Wilson 95% lower bound). Showing 0.99 needs about 300 red-flag narratives with none missed, which is a Phase 1 task.
 - **Onset exact match is 0.63.** Common misses are day names ("since Tuesday") and months ("since March").
 - **The narratives are synthetic and written by the team**, so real caregiver speech will be harder. Native-speaker review of the Arabic narratives and lexicons (Emirati, other Gulf) is pending.
 

@@ -4,7 +4,7 @@ Version: engine 0.4.0 · navigator nav-0.1.0 · norms synthetic-2026.11 · item 
 
 ## 1. Problem and scope
 
-Cognitive change in mid-to-late life is gradual and easily put down to ageing. One-off scores are distorted by language, education, culture, hearing, vision, mood and unfamiliarity with digital tools. The context that would explain a change (metabolic, sleep, mood, family history, wearables) sits in separate systems. MemBrain is the longitudinal front end that brings these together for a health programme or clinic (for example the IFHAS screening programme, Healthy Longevity Medicine Centres, or primary care networks). It flags risk and change and routes the person to the right care. It does not diagnose.
+Cognitive change in mid-to-late life is gradual and easily put down to ageing. One-off scores are distorted by language, education, culture, hearing, vision, mood and unfamiliarity with digital tools. The context that would explain a change (metabolic, sleep, mood, family history, wearables) sits in separate systems. MemBrain starts where a change is first noticed, by the person, a relative, a caregiver or a clinician. It structures that concern, adds an accessible assessment and the health context, and tracks the person until the next clinical step is documented. It is built for a health programme or clinic, for example a population screening programme, a healthy-longevity centre or a primary care network. These are prospective partners: none is agreed yet. It flags risk and change. It does not diagnose.
 
 ## 2. System overview
 
@@ -48,7 +48,7 @@ Clinicians can re-identify someone for follow-up only by giving a reason, and ev
 | Story recall | Local short story, 12 idea units | 0–12 | Keyword-unit matching |
 | Everyday judgement | Smoke in kitchen / lost in mall / phone scam | 0–4 | Rubric elements, clinician-audited sample |
 
-**Alternate forms.** There are three forms (A, B, C), assigned in a Latin-square rotation per participant to limit practice effects. Equating is tested in Phase A.
+**Alternate forms.** There are three forms (A, B, C), assigned in a Latin-square rotation per participant to limit practice effects. Equating is tested in Phase 2.
 
 **Arabic processing.** The engine removes diacritics and tatweel, unifies alef, taa marbuta and alif maqsura, and strips clitics (و، ال، بال، فال). Matching works the same way in Python and JavaScript.
 
@@ -73,7 +73,7 @@ RCI = [(X_n − X̄_baseline) − (g(n) − mean g(baseline))] / SE_diff
 SE_diff = SD·√(1−r) · √(1 + 1/k)          g(i) = practice gain per session · min(i, 3)
 ```
 
-The engine computes this for the composite and for each domain, using each test's reliability *r* and expected practice gain (both re-estimated in Phase A). Every alert shows a 90% range for the true change.
+The engine computes this for the composite and for each domain, using each test's reliability *r* and expected practice gain (both re-estimated in Phase 2). Every alert shows a 90% range for the true change.
 
 | Level | Trigger | Action |
 |---|---|---|
@@ -156,12 +156,26 @@ Below is a synthetic run with n = 2,000 people, 10,766 sessions and 12 months of
 - Ablation shows that confirmation on repeat and stratified norms remove the most false referrals.
 - A 72-setting sweep, re-tested on fresh cohorts, shows that our default was not over-fitted: stricter settings halve false referrals but detect far less change.
 - A decision curve shows net benefit over usual care at all thresholds from 5% to 40%.
-- Small-subgroup estimates (for example, no formal education: 72%–96% across cohorts) are unstable, so Phase A enriches these strata.
+- Small-subgroup estimates (for example, no formal education: 72%–96% across cohorts) are unstable, so Phase 2 enriches these strata.
 
-**Study plan.**
-- Phase A (feasibility and reliability): stratified by dialect, age band and education, with sessions at baseline, about 2 weeks and about 12 weeks. Includes a paper-versus-digital mode-equivalence subsample and ASR word error rate by subgroup.
-- Phase B (accuracy): memory clinic and primary care, with a specialist reference standard.
+**Study plan** (phases as in the MemBrain plan, Nov 2026).
+- **Phase 0, clinical pathway and population discovery:** target population, how concerns are raised today, languages and dialects, choice of licensed and locally adapted instruments, escalation pathways, referral services, governance.
+- **Phase 1, concern-first prototype feasibility:**
+  - whether participants and caregivers can report concerns;
+  - completeness of concern capture;
+  - assessment completion, usability and accessibility;
+  - time to complete the workflow;
+  - accuracy of AI-assisted transcription and extraction. This includes the Navigator AI release gates and speech-recognition error rate by subgroup.
+- **Phase 2, assessment and measurement validation:**
+  - test–retest reliability (sessions at baseline, about 2 weeks and about 12 weeks), stratified by dialect, age band and education;
+  - digital-versus-paper equivalence and practice effects;
+  - sensitivity and specificity against an independent clinical reference;
+  - false-positive and false-negative rates by language, age and education.
+- **Phase 3, longitudinal and care-pathway evaluation:**
+  - primary outcomes: time from first concern to clinical review, share of concerning findings reviewed, referral completion, time to completed assessment, referral appropriateness, false-referral burden and subgroup performance;
+  - secondary outcomes: acceptability, staff workload, preventive-plan uptake and unresolved referrals.
 - A biostatistician sets sample sizes. Decision-curve analysis compares net benefit with usual care.
+- We do not claim dementia prevention or better long-term cognition because assessment or referral happens sooner.
 
 ## 9. Data model
 
@@ -202,9 +216,10 @@ For an in-country, self-hosted option we adapted an existing open Gulf-Arabic Wh
 
 | Months | Work |
 |---|---|
-| 0–3 | Ethics approval, partner MoU, native-speaker item review per dialect, ASR benchmark on consented recordings, in-country deployment |
-| 3–9 | Phase A (feasibility and reliability), local norms, mode equivalence |
-| 9–18 | Phase B (diagnostic accuracy, change detection), EDE classification, HIE integration with the partner |
+| 0–3 | Phase 0: pathway and population discovery, ethics approval, partner agreement, native-speaker item review per dialect, instrument licensing, in-country deployment |
+| 3–9 | Phase 1: concern-first feasibility, AI extraction and speech-recognition accuracy on consented data, usability |
+| 9–18 | Phase 2: reliability, local norms, mode equivalence, accuracy against an independent clinical reference; EDE classification |
+| 18+ | Phase 3: longitudinal and care-pathway outcomes; HIE integration with the partner |
 | Later | Validated voice biomarkers, passive monitoring, genomics module (M42 / IROS) |
 
 ## 13. Business model
