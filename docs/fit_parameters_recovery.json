@@ -1,0 +1,261 @@
+{
+ "estimates": {
+  "norms": {
+   "memory_immediate": {
+    "mean": {
+     "none": 5.626919064601305,
+     "primary": 6.231668067369191,
+     "secondary": 6.890510853015313,
+     "tertiary": 7.418807710341146
+    },
+    "age_per_decade": 0.3457710226279973,
+    "sd": 1.4152582171903778
+   },
+   "memory_delayed": {
+    "mean": {
+     "none": 4.90459897256645,
+     "primary": 5.552558933478862,
+     "secondary": 6.2997449846149856,
+     "tertiary": 6.8414869108183325
+    },
+    "age_per_decade": 0.4457159622010014,
+    "sd": 1.7295470062930927
+   },
+   "fluency": {
+    "mean": {
+     "none": 12.335768258323796,
+     "primary": 13.992578235168276,
+     "secondary": 16.52551291133029,
+     "tertiary": 18.238813793797163
+    },
+    "age_per_decade": 1.0421080573865051,
+    "sd": 4.008629408971883
+   },
+   "story_recall": {
+    "mean": {
+     "none": 5.623389693602662,
+     "primary": 6.361237226846754,
+     "secondary": 7.335287177583167,
+     "tertiary": 8.057504159463022
+    },
+    "age_per_decade": 0.3660303998976344,
+    "sd": 1.9122592175493747
+   },
+   "judgement": {
+    "mean": {
+     "none": 2.9673809113357508,
+     "primary": 3.144201776033467,
+     "secondary": 3.3822688600071324,
+     "tertiary": 3.492070915210984
+    },
+    "age_per_decade": 0.06988547618966923,
+    "sd": 0.6860203827257175
+   }
+  },
+  "r": {
+   "memory_immediate": 0.7384761026802616,
+   "memory_delayed": 0.7882295764048612,
+   "fluency": 0.8182507098793749,
+   "story_recall": 0.7399748344760859,
+   "judgement": 0.5960266762015811
+  },
+  "practice": {
+   "memory_immediate": 0.39577259475218657,
+   "memory_delayed": 0.5120262390670554,
+   "fluency": 0.7915451895043731,
+   "story_recall": 0.45918367346938777,
+   "judgement": 0.0058309037900874635
+  },
+  "composite_r": 0.911805125129034,
+  "inter_domain_r": 0.46250754532753635,
+  "n_reference_people": 6735,
+  "n_first_sessions": 4178,
+  "n_retest_pairs": 2744
+ },
+ "ci95": {
+  "r": {
+   "memory_immediate": [
+    0.721,
+    0.757
+   ],
+   "memory_delayed": [
+    0.774,
+    0.799
+   ],
+   "fluency": [
+    0.803,
+    0.83
+   ],
+   "story_recall": [
+    0.72,
+    0.753
+   ],
+   "judgement": [
+    0.576,
+    0.622
+   ]
+  },
+  "practice": {
+   "memory_immediate": [
+    0.361,
+    0.429
+   ],
+   "memory_delayed": [
+    0.464,
+    0.558
+   ],
+   "fluency": [
+    0.704,
+    0.875
+   ],
+   "story_recall": [
+    0.415,
+    0.512
+   ],
+   "judgement": [
+    -0.018,
+    0.023
+   ]
+  },
+  "composite_r": [
+   0.905,
+   0.917
+  ],
+  "sd": {
+   "memory_immediate": [
+    1.387,
+    1.447
+   ],
+   "memory_delayed": [
+    1.694,
+    1.758
+   ],
+   "fluency": [
+    3.926,
+    4.067
+   ],
+   "story_recall": [
+    1.874,
+    1.95
+   ],
+   "judgement": [
+    0.669,
+    0.696
+   ]
+  },
+  "age_per_decade": {
+   "memory_immediate": [
+    0.292,
+    0.394
+   ],
+   "memory_delayed": [
+    0.37,
+    0.515
+   ],
+   "fluency": [
+    0.9,
+    1.197
+   ],
+   "story_recall": [
+    0.301,
+    0.451
+   ],
+   "judgement": [
+    0.039,
+    0.097
+   ]
+  },
+  "mean": {
+   "memory_immediate": {
+    "none": [
+     5.48,
+     5.768
+    ],
+    "primary": [
+     6.141,
+     6.335
+    ],
+    "secondary": [
+     6.779,
+     6.971
+    ],
+    "tertiary": [
+     7.31,
+     7.529
+    ]
+   },
+   "memory_delayed": {
+    "none": [
+     4.741,
+     5.103
+    ],
+    "primary": [
+     5.448,
+     5.689
+    ],
+    "secondary": [
+     6.168,
+     6.42
+    ],
+    "tertiary": [
+     6.709,
+     6.964
+    ]
+   },
+   "fluency": {
+    "none": [
+     11.9,
+     12.778
+    ],
+    "primary": [
+     13.668,
+     14.284
+    ],
+    "secondary": [
+     16.287,
+     16.747
+    ],
+    "tertiary": [
+     18.018,
+     18.533
+    ]
+   },
+   "story_recall": {
+    "none": [
+     5.402,
+     5.917
+    ],
+    "primary": [
+     6.227,
+     6.529
+    ],
+    "secondary": [
+     7.194,
+     7.446
+    ],
+    "tertiary": [
+     7.902,
+     8.194
+    ]
+   },
+   "judgement": {
+    "none": [
+     2.886,
+     3.043
+    ],
+    "primary": [
+     3.088,
+     3.195
+    ],
+    "secondary": [
+     3.334,
+     3.422
+    ],
+    "tertiary": [
+     3.446,
+     3.54
+    ]
+   }
+  }
+ }
+}

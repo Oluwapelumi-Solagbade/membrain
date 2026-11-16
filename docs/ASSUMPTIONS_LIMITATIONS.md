@@ -1,7 +1,7 @@
 # Assumptions and limitations
 
 ## Assumptions
-1. **Psychometric parameters are placeholders.** Test–retest reliabilities (0.70–0.82 by domain, 0.88 composite), practice gains, inter-domain correlation (0.5) and norm means and SDs in `membrain/config.py` are illustrative. Phase 2 re-estimates them.
+1. **Psychometric parameters are placeholders.** Test–retest reliabilities (0.70–0.82 by domain, 0.88 composite), practice gains, inter-domain correlation (0.5) and norm means and SDs in `membrain/config.py` are illustrative. Phase 2 re-estimates them with `scripts/fit_parameters.py` (tested on synthetic data; judgement reliability on whole-point scores is about 0.60, not the 0.70 placeholder).
 2. **Published anchors.** We use published figures where they exist: Arabic RUDAS (cutoff ≤ 22, 83% sensitivity and 85% specificity for dementia, Lebanese adults 65+), Arabic IQCODE-16 (cutoff > 3.34), and PHQ-2 and GAD-2 cutoffs of ≥ 3. None of these is validated for MCI, for ages 50–64, for Gulf dialects or for digital delivery.
 3. **Synthetic cohort.** The parameters are in `membrain/simulate.py` (`ASSUMPTIONS`):
    - dialect mix

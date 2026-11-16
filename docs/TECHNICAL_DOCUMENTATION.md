@@ -175,6 +175,13 @@ Below is a synthetic run with n = 2,000 people, 10,766 sessions and 12 months of
   - primary outcomes: time from first concern to clinical review, share of concerning findings reviewed, referral completion, time to completed assessment, referral appropriateness, false-referral burden and subgroup performance;
   - secondary outcomes: acceptability, staff workload, preventive-plan uptake and unresolved referrals.
 - A biostatistician sets sample sizes. Decision-curve analysis compares net benefit with usual care.
+- **From pilot data to new parameters** (`scripts/fit_parameters.py`). One command turns Phase 2 check-ins into the values that are placeholders today, each with a bootstrap 95% CI:
+  - norms by education band and age, fitted on first sessions of reference-normal people;
+  - test–retest reliability per domain and for the composite: ICC(3,1) on norm-referenced z-scores, using session pairs 1–6 weeks apart, clean of confounders;
+  - practice gain per domain;
+  - inter-domain correlation.
+
+  It never edits `config.py`; the clinical team approves the values. On an 8,000-person synthetic cohort it recovers the simulator's known values (`docs/FIT_PARAMETERS_RECOVERY.md`; checked by a unit test). It also exposed a real design point: whole-point scoring on the 0–4 judgement task lowers its reliability from 0.70 to about 0.60. The placeholder makes judgement changes look more meaningful than they are, so the fitted value must replace it.
 - We do not claim dementia prevention or better long-term cognition because assessment or referral happens sooner.
 
 ## 9. Data model
