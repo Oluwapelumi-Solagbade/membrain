@@ -17,6 +17,7 @@ if ON_ZERO_GPU:
         return True
 
 os.environ.setdefault("WHISPER_MODEL", "Vulcan-Spark/membrain-whisper-gulf-ct2")
+os.environ.setdefault("ASR_PREFER_LOCAL", "1")   # spoken check-in uses our Gulf Whisper, not the browser
 os.environ.setdefault("SERVER_IN_UAE", "0")   # this demo host is not in the UAE: the site words its privacy notes so
 
 import uvicorn

@@ -78,6 +78,7 @@ const TASK_OF: Partial<Record<Step, Task>> = { words_recall: "memory_immediate",
 const HOURS = [4.5, 5.5, 6.5, 7.5, 8.5];
 const ENGINE_AR: Record<string, string> = {
   local: "نموذج MemBrain للهجة الخليجية (مستضاف داخل الدولة)",
+  localDemo: "نموذج MemBrain للهجة الخليجية (على خادمنا التجريبي)",
   azure: "خدمة Azure للتعرّف على الكلام، دبي (داخل الدولة)",
   browser: "التعرّف على الكلام في المتصفح (غير مُكيَّف للهجات)",
   typed: "كتابة الإجابات (لا يتوفر التعرّف على الكلام هنا)",
@@ -513,7 +514,7 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
   const section = SECTION[step];
   const exitHref = "/checkin/";
   const subtitle = [name || p.id, t.minutes].join(" · ");
-  const engineLabel = speech ? (lang === "ar" ? ENGINE_AR[speech.engine] : speech.label) : "";
+  const engineLabel = speech ? (lang === "ar" ? ENGINE_AR[speech.engine === "local" && !speech.inUae ? "localDemo" : speech.engine] : speech.label) : "";
 
   /* ── Screens ── */
 

@@ -7,7 +7,7 @@ import type { Lang } from "./mb";
 import { asset } from "@/lib/asset";
 
 export type Engine = "local" | "azure" | "browser" | "typed";
-export type Speech = { engine: Engine; label: string; base: string | null; region?: string; locales?: Record<string, string> };
+export type Speech = { engine: Engine; label: string; base: string | null; region?: string; locales?: Record<string, string>; inUae?: boolean };
 
 export type Audio = { snr_db: number; clipping: number; speech_ratio: number; duration_s: number };
 export type VoiceFeatures = { speech_rate_wpm: number; pause_count: number; mean_pause_s: number; type_token_ratio: number; word_count: number };
@@ -63,9 +63,11 @@ export async function detectSpeech(base: string | null): Promise<Speech> {
       /* SDK did not load: keep the fallback */
     }
   }
-  const asr = await getJson<{ enabled: boolean; prefer: boolean; label?: string }>(base + "/api/asr/config");
+  const asr = await getJson<{ enabled: boolean; prefer: boolean; label?: string; in_uae?: boolean }>(base + "/api/asr/config");
   if (asr?.enabled && ask !== "azure" && ask !== "browser" && (asr.prefer || ask === "local") && typeof MediaRecorder !== "undefined") {
-    s = { engine: "local", label: asr.label ? `${asr.label} (self-hosted, in-country)` : LABEL.local, base, locales: cfg?.locales };
+    // Say "in-country" only when the server confirms it runs in the UAE (the Hugging Face demo does not).
+    const where = asr.in_uae ? "self-hosted, in-country" : "self-hosted";
+    s = { engine: "local", label: asr.label ? `${asr.label.replace(/\s*\(in-country\)$/, "")} (${where})` : LABEL.local, base, locales: cfg?.locales, inUae: asr.in_uae === true };
   }
   return s;
 }
