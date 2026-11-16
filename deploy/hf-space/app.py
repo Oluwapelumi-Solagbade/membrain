@@ -4,6 +4,18 @@ GitHub Actions (.github/workflows/hf-space.yml) uploads the code and the built s
 Space settings needed: secret HF_TOKEN (a READ token, to fetch the private Whisper model). Nothing else."""
 import os
 
+# Free Gradio Spaces now run on ZeroGPU, which refuses to start unless the app declares at least one GPU function.
+# Our speech model runs fine on the CPU (about 0.2x real time), so this one only satisfies that check.
+# `spaces` must be imported before anything that touches CUDA.
+try:
+    import spaces
+
+    @spaces.GPU
+    def gpu_ready() -> bool:
+        return True
+except ImportError:   # not on ZeroGPU (CPU Space, local run)
+    spaces = None
+
 os.environ.setdefault("WHISPER_MODEL", "Vulcan-Spark/membrain-whisper-gulf-ct2")
 os.environ.setdefault("SERVER_IN_UAE", "0")   # this demo host is not in the UAE: the site words its privacy notes so
 
