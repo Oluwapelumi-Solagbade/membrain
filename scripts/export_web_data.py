@@ -30,6 +30,12 @@ def _navai():
     f = d / "RESULTS_rules_test.json"
     if f.exists():
         r = json.loads(f.read_text(encoding="utf-8")); out["rules"] = {k: r.get(k) for k in keep}
+    f = d / "RESULTS_medgemma_summary.json"
+    if f.exists():   # measured on the FZJ cluster (full per-item JSON stays on the cluster)
+        m = json.loads(f.read_text(encoding="utf-8")); t = m["sets"]["test"]
+        out["medgemma"] = {"model": m["model"], "date": m["date"], "n": t["n"], "gates": t["medgemma_gates"],
+                           "combined_gates": t["combined_gates"], "urgent": t["urgent"], "drafting": t["drafting"],
+                           "dropped_by_grounding": t["dropped_by_grounding"]}
     f = d / "RESULTS_medgemma.json"
     if f.exists():
         m = json.loads(f.read_text(encoding="utf-8")); t = m["sets"].get("test")

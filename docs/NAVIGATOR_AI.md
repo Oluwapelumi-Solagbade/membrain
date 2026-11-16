@@ -57,25 +57,38 @@ The gold set (`navai/gold/`) contains 50 synthetic caregiver narratives, written
 - 20 development narratives, used to tune the rules;
 - **30 test narratives, frozen (SHA-256 in `test.sha256`, checked by a unit test) before the rules were tuned** and scored once.
 
-| Release gate | Target | Rules extractor | MedGemma 4B |
-|---|---|---|---|
-| Concern-domain macro F1 | ≥ 0.90 | 0.849 ✗ | FZJ run pending |
-| Macro F1, worst language (Arabic) | ≥ 0.85 | 0.834 ✗ | |
-| Delegation timeline exact match | ≥ 0.80 | 0.70 ✗ | |
-| Urgent red-flag recall | ≥ 0.99 | 12/12 ✓ (0 false alarms in 18) | |
-| Unsupported field rate | < 1% | 0 ✓ | |
-| p95 latency | < 5 s | 0.002 s ✓ | |
+| Release gate | Target | Rules extractor | MedGemma 4B (as is) | MedGemma + rule red flags |
+|---|---|---|---|---|
+| Concern-domain macro F1 | ≥ 0.90 | 0.849 ✗ | 0.515 ✗ | 0.515 ✗ |
+| Macro F1, worst language | ≥ 0.85 | 0.834 ✗ | 0.479 ✗ | 0.479 ✗ |
+| Delegation timeline exact match | ≥ 0.80 | 0.70 ✗ | 0.20 ✗ | 0.20 ✗ |
+| Urgent red-flag recall | ≥ 0.99 | 12/12 ✓ (0 false alarms in 18) | 5/12 ✗ | 12/12 ✓ |
+| Unsupported field rate | < 1% | 0 ✓ | 52% ✗ (dropped) | 52% ✗ (dropped) |
+| p95 latency | < 5 s | 0.002 s ✓ | 27 s ✗ | 27 s ✗ |
 
 **Reading this honestly:**
 
-- **The rules pass the safety gates and fail the accuracy gates.** That is the case for evaluating MedGemma, and the reason the rules remain the always-on fallback.
+- **The rules pass the safety gates but not the accuracy gates.**
+- **MedGemma 4B, used as is with one prompt, did worse than the rules on every gate.** On its own it caught only 5 of 12 urgent cases. About half of what it returned (125 of 239 items) had no real quote in the narrative, so the grounding check dropped it. It took 27 s at the 95th percentile. **It is not used in the product.** The rules extractor is the default, and the MedGemma endpoint stays off unless a server is configured.
+- **The safety design held under a weak model.** With the rule red flags added, urgent recall went back to 12/12. Nothing unsupported reached the output.
+- **The referral checker caught additions in practice.** It blocked 14 of 120 MedGemma referral sentences, mostly "memory" added when memory was not reported. Only 16 of 30 drafts came through clean. Template drafts: 0 blocked.
+- **Why it failed (hypotheses to test, not conclusions):**
+  - MedGemma 4B is tuned mainly for English medical images and text, not Gulf Arabic caregiver speech.
+  - It paraphrases or translates its evidence instead of quoting.
+  - One prompt, no examples, greedy decoding.
+- **Planned next steps:**
+  - few-shot prompting;
+  - constrained JSON output;
+  - a LoRA adapter trained on synthetic (Zone 0) and then consented Phase 1 narratives;
+  - comparison with a larger or Arabic-strong model;
+  - every candidate held to the same gates.
 - **The urgent-recall gate isn't really demonstrated yet.** 12/12 only shows recall above 0.76 (Wilson 95% lower bound). Showing 0.99 needs about 300 red-flag narratives with none missed, which is a Phase 1 task.
 - **Onset exact match is 0.63.** Common misses are day names ("since Tuesday") and months ("since March").
 - **The narratives are synthetic and written by the team**, so real caregiver speech will be harder. Native-speaker review of the Arabic narratives and lexicons (Emirati, other Gulf) is pending.
 
 Full error lists are in `docs/navai/RESULTS_rules_test.json`. Reproduce with `python -m navai.evaluate --set test`.
 
-## 5. MedGemma run on the FZJ cluster
+## 5. MedGemma run on the FZJ cluster (done 15 Nov; results in section 4 and `docs/navai/RESULTS.md`)
 
 `navai/medgemma_eval.py` runs `google/medgemma-4b-it` on both sets with the same metrics. It also measures:
 

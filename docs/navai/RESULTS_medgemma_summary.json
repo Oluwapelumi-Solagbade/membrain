@@ -1,0 +1,227 @@
+{
+ "model": "google/medgemma-4b-it",
+ "date": "2026-11-15",
+ "source": "FZJ juseless, RTX PRO 4000 Blackwell, transformers generate, bf16, greedy; transcribed from docs/navai/RESULTS.md of that run",
+ "sets": {
+  "dev": {
+   "n": 20,
+   "medgemma_gates": [
+    {
+     "metric": "domain_macro_f1",
+     "label": "Concern-domain macro F1",
+     "target": ">= 0.9",
+     "value": 0.468,
+     "pass": false
+    },
+    {
+     "metric": "worst_language_f1",
+     "label": "Macro F1 in the worst language",
+     "target": ">= 0.85",
+     "value": 0.459,
+     "pass": false
+    },
+    {
+     "metric": "timeline_exact",
+     "label": "Delegation timeline exact match",
+     "target": ">= 0.8",
+     "value": 0.0,
+     "pass": false
+    },
+    {
+     "metric": "urgent_recall",
+     "label": "Urgent red-flag recall (any red flag)",
+     "target": ">= 0.99",
+     "value": 0.5,
+     "pass": false
+    },
+    {
+     "metric": "unsupported_rate",
+     "label": "Unsupported field rate",
+     "target": "< 0.01",
+     "value": 0.5068,
+     "pass": false
+    },
+    {
+     "metric": "latency_p95_s",
+     "label": "p95 latency (seconds)",
+     "target": "< 5.0",
+     "value": 19.663,
+     "pass": false
+    }
+   ],
+   "combined_gates": [
+    {
+     "metric": "domain_macro_f1",
+     "label": "Concern-domain macro F1",
+     "target": ">= 0.9",
+     "value": 0.468,
+     "pass": false
+    },
+    {
+     "metric": "worst_language_f1",
+     "label": "Macro F1 in the worst language",
+     "target": ">= 0.85",
+     "value": 0.459,
+     "pass": false
+    },
+    {
+     "metric": "timeline_exact",
+     "label": "Delegation timeline exact match",
+     "target": ">= 0.8",
+     "value": 0.0,
+     "pass": false
+    },
+    {
+     "metric": "urgent_recall",
+     "label": "Urgent red-flag recall (any red flag)",
+     "target": ">= 0.99",
+     "value": 1.0,
+     "pass": true
+    },
+    {
+     "metric": "unsupported_rate",
+     "label": "Unsupported field rate",
+     "target": "< 0.01",
+     "value": 0.5068,
+     "pass": false
+    },
+    {
+     "metric": "latency_p95_s",
+     "label": "p95 latency (seconds)",
+     "target": "< 5.0",
+     "value": 19.663,
+     "pass": false
+    }
+   ],
+   "urgent": {
+    "rules": "4/4",
+    "medgemma": "2/4",
+    "combined": "4/4"
+   },
+   "onset_exact": {
+    "rules": 0.8,
+    "medgemma": 0.6
+   },
+   "dropped_by_grounding": "74/146",
+   "drafting": {
+    "unsupported_sentences": 15,
+    "sentences": 80,
+    "drafts_fully_grounded": "8/20",
+    "template_unsupported_sentences": 0
+   }
+  },
+  "test": {
+   "n": 30,
+   "medgemma_gates": [
+    {
+     "metric": "domain_macro_f1",
+     "label": "Concern-domain macro F1",
+     "target": ">= 0.9",
+     "value": 0.515,
+     "pass": false
+    },
+    {
+     "metric": "worst_language_f1",
+     "label": "Macro F1 in the worst language",
+     "target": ">= 0.85",
+     "value": 0.479,
+     "pass": false
+    },
+    {
+     "metric": "timeline_exact",
+     "label": "Delegation timeline exact match",
+     "target": ">= 0.8",
+     "value": 0.2,
+     "pass": false
+    },
+    {
+     "metric": "urgent_recall",
+     "label": "Urgent red-flag recall (any red flag)",
+     "target": ">= 0.99",
+     "value": 0.417,
+     "pass": false
+    },
+    {
+     "metric": "unsupported_rate",
+     "label": "Unsupported field rate",
+     "target": "< 0.01",
+     "value": 0.523,
+     "pass": false
+    },
+    {
+     "metric": "latency_p95_s",
+     "label": "p95 latency (seconds)",
+     "target": "< 5.0",
+     "value": 27.29,
+     "pass": false
+    }
+   ],
+   "combined_gates": [
+    {
+     "metric": "domain_macro_f1",
+     "label": "Concern-domain macro F1",
+     "target": ">= 0.9",
+     "value": 0.515,
+     "pass": false
+    },
+    {
+     "metric": "worst_language_f1",
+     "label": "Macro F1 in the worst language",
+     "target": ">= 0.85",
+     "value": 0.479,
+     "pass": false
+    },
+    {
+     "metric": "timeline_exact",
+     "label": "Delegation timeline exact match",
+     "target": ">= 0.8",
+     "value": 0.2,
+     "pass": false
+    },
+    {
+     "metric": "urgent_recall",
+     "label": "Urgent red-flag recall (any red flag)",
+     "target": ">= 0.99",
+     "value": 1.0,
+     "pass": true
+    },
+    {
+     "metric": "unsupported_rate",
+     "label": "Unsupported field rate",
+     "target": "< 0.01",
+     "value": 0.523,
+     "pass": false
+    },
+    {
+     "metric": "latency_p95_s",
+     "label": "p95 latency (seconds)",
+     "target": "< 5.0",
+     "value": 27.29,
+     "pass": false
+    }
+   ],
+   "urgent": {
+    "rules": "12/12",
+    "medgemma": "5/12",
+    "combined": "12/12"
+   },
+   "onset_exact": {
+    "rules": 0.633,
+    "medgemma": 0.267
+   },
+   "dropped_by_grounding": "125/239",
+   "drafting": {
+    "unsupported_sentences": 14,
+    "sentences": 120,
+    "drafts_fully_grounded": "16/30",
+    "template_unsupported_sentences": 0,
+    "blocked_reasons": {
+     "memory (not reported)": 8,
+     "safety (not reported)": 2,
+     "conversation (not reported)": 2,
+     "daily activities (not reported)": 2
+    }
+   }
+  }
+ }
+}

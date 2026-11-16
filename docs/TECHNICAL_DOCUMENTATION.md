@@ -121,7 +121,7 @@ Each referral is stored as a FHIR `ServiceRequest`.
 - **Family intake.** A narrative is turned into facts that quote their source words, carry a confidence, are read back aloud and are confirmed by a person. The always-on rules extractor runs in the browser. MedGemma 4B runs behind `/api/intake/extract` when an in-country model server is configured.
 - **Safety rules on model output.** A model field without a real quote is dropped, and red flags are the union with the rules.
 - **Referral reasons.** These are drafted from confirmed facts and checked sentence by sentence by a deterministic verifier.
-- **Held-out results for the rules extractor** (30 frozen narratives): it passes the safety gates (12/12 urgent cases, 0 unsupported fields, p95 latency 2 ms) but not yet the accuracy gates (domain F1 0.85 against a 0.90 target). MedGemma is measured on the same set on the FZJ cluster.
+- **Held-out results for the rules extractor** (30 frozen narratives): it passes the safety gates (12/12 urgent cases, 0 unsupported fields, p95 latency 2 ms) but not yet the accuracy gates (domain F1 0.85 against a 0.90 target). MedGemma 4B, used as is, was measured on the same set on the FZJ cluster and did worse on every gate: domain F1 0.52, 5 of 12 urgent cases caught on its own, 52% of items without a real quote, p95 latency 27 s. It is therefore not used. With the rule red flags added, urgent recall stayed at 12/12, and the grounding check blocked 14 of 120 MedGemma referral sentences. Adapting a model to Gulf Arabic caregiver narratives is Phase 1 work.
 
 ## 7. Safety and human oversight (requirement 5)
 

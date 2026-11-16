@@ -1668,7 +1668,11 @@
       <table style="margin-top:8px"><tr><th>Gate</th><th>Target</th><th>Rules extractor (always-on fallback)</th><th>${m ? esc(m.model) : "MedGemma 4B"}</th>${m ? "<th>MedGemma + rule red flags</th>" : ""}</tr>
       ${r.gates.map((g, i) => `<tr><td>${esc(g.label)}</td><td class="small">${esc(g.target)}</td><td>${cell(g)}</td><td>${m ? cell(m.gates[i]) : cell(null)}</td>${m ? `<td>${cell(m.combined_gates[i])}</td>` : ""}</tr>`).join("")}</table>
       <div class="tiny muted" style="margin-top:6px">Urgent cases caught by the rules: ${r.urgent_recall_cases}, with ${r.red_flag_false_alarms} false alarms. With so few urgent cases, a perfect score only shows recall above ${r.urgent_recall_wilson_lower95} (95% lower bound); showing 0.99 needs about 300 red-flag narratives, planned for Phase 1.
-        The rules pass the safety gates (red flags, nothing unsupported, speed) but not the accuracy gates, which is why the model is evaluated. Whatever the model returns must quote the narrative, and it can never remove a red flag the rules found.${m ? ` Referral drafting: ${m.drafting.unsupported_sentences} of ${m.drafting.sentences} model sentences blocked by the grounding check.` : ""}</div></div>`;
+        The rules pass the safety gates (red flags, nothing unsupported, speed) but not the accuracy gates, which is why the model is evaluated. Whatever the model returns must quote the narrative, and it can never remove a red flag the rules found.</div>
+      ${m ? `<div class="small" style="margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--check-soft)"><b>Measured result (${esc(m.date)}): MedGemma 4B, used as is, is not ready and is switched off.</b>
+        It caught ${m.urgent.medgemma} urgent cases on its own (rules ${m.urgent.rules}); ${m.dropped_by_grounding} of its facts had no real quote in the narrative and were dropped; p95 latency ${m.gates[5].value} s.
+        The safety design held: with the rule red flags added, urgent recall is ${m.urgent.combined}, and the grounding check blocked ${m.drafting.unsupported_sentences} of ${m.drafting.sentences} drafted referral sentences (mostly “memory” added when memory was not reported).
+        The rules extractor stays the default; adapting a model on synthetic and then consented Phase 1 narratives is planned work.</div>` : ""}</div>`;
   }
   function bars(rows, names, cols = ["#0b8a7a", "#c0761a"]) {
     const W = 520, rh = 46, H = rows.length * rh + 30, pl = 150, pr = 50;
