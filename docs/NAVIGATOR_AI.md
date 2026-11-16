@@ -6,10 +6,12 @@ Built on 15 November 2026, in response to the Navigator technical audit (Abdulwa
 
 The Navigator documentation makes version 1 *care navigation*, with verbal cognitive testing deferred to Phase 2. The challenge, however, asks for brain-health risk to be found **earlier**, and our measured speech evidence is for the voice check-in. The team chose a **two-door** design:
 
-- **"I'm worried about someone"** (default, "start here"): a family member or household helper describes what they have noticed, by voice or text. This is the Navigator entry.
+- **"I've noticed a change in memory or thinking"** (default, "start here"): whoever noticed the change describes it by voice or text. That can be the person themselves, a family member, a household helper, a healthcare professional or a programme coordinator. Who raised it is recorded with the concern, so a family member's account never silently becomes the person's own or a clinical finding. This is the Navigator entry.
 - **"Check my own brain health"**: the 6-minute voice check-in for adults aged 50–75 in a programme.
 
 Both doors lead to the same red-flag screen, the same clinician review queue and the same closed-loop referral tracking. Jeremiah's phases are unchanged as the pilot plan.
+
+A significant concern goes to clinician review at intake, without waiting for any testing. Significant means two or more everyday activities now done by someone else, an informant questionnaire (IQCODE-16) above the cutoff, or a concern raised by a healthcare professional (`config.INTAKE_REVIEW_*`). Red flags still go to URGENT first. Otherwise the first check-in follows.
 
 ## 2. Family intake extractor
 
@@ -61,12 +63,13 @@ The gold set (`navai/gold/`) contains 50 synthetic caregiver narratives, written
 | Macro F1, worst language (Arabic) | ≥ 0.85 | 0.834 ✗ | |
 | Delegation timeline exact match | ≥ 0.80 | 0.70 ✗ | |
 | Urgent red-flag recall | ≥ 0.99 | 12/12 ✓ (0 false alarms in 18) | |
-| Unsupported field rate | < 1% | 0 ✓ | |
+| Unsupported field rate | < 1% | n/a (0 of 0 checked) | |
 | p95 latency | < 5 s | 0.002 s ✓ | |
 
 **Reading this honestly:**
 
-- **The rules pass the safety gates and fail the accuracy gates.** That is the case for evaluating MedGemma, and the reason the rules remain the always-on fallback.
+- **The rules pass the measurable safety gates (red-flag recall, latency) and fail the accuracy gates.** That is the case for evaluating MedGemma, and the reason the rules remain the always-on fallback.
+- **The unsupported-field gate does not apply to the rules.** Every rule field quotes the narrative by construction, so there is nothing to drop and the rate is 0 of 0. It is reported as n/a rather than a pass. The gate becomes a real measurement on the MedGemma run, where unquoted fields are counted and dropped.
 - **The urgent-recall gate isn't really demonstrated yet.** 12/12 only shows recall above 0.76 (Wilson 95% lower bound). Showing 0.99 needs about 300 red-flag narratives with none missed, which is a Phase A task.
 - **Onset exact match is 0.63.** Common misses are day names ("since Tuesday") and months ("since March").
 - **The narratives are synthetic and written by the team**, so real caregiver speech will be harder. Native-speaker review of the Arabic narratives and lexicons (Emirati, other Gulf) is pending.

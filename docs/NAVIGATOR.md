@@ -6,8 +6,8 @@ Built on 14 November from Jeremiah's *MemBrain Navigator* document. MemBrain fin
 
 | Function | Where |
 |---|---|
-| **Two-door start page.** "I'm worried about someone" (family intake, the default) and "Check my own brain health" (voice check-in) lead to the same red-flag screen, review queue and referral loop. | Start tab |
-| **Family intake by voice or text** (Gulf Arabic, English). Facts are shown with the words they came from and a confidence, read back aloud, and confirmed before enrolment. See `NAVIGATOR_AI.md`. | Family intake tab, `intake.py`, `/api/intake/extract` |
+| **Two-door start page.** "I've noticed a change" (concern intake from the person, family, a helper or a clinician; the default) and "Check my own brain health" (voice check-in) lead to the same red-flag screen, review queue and referral loop. | Start tab |
+| **Concern intake by voice or text, with who raised it** (Gulf Arabic, English). Facts are shown with the words they came from and a confidence, read back aloud, and confirmed before enrolment. See `NAVIGATOR_AI.md`. | Raise a concern tab, `intake.py`, `/api/intake/extract` |
 | **Referral reason drafter and grounding verifier.** Drafted from confirmed facts only. Every sentence is checked; diagnosis words, invented numbers and unconfirmed claims are blocked. Clinician edits are tracked. | Referral dialog, `intake.verify_referral` |
 | **Concern-led entry.** Enrolment starts with how the person came to us (programme screening, primary care clinician, family member, household helper) and what was noticed. | Enrolment step 1 |
 | **Red-flag screen before any testing.** Sudden onset, fluctuating confusion, new neurological symptoms, a fall or head injury, rapid worsening, or a safety risk goes straight to an **urgent review** under the emergency protocol. There is no waiting for repeat tests. | `config.RED_FLAGS`, `triage.py` (intake record), enrolment |

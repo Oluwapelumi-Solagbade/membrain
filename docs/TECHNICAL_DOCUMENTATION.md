@@ -79,7 +79,7 @@ The engine computes this for the composite and for each domain, using each test'
 |---|---|---|
 | Stable | Composite RCI > −1.645 and delayed-recall RCI > −1.96 | Reassurance, prevention plan, routine repeat (6 months) |
 | Check again | One decline signal, or a decline with a confounder, or an invalid recording | Alternate-form repeat in 2–4 weeks |
-| Clinician review | Very low first-visit score (≤ −2.0 for age and education, no waiting for baseline); the same decline signal confirmed on the next session; or decline plus an informant functional flag; or entry composite ≤ −1.5 for age and education | Review Task, 21-day target |
+| Clinician review | A significant concern at intake, before any testing: two or more everyday activities now done by someone else, an informant questionnaire above the cutoff, or a concern raised by a healthcare professional; a very low first-visit score (≤ −2.0 for age and education, no waiting for baseline); the same decline signal confirmed on the next session; or decline plus an informant functional flag; or entry composite ≤ −1.5 for age and education | Review Task, 21-day target |
 | Urgent review | Red flags for an acute presentation at intake (sudden onset, fluctuating confusion, new neurological symptoms, fall or head injury, rapid worsening, safety risk), which follow the emergency protocol with no testing first; composite RCI ≤ −2.576 or a drop of ≥ 1.5 SD within 120 days; new informant-reported functional loss (IQCODE above 3.34 and rising ≥ 0.3); safety concern | Review Task, 3-day target, clinician call |
 
 **Design decisions found through simulation.**
@@ -99,7 +99,7 @@ The clinician sees BP, HbA1c, LDL, BMI, activity, sleep, PHQ-2, GAD-2, IQCODE-16
 - **Prevention.** Clinician-authored, versioned rules turn context into up to 5 actions per person, in Arabic or English, with cultural adaptations (walking after Maghrib, mall walking in summer, shisha and medwakh, majlis, Quran memorisation). Each rule links to its evidence. No AI writes free-text medical advice.
 - **Pathways.** Memory clinic, geriatrics or neurology; mental health; primary care; urgent safety review.
 - **Reversible causes.** The dossier suggests checks for TSH, B12, folate, FBC, HbA1c, renal function, anticholinergic burden, PHQ-9, STOP-BANG, and hearing and vision.
-- **Referral dossier.** A one-page summary with trend, drivers, confounders, risk context and limitations. It is also available as a FHIR bundle.
+- **Referral dossier.** A one-page summary that opens with the concern: who raised it, their own words, what changed and since when, who now does which activity, and what information is still missing. It is labelled as the reporter's account until a clinician confirms it. Then come trend, drivers, confounders, risk context and limitations. It is also available as a FHIR bundle.
 
 ## 6b. Navigator layer: from alert to completed care
 
@@ -117,11 +117,11 @@ See `NAVIGATOR.md`. It covers:
 Each referral is stored as a FHIR `ServiceRequest`.
 
 **Entry and AI (see `NAVIGATOR_AI.md`).**
-- **Two doors.** The app opens on a choice between family intake ("I'm worried about someone") and the voice check-in. Both lead into the same loop.
+- **Two doors.** The app opens on a choice between raising a concern ("I've noticed a change in memory or thinking": in yourself, someone you love, or a patient) and the voice check-in. Whoever raises the concern is recorded with it. Both lead into the same loop.
 - **Family intake.** A narrative is turned into facts that quote their source words, carry a confidence, are read back aloud and are confirmed by a person. The always-on rules extractor runs in the browser. MedGemma 4B runs behind `/api/intake/extract` when an in-country model server is configured.
 - **Safety rules on model output.** A model field without a real quote is dropped, and red flags are the union with the rules.
 - **Referral reasons.** These are drafted from confirmed facts and checked sentence by sentence by a deterministic verifier.
-- **Held-out results for the rules extractor** (30 frozen narratives): it passes the safety gates (12/12 urgent cases, 0 unsupported fields, p95 latency 2 ms) but not yet the accuracy gates (domain F1 0.85 against a 0.90 target). MedGemma is measured on the same set on the FZJ cluster.
+- **Held-out results for the rules extractor** (30 frozen narratives): it passes the measurable safety gates (12/12 urgent cases, p95 latency 2 ms; the unsupported-field gate is n/a for rules, which quote the narrative by construction) but not yet the accuracy gates (domain F1 0.85 against a 0.90 target). MedGemma is measured on the same set on the FZJ cluster.
 
 ## 7. Safety and human oversight (requirement 5)
 

@@ -100,7 +100,33 @@ def test_red_flags_go_urgent_before_any_testing():
 def test_intake_without_red_flags_is_not_an_alert():
     p = {"id": "X", "age": 70, "education": "primary", "language": "ar"}
     ev = evaluate(p, [{"session_id": "i0", "date": "2026-11-14", "type": "intake", "concern": "memory complaints", "red_flags": []}])["latest"]
-    assert ev["level"] == "BASELINE" and ev["intake"]
+    assert ev["level"] == "BASELINE" and ev["intake"] and ev["next_action"] == "first_session"
+
+
+def _intake(**kw):
+    p = {"id": "X", "age": 68, "education": "secondary", "language": "en"}
+    return evaluate(p, [dict({"session_id": "i0", "date": "2026-11-14", "type": "intake", "concern": "c", "red_flags": []}, **kw)])["latest"]
+
+
+@pytest.mark.parametrize("kw,why", [
+    ({"activities_taken_over": ["money", "medicines"]}, "2 everyday activities now done by someone else"),
+    ({"iqcode": 3.6}, "informant questionnaire above cutoff"),
+    ({"reporter": "primary_care"}, "concern raised by a healthcare professional"),
+])
+def test_significant_concern_goes_to_review_before_any_testing(kw, why):
+    ev = _intake(**kw)
+    assert ev["level"] == "CLINICIAN_REVIEW" and ev["next_action"] == "review_task" and "primary_care" in ev["pathways"]
+    assert why in ev["reasons"][0] and "without waiting for testing" in ev["reasons"][0]
+
+
+def test_minor_concern_waits_for_first_check_in():
+    for kw in ({"activities_taken_over": ["money"]}, {"iqcode": 3.2}, {"reporter": "self"}, {"reporter": "family"}):
+        assert _intake(**kw)["level"] == "BASELINE"
+
+
+def test_red_flags_still_outrank_a_review_concern():
+    ev = _intake(red_flags=["recent_fall_head_injury"], activities_taken_over=["money", "cooking"], reporter="primary_care")
+    assert ev["level"] == "URGENT" and ev["next_action"] == "urgent_review_task"
 
 
 def test_very_low_first_visit_goes_to_review_without_waiting():
@@ -132,3 +158,28 @@ def test_synthetic_cohort_matches_uae_who_prevalence():
         for s in "FM":
             v = 100 * np.mean([f(p["context"]) for p in c if p["sex"] == s])
             assert abs(v - U[k][s]) < 5, (k, s, v, U[k][s])
+
+
+def test_dossier_carries_the_attributed_concern_and_what_is_missing():
+    from membrain.dossier import build_dossier
+    p = {"id": "X", "age": 69, "education": "primary", "language": "ar", "dialect": "Emirati", "entry_route": "family",
+         "informant": None, "context": {},
+         "intake": {"reporter": "self", "at": "2026-11-14", "confirmed": {
+             "narrative": "I keep forgetting appointments. My wife now pays the bills.", "domains": ["memory"],
+             "red_flags": [], "confounders": [], "onset": "months", "timeline": [["money", "wife"]]}},
+         "sessions": [{"session_id": "i0", "date": "2026-11-14", "type": "intake", "concern": "x", "reporter": "self",
+                       "activities_taken_over": ["money"], "red_flags": []}]}
+    c = build_dossier(p, evaluate(p, p["sessions"]))["concern"]
+    assert c["raised_by"] == "The person themselves" and c["in_their_words"].startswith("I keep forgetting")
+    assert c["what_changed"] == ["Memory"] and c["who_now_does_what"] == ["Managing money / bills: now wife"]
+    assert "not a clinical finding" in c["attribution"]
+    assert {"An informant account (family member or household helper)", "Informant questionnaire (IQCODE-16)",
+            "A scored check-in", "Blood pressure and HbA1c"} <= set(c["missing"])
+    assert "When the change started" not in c["missing"]
+
+
+def test_dossier_concern_for_routine_screening_says_so():
+    from membrain.dossier import concern_summary
+    c = concern_summary({"id": "X", "entry_route": "programme", "sessions": [
+        {"session_id": "i0", "date": "2026-11-14", "type": "intake", "concern": "routine programme screening", "red_flags": []}]})
+    assert c["in_their_words"] is None and "No specific concern (routine programme screening)" in c["missing"]

@@ -907,8 +907,8 @@
     Follow the partner's emergency protocol now (ambulance 998 if needed). Do not start cognitive testing and do not wait for repeat tests. Record minimal identity so the clinician can act; the rest can be completed later.
     <div class="small" style="margin-top:6px">${flags.map((f) => "• " + esc(RF[f])).join("<br>")}</div></div>`;
   function concernStep(e, flags) {
-    return `<h3>Concern and safety</h3><div class="small muted" style="margin-bottom:10px">People can enter through a screening programme, a primary care clinician, a family member or a household helper. The red-flag screen comes first, before any testing.</div>
-      ${fld("How did this person come to us?", sel("concern.route", e.concern.route, Object.entries(ENTRY)))}
+    return `<h3>Concern and safety</h3><div class="small muted" style="margin-bottom:10px">Anyone can raise a concern: the person, a family member, a household helper, a healthcare professional or a programme coordinator. People can also enter through routine programme screening. The red-flag screen comes first, before any testing. A concern raised by a healthcare professional, two or more everyday activities taken over, or an informant questionnaire above the cutoff goes to clinician review straight away.</div>
+      ${fld("Who raised the concern?", sel("concern.route", e.concern.route, Object.entries(ENTRY)), "Recorded with the concern, so the clinician knows whose account it is.")}
       ${fld("What has been noticed?", inp("concern.text", e.concern.text, "text", "e.g. repeating questions, missed bills, got lost driving"), e.concern.route === "programme" ? "Optional for routine programme screening." : "")}
       ${fld("When did it start?", sel("concern.onset", e.concern.onset, [["days", "Within the last few days"], ["weeks", "Over the last few weeks"], ["months", "Over months"], ["years", "Over a year or more"], ["none", "No specific concern (routine screening)"]]))}
       <div class="small" style="font-weight:600;margin:6px 0">Red-flag screen (ask the person and the family member)</div>
@@ -1030,16 +1030,21 @@
       informant: e.inf.type === "none" || (e.inf.type === "household_helper" && !e.inf.helper_consent) ? null
         : { type: e.inf.type, relation: e.informant.relation, language: e.inf.language, consented: true, timeline: e.inf.timeline.filter((t) => t.change || t.when) } };
     const flags = Object.keys(e.flags).filter((k) => e.flags[k]);
-    p.sessions.push({ session_id: id + "-intake", date: TODAY, type: "intake", channel: "app", concern: e.concern.text || "routine programme screening", onset: e.concern.onset, red_flags: flags });
+    // activities now done by someone else: from the confirmed intake if there was one, else from the informant timeline
+    const acts = e.intake ? [...new Set(e.intake.confirmed.timeline.map((t) => t[0]))]
+      : [...new Set(e.inf.timeline.filter((t) => (t.who_took_over || "").trim()).map((t) => t.activity))];
+    p.sessions.push({ session_id: id + "-intake", date: TODAY, type: "intake", channel: "app", concern: e.concern.text || "routine programme screening", onset: e.concern.onset,
+      reporter: e.concern.route, activities_taken_over: acts, ...(e.informant.iqcode ? { iqcode: +e.informant.iqcode } : {}), red_flags: flags });
     S.people.push(p);
     S.vault[id] = { identity: { ...e.identity }, informant: e.informant.name ? { name: e.informant.name, relation: e.informant.relation, phone: e.informant.phone } : null };
     S.audit.unshift({ ts: new Date().toISOString().slice(0, 19).replace("T", " "), actor: "coordinator", action: "enrol", target: id, detail: "consent: " + Object.keys(e.consent).filter((k) => e.consent[k]).join(", ") });
     e.done = id; renderEnrol();
   }
   function renderEnrolDone() {
-    const id = S.en.done; const p = person(id);
+    const id = S.en.done; const p = person(id); const L0 = E.evaluate(p, p.sessions).latest;
     $("#main").innerHTML = `<div class="panel pad" style="max-width:640px;margin:0 auto;text-align:center">
-      ${p.sessions[0] && (p.sessions[0].red_flags || []).length ? '<div class="panel pad" style="background:var(--urgent-soft);border-color:#e8b9c6;margin-bottom:12px;text-align:left"><b style="color:var(--urgent)">URGENT review created.</b> The clinician queue shows this person at the top. Follow the emergency protocol; no cognitive testing today.</div>' : ""}
+      ${L0.level === "URGENT" ? '<div class="panel pad" style="background:var(--urgent-soft);border-color:#e8b9c6;margin-bottom:12px;text-align:left"><b style="color:var(--urgent)">URGENT review created.</b> The clinician queue shows this person at the top. Follow the emergency protocol; no cognitive testing today.</div>' : ""}
+      ${L0.level === "CLINICIAN_REVIEW" ? `<div class="panel pad" style="background:var(--review-soft);border-color:#efc2b6;margin-bottom:12px;text-align:left"><b>Clinician review created now.</b> ${esc(L0.reasons[0] || "")}</div>` : ""}
       <div style="font-size:40px">✓</div><h2>Enrolled</h2><div class="muted">Pseudonymous ID</div><div style="font-size:30px;font-weight:700;color:var(--teal);letter-spacing:.04em">${id}</div>
       <div class="small muted" style="margin:8px 0 16px">Name and contact details are in the identity vault only. Clinicians see ${id}, and can re-identify for follow-up with a reason (audited).</div>
       <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn primary big" id="d-start">Start baseline session 1 now</button><button class="btn big" id="d-new">Enrol another person</button><button class="btn big" id="d-clin">Open in clinician dashboard</button></div></div>`;
@@ -1064,20 +1069,21 @@
   const IK_AR = { memory: "الذاكرة", language: "إيجاد الكلمات والمحادثة", orientation: "معرفة الوقت والمكان والناس", executive: "الفلوس والتخطيط", daily_function: "الأنشطة اليومية",
     mood: "المزاج", behaviour: "التصرفات أو الطبع", sleep: "النوم", days: "من أيام", weeks: "من أسابيع", months: "من شهور", years: "من سنة أو أكثر" };
   const IK_SAMPLES = [
-    ["Gulf Arabic: memory and money", "ar", "أمي من حوالي سنتين صارت تنسى وايد وتعيد نفس السؤال. ما تقدر تدير بطاقة البنك، وأختي الحين تدفع الفواتير عنها. وصارت ضايقة وما تبي تطلع."],
-    ["English: helper's observations", "en", "Our helper says Dad left the gas on twice this month and asks her the same question many times a day. My son now handles his bills. It has been getting worse for about a year. He started a new blood pressure medicine in August."],
-    ["Gulf Arabic: urgent", "ar", "أبوي طاح أمس في الحمام وضرب راسه، ومن يومها نعسان ومتلخبط وكلامه ثقيل."],
+    ["Gulf Arabic: memory and money", "ar", "أمي من حوالي سنتين صارت تنسى وايد وتعيد نفس السؤال. ما تقدر تدير بطاقة البنك، وأختي الحين تدفع الفواتير عنها. وصارت ضايقة وما تبي تطلع.", "family"],
+    ["English: helper's observations", "en", "Our helper says Dad left the gas on twice this month and asks her the same question many times a day. My son now handles his bills. It has been getting worse for about a year. He started a new blood pressure medicine in August.", "family"],
+    ["Gulf Arabic: urgent", "ar", "أبوي طاح أمس في الحمام وضرب راسه، ومن يومها نعسان ومتلخبط وكلامه ثقيل.", "family"],
+    ["English: my own memory", "en", "For the last few months I keep forgetting appointments and I lose track of conversations at work. My wife now pays our bills because I missed two. My son now does the driving since I got lost on a familiar road. It has been getting worse.", "self"],
   ];
-  S.ik = { text: "", lang: "ar", res: null, ok: {}, engine: "", busy: false, rec: false };
+  S.ik = { text: "", lang: "ar", res: null, ok: {}, engine: "", busy: false, rec: false, reporter: "family" };
   function renderHome() {
     $("#main").innerHTML = `<div style="max-width:980px;margin:0 auto">
       <div style="text-align:center;margin:8px 0 22px"><h2 style="margin:0 0 6px">From the first worry to a completed assessment</h2>
         <div class="muted">MemBrain helps families in the UAE get from "something is not right" to the right clinician, and tracks every step until follow-up is documented. It flags risk and change. It never diagnoses.</div></div>
       <div class="two" style="gap:18px">
         <button class="panel pad door" id="door-family" style="text-align:start;cursor:pointer;border-width:2px;border-color:var(--teal)">
-          <div class="tiny" style="color:var(--teal);font-weight:700;letter-spacing:.06em">START HERE · FOR FAMILIES AND HELPERS</div>
-          <h2 style="margin:6px 0">I'm worried about someone</h2><div class="ar" dir="rtl" style="font-size:18px;margin-bottom:8px">أنا قلقان على شخص أحبه</div>
-          <div class="small">Say or type what you have noticed, in Gulf Arabic or English. MemBrain picks out the key facts and checks for urgent warning signs first. It reads them back to you. A clinician confirms everything before any referral.</div>
+          <div class="tiny" style="color:var(--teal);font-weight:700;letter-spacing:.06em">START HERE · FOR ANYONE WHO HAS NOTICED A CHANGE</div>
+          <h2 style="margin:6px 0">I've noticed a change in memory or thinking</h2><div class="ar" dir="rtl" style="font-size:18px;margin-bottom:8px">لاحظت تغير في الذاكرة أو التفكير</div>
+          <div class="small">In yourself, in someone you love, or in a patient. Say or type what you have noticed, in Gulf Arabic or English. MemBrain picks out the key facts and checks for urgent warning signs first. It reads them back to you. A clinician confirms everything before any referral.</div>
           <div style="margin-top:12px"><span class="btn primary">Describe what you've noticed →</span></div></button>
         <button class="panel pad door" id="door-self" style="text-align:start;cursor:pointer;border-width:2px">
           <div class="tiny muted" style="font-weight:700;letter-spacing:.06em">FOR ADULTS 50–75 IN A PROGRAMME</div>
@@ -1136,20 +1142,23 @@
           <div class="panel pad"><h3>Who now does what</h3>${(r.timeline || []).map((t, i) => row("tl:" + i, `${t.activity_label}: now ${t.who_label}`, null, k.text.slice(...t.spans[0]).trim())).join("") || '<div class="small muted">No activity taken over by someone else was mentioned.</div>'}
             <h3 style="margin-top:12px">Things that can affect memory</h3>${g("confounder").map((f) => row("confounder:" + f.key, f.label, f, f.evidence.join(" … "))).join("") || '<div class="small muted">None mentioned (illness, new medicine, hearing, bereavement).</div>'}
             <div class="tiny muted" style="margin-top:8px">Untick anything that is wrong. Items marked “confirm” were picked up from weaker cues.</div></div></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn big" id="ik-read">🔊 Read back to the family</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn big" id="ik-read">🔊 Read it back aloud</button>
           <button class="btn primary big" id="ik-go" ${rf.length ? 'style="background:var(--urgent);border-color:var(--urgent)"' : ""}>${rf.length ? "Confirm and escalate now" : "Confirm and continue to enrolment"}</button></div>`;
     }
     $("#main").innerHTML = `<div style="max-width:1080px;margin:0 auto"><div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:12px">
-      <div><h2 style="margin:0">Tell us what you have noticed</h2><div class="muted small">A family member or household helper describes the changes in their own words. Nothing is decided automatically: a clinician reviews every case.</div></div>
+      <div><h2 style="margin:0">Tell us what you have noticed</h2><div class="muted small">Whoever noticed the change describes it in their own words: the person, a family member, a household helper or a clinician. Nothing is decided automatically: a clinician reviews every case.</div></div>
       <div class="seg"><button data-ikl="ar" class="${k.lang === "ar" ? "on" : ""}">عربي (خليجي)</button><button data-ikl="en" class="${k.lang === "en" ? "on" : ""}">English</button></div></div>
-      <div class="panel pad" style="margin-bottom:12px"><textarea id="ik-text" ${k.lang === "ar" ? 'dir="rtl"' : ""} rows="4" style="width:100%;font:inherit;font-size:15px;padding:10px;border:1px solid var(--line);border-radius:10px" placeholder="${k.lang === "ar" ? "مثال: أبوي من حوالي سنة صار ينسى وايد..." : "e.g. For about a year Dad keeps asking the same questions..."}">${esc(k.text)}</textarea>
+      <div class="panel pad" style="margin-bottom:12px"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><b class="small">Who is describing the change?</b>
+        <div class="seg">${Object.keys(ENTRY_AR).map((r) => `<button data-ikr="${r}" class="${k.reporter === r ? "on" : ""}">${esc(k.lang === "ar" ? ENTRY_AR[r] : ENTRY[r])}</button>`).join("")}</div></div>
+        <div class="tiny muted" style="margin-bottom:8px">Kept with the concern, so a family member's account is never mistaken for the person's own or for a clinical finding.</div><textarea id="ik-text" ${k.lang === "ar" ? 'dir="rtl"' : ""} rows="4" style="width:100%;font:inherit;font-size:15px;padding:10px;border:1px solid var(--line);border-radius:10px" placeholder="${k.lang === "ar" ? "مثال: أبوي من حوالي سنة صار ينسى وايد..." : "e.g. For about a year Dad keeps asking the same questions..."}">${esc(k.text)}</textarea>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center"><button class="btn" id="ik-mic">${k.rec ? "■ Stop dictation" : "🎙 Dictate"}</button>
           <button class="btn primary" id="ik-x" ${k.busy ? "disabled" : ""}>${k.busy ? "Reading…" : "Pick out the key facts"}</button><span class="tiny muted">Samples:</span>
           ${IK_SAMPLES.map(([l], i) => `<button class="btn small" data-iks="${i}">${esc(l)}</button>`).join("")}</div>
         <div class="tiny muted" style="margin-top:6px">${esc(speechLabel())}. Voice is turned into text for this step only; the recording is not kept.</div></div>${out}</div>`;
     $("#ik-text").oninput = (e) => (k.text = e.target.value);
     document.querySelectorAll("[data-ikl]").forEach((b) => (b.onclick = () => { k.lang = b.dataset.ikl; k.res = null; renderIntake(); }));
-    document.querySelectorAll("[data-iks]").forEach((b) => (b.onclick = () => { const s = IK_SAMPLES[+b.dataset.iks]; k.lang = s[1]; k.text = s[2]; runExtract(); }));
+    document.querySelectorAll("[data-ikr]").forEach((b) => (b.onclick = () => { k.reporter = b.dataset.ikr; renderIntake(); }));
+    document.querySelectorAll("[data-iks]").forEach((b) => (b.onclick = () => { const s = IK_SAMPLES[+b.dataset.iks]; k.lang = s[1]; k.text = s[2]; k.reporter = s[3] || "family"; runExtract(); }));
     $("#ik-x").onclick = runExtract;
     $("#ik-mic").onclick = async () => {
       if (k.rec) { k.rec = false; const res = await Rec.stop(); if (res && res.text) k.text = res.text; renderIntake(); return; }
@@ -1168,11 +1177,12 @@
   }
   function intakeToEnrol() {
     const k = S.ik, r = k.res, c = confirmedFromIntake(); const e = blankEnrol();
-    e.concern.route = "family"; e.concern.text = k.text; if (c.onset) e.concern.onset = c.onset;
+    e.concern.route = k.reporter; e.concern.text = k.text; if (c.onset) e.concern.onset = c.onset;
     c.red_flags.forEach((f) => (e.flags[f] = true)); e.profile.language = k.lang;
-    e.inf.type = "family";   // a helper giving information is set on the Informant step, with their own consent
+    // the reporter is the informant only when it is family or a helper (a helper still gives their own consent on the Informant step)
+    e.inf.type = k.reporter === "family" || k.reporter === "household_helper" ? k.reporter : "none";
     e.inf.timeline = (r.timeline || []).filter((t, i) => k.ok["tl:" + i]).map((t) => ({ activity: t.activity_label, change: "", when: "", who_took_over: t.who_label, why: "Not sure" }));
-    e.intake = { confirmed: c, engine: r.engine, version: r.version, at: TODAY };
+    e.intake = { confirmed: c, engine: r.engine, version: r.version, at: TODAY, reporter: k.reporter };
     log("intake_confirmed", "new", `${c.domains.length} concerns, ${c.red_flags.length} red flags, engine ${r.engine}`);
     S.en = e; go("enrol"); toast(c.red_flags.length ? "Red flags carried over: escalate on the next step" : "Facts carried into the enrolment form");
   }
@@ -1186,7 +1196,9 @@
   const STATE_COL = (s) => (["declined", "missed", "lost_to_follow_up", "no_accessible_service"].includes(s) ? "lv-CLINICIAN_REVIEW" : ["assessment_completed", "follow_up_documented"].includes(s) ? "lv-STABLE" : s === "cancelled" ? "lv-INVALID" : "lv-BASELINE");
   const capTxt = (s) => (s.capacity_per_month == null ? "same day" : `${s.capacity_per_month}/month`) + (s.accepting_referrals === false ? " · not accepting" : "");
   const svcById = (id) => ND.directory.find((s) => s.id === id);
-  const ENTRY = { programme: "Programme screening", primary_care: "Primary care clinician", family: "Family member", household_helper: "Household helper" };
+  const ENTRY = { family: "Family member", self: "The person themselves", household_helper: "Household helper", primary_care: "Healthcare professional",
+    coordinator: "Programme coordinator", programme: "Programme screening (no specific concern)" };
+  const ENTRY_AR = { family: "أحد من العائلة", self: "الشخص نفسه", household_helper: "العاملة / المساعد في البيت", primary_care: "طبيب أو ممرض", coordinator: "منسق البرنامج" };
   const allLiveRefs = () => S.people.flatMap((p) => (p.referrals || []).map((r) => ({ ...r, _p: p })));
 
   function referralPanel(p) {
@@ -1272,7 +1284,7 @@
   }
   function draftCard(p, ev) {
     if (DR.p !== p.id) { DR.p = p.id; DR.conf = draftConfirmed(p, ev); DR.sents = IX.draft(DR.conf).map((x) => x.text); DR.engine = "template"; DR.removed = 0; DR._tried = false; }
-    const v = IX.verify(DR.sents, DR.conf); const src = p.intake ? `family intake (${esc(p.intake.engine)}) and the latest check-in` : "the latest check-in (no family intake on file)";
+    const v = IX.verify(DR.sents, DR.conf); const src = p.intake ? `the intake (${esc(p.intake.engine)}) and the latest check-in` : "the latest check-in (no intake narrative on file)";
     return `<div class="panel pad" style="margin-top:10px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><b>Reason for referral</b>
         <span class="pill ${v.grounded ? "lv-STABLE" : "lv-CLINICIAN_REVIEW"}" id="rf-badge">Grounding check: ${v.n - v.unsupported}/${v.n} sentences backed by confirmed facts</span></div>
       <div class="tiny muted" style="margin:4px 0 6px">Drafted by <b>${esc(DR.engine)}</b> from ${src}. Each sentence is checked against the confirmed facts; anything unsupported, any diagnosis word and any number not in the record is ${DR.engine === "template" ? "blocked" : "removed"}${DR.removed ? ` (${DR.removed} removed)` : ""}. Edit freely: your changes are marked as yours.</div>
@@ -1429,7 +1441,13 @@
         <div class="alertbox lv-${L_.level}" style="margin-top:14px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">${pill(L_.level)}<span class="small muted">${L_.intake ? `Intake ${L_.date}` : `Latest session ${L_.date} · form ${L_.form} · ${L_.channel}`}</span>
           ${L_.held_for_clinician ? '<span class="small"><b>Held:</b> participant was told only that the clinic will contact them.</span>' : ""}</div>
           <ul style="margin:8px 0 4px">${L_.reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>
-          ${L_.pathways.length ? `<div class="small"><b>Suggested pathway:</b> ${L_.pathways.map((x) => PATH[x] || x).join(" · ")}</div>` : ""}</div></div>
+          ${L_.pathways.length ? `<div class="small"><b>Suggested pathway:</b> ${L_.pathways.map((x) => PATH[x] || x).join(" · ")}</div>` : ""}</div>
+        ${(() => { const cs = concernSummary(p); return `<div class="panel pad small" style="margin-top:10px"><b>The concern</b> · raised by ${esc(cs.raised_by)}${cs.date ? " · " + esc(cs.date) : ""}
+          ${cs.in_their_words ? `<div style="margin:4px 0" ${/[؀-ۿ]/.test(cs.in_their_words) ? 'dir="rtl" class="ar"' : ""}>“${esc(cs.in_their_words)}”</div>` : ""}
+          ${cs.what_changed.length ? `<div><b>What has changed:</b> ${esc(cs.what_changed.join(", "))}${cs.onset ? ", " + esc(cs.onset) : ""}</div>` : ""}
+          ${cs.who_now_does_what.length ? `<div><b>Who now does what:</b> ${esc(cs.who_now_does_what.join(" · "))}</div>` : ""}
+          <div class="tiny muted" style="margin-top:4px">${esc(cs.attribution)}</div>
+          ${cs.missing.length ? `<div style="margin-top:4px"><b>Missing:</b> ${esc(cs.missing.join(" · "))}</div>` : ""}</div>`; })()}</div>
       <div class="panel pad"><h3>Trend against personal baseline</h3>${ev.history.some((h) => h.z) ? trendChart(ev.history) : '<div class="small muted">No scored sessions yet.</div>'}
         <div class="legend">${["BASELINE", "STABLE", "CHECK_AGAIN", "CLINICIAN_REVIEW", "URGENT"].map((k) => `<span><i style="background:${LVCOL[k]}"></i>${LV[k]}</span>`).join("")}<span><i style="background:#fff;border:1.5px solid #888"></i>Not scored</span></div></div>
       <div class="two">
@@ -1519,9 +1537,43 @@
     return { resourceType: "Bundle", type: "collection", entry: ent.map((r) => ({ fullUrl: "urn:uuid:" + r.id, resource: r })) };
   }
 
+  // The concern that started the journey, attributed to whoever reported it, plus what is still missing.
+  // Mirrors membrain/dossier.py concern_summary; keep the two in step.
+  function concernSummary(p) {
+    const IL = D.intake; const sessions = p.sessions || []; const ikS = sessions.find((s) => s.type === "intake") || {};
+    const ik = p.intake || {}; const c = ik.confirmed || {}; const route = ik.reporter || ikS.reporter || p.entry_route;
+    const raisedBy = ENTRY[route] || route || "Not recorded";
+    let text = c.narrative || ikS.concern; if (text === "routine programme screening") text = null;
+    const onset = c.onset || ikS.onset; const inf = p.informant;
+    const who = (c.timeline || []).length ? c.timeline.map(([a, w]) => `${IL.ACTIVITIES[a] || a}: now ${IL.WHO[w] || w}`)
+      : ((inf || {}).timeline || []).map((t) => `${t.activity}: now ${t.who_took_over || "someone else"}` + (t.when ? ` (${t.when})` : "") + (t.why ? `; reason given: ${t.why}` : ""));
+    const missing = [];
+    if (!text) missing.push(!route || route === "programme" ? "No specific concern (routine programme screening)" : "The concern in the reporter's own words");
+    if (!onset || onset === "none") missing.push("When the change started");
+    if (!inf) missing.push("An informant account (family member or household helper)");
+    if (!sessions.some((s) => s.iqcode != null) && p.pending_iqcode == null) missing.push("Informant questionnaire (IQCODE-16)");
+    if (!sessions.some((s) => s.type !== "intake" && s.raw != null)) missing.push("A scored check-in");
+    const ctx = p.context || {}; if (ctx.sbp == null && ctx.hba1c == null) missing.push("Blood pressure and HbA1c");
+    return { raised_by: raisedBy, date: (ik.at || ikS.date || "").slice(0, 10) || null, in_their_words: text || null, onset: onset ? IL.ONSET[onset] || null : null,
+      what_changed: (c.domains || []).map((d) => IL.DOMAINS[d] || d), who_now_does_what: who,
+      red_flags_reported: (ikS.red_flags || []).map((f) => D.config.RED_FLAGS[f] || f), confounders_reported: (c.confounders || []).map((f) => IL.CONFOUNDERS[f] || f),
+      informant: inf ? { type: inf.type, relation: inf.relation } : null,
+      attribution: `Reported by: ${raisedBy}. This is their account, not a clinical finding, until a clinician confirms it.`, missing };
+  }
+  function concernLines(cs) {
+    return [`Concern raised by: ${cs.raised_by}${cs.date ? " (" + cs.date + ")" : ""}`,
+      ...(cs.in_their_words ? [`In their words: "${cs.in_their_words}"`] : []),
+      ...(cs.onset ? [`Started: ${cs.onset}`] : []),
+      ...(cs.what_changed.length ? [`What has changed: ${cs.what_changed.join(", ")}`] : []),
+      ...(cs.who_now_does_what.length ? ["Who now does what:", ...cs.who_now_does_what.map((x) => "- " + x)] : []),
+      `Red flags reported at intake: ${cs.red_flags_reported.join("; ") || "none"}`,
+      ...(cs.confounders_reported.length ? [`Possible confounders mentioned: ${cs.confounders_reported.join(", ")}`] : []),
+      cs.attribution, `Missing information: ${cs.missing.join("; ") || "none"}`];
+  }
   function showDossier(p, ev) {
     const L_ = ev.latest; const rc = p.risk_context || {}; log("view_dossier", p.id);
     const txt = [`MemBrain referral summary — screening signal, not a diagnosis`, `Participant ${p.id}, ${p.age} y, ${EDU[p.education]}, ${p.dialect}`,
+      "", "THE CONCERN", ...concernLines(concernSummary(p)), "",
       `Alert: ${LV[L_.level]} (${L_.date})`, ...L_.reasons.map((r) => "- " + r),
       `Drivers: ${L_.drivers.map((d) => `${d.input} ${d.metric || ""} ${fmt(d.value)} (threshold ${fmt(d.threshold)})`).join("; ") || "none"}`,
       `Confounders: ${L_.confounders.map((c) => c.label).join("; ") || "none detected"}`,
@@ -1529,7 +1581,7 @@
       `Modifiable risk factors: ${(rc.modifiable_factors_present || []).join(", ") || "none recorded"}`,
       `Suggested pathway: ${L_.pathways.map((x) => PATH[x] || x).join(", ") || "-"}`,
       `Suggested reversible-cause checks: ${(rc.reversible_cause_checks || []).join(", ")}`,
-      `Limitations: provisional thresholds; voice features exploratory; channels not pooled.`].join("\n");
+      `Limitations: provisional thresholds; voice features exploratory; channels not pooled; the concern is the reporter's account until a clinician confirms it.`].join("\n");
     modal(`<h2>Referral dossier</h2><div class="small muted">Auto-generated one-page summary for the receiving clinician (also sent as FHIR ServiceRequest + attachments in the pilot).</div>
       <div style="margin:10px 0"><button class="btn primary" id="cp">Copy text</button> <button class="btn" id="cl">Close</button></div>
       <div class="panel pad" style="white-space:pre-wrap;font-size:13.5px">${esc(txt)}</div>${trendChart(ev.history)}`);
@@ -1636,13 +1688,15 @@
   }
   function navaiGates() {
     const N = D.navai || {}; const r = N.rules, m = N.medgemma; if (!r) return "";
-    const cell = (g) => (g ? `${g.value ?? "–"} <span class="pill ${g.pass ? "lv-STABLE" : "lv-CLINICIAN_REVIEW"}">${g.pass ? "pass" : "not yet"}</span>` : '<span class="muted">run pending (FZJ GPU)</span>');
+    const cell = (g) => (!g ? '<span class="muted">run pending (FZJ GPU)</span>'
+      : g.pass == null ? `<span class="muted">– n/a</span>${g.metric === "unsupported_rate" ? ' <span class="tiny muted">(nothing to check: rules quote the narrative by construction)</span>' : ""}`
+      : `${g.value} <span class="pill ${g.pass ? "lv-STABLE" : "lv-CLINICIAN_REVIEW"}">${g.pass ? "pass" : "not yet"}</span>`);
     return `<div class="panel pad" style="margin-bottom:16px"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:baseline"><h3 style="margin:0">Navigator AI release gates: family intake extractor</h3>
       <span class="tiny muted">Held-out test set: ${r.n} synthetic caregiver narratives (Gulf Arabic and English), frozen before the rules were tuned</span></div>
       <table style="margin-top:8px"><tr><th>Gate</th><th>Target</th><th>Rules extractor (always-on fallback)</th><th>${m ? esc(m.model) : "MedGemma 4B"}</th>${m ? "<th>MedGemma + rule red flags</th>" : ""}</tr>
       ${r.gates.map((g, i) => `<tr><td>${esc(g.label)}</td><td class="small">${esc(g.target)}</td><td>${cell(g)}</td><td>${m ? cell(m.gates[i]) : cell(null)}</td>${m ? `<td>${cell(m.combined_gates[i])}</td>` : ""}</tr>`).join("")}</table>
       <div class="tiny muted" style="margin-top:6px">Urgent cases caught by the rules: ${r.urgent_recall_cases}, with ${r.red_flag_false_alarms} false alarms. With so few urgent cases, a perfect score only shows recall above ${r.urgent_recall_wilson_lower95} (95% lower bound); showing 0.99 needs about 300 red-flag narratives, planned for Phase A.
-        The rules pass the safety gates (red flags, nothing unsupported, speed) but not the accuracy gates, which is why the model is evaluated. Whatever the model returns must quote the narrative, and it can never remove a red flag the rules found.${m ? ` Referral drafting: ${m.drafting.unsupported_sentences} of ${m.drafting.sentences} model sentences blocked by the grounding check.` : ""}</div></div>`;
+        The rules pass the measurable safety gates (red flags, speed) but not the accuracy gates; the unsupported-field gate only applies to the model, whose unquoted fields are dropped, which is why the model is evaluated. Whatever the model returns must quote the narrative, and it can never remove a red flag the rules found.${m ? ` Referral drafting: ${m.drafting.unsupported_sentences} of ${m.drafting.sentences} model sentences blocked by the grounding check.` : ""}</div></div>`;
   }
   function bars(rows, names, cols = ["#0b8a7a", "#c0761a"]) {
     const W = 520, rh = 46, H = rows.length * rh + 30, pl = 150, pr = 50;

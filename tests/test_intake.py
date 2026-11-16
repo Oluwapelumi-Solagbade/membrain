@@ -89,7 +89,19 @@ def test_rules_meet_the_safety_gates_on_the_held_out_set():
     gold = load("test")
     res = score(gold, *run_rules(gold))
     gates = {g["metric"]: g["pass"] for g in res["gates"]}
-    assert gates["urgent_recall"] and gates["unsupported_rate"] and gates["latency_p95_s"]
+    assert gates["urgent_recall"] and gates["latency_p95_s"]
+    # The rules emit nothing to drop, so the unsupported-field gate is not measured (n/a), never a vacuous pass.
+    assert res["unsupported_items"] == "0/0" and res["unsupported_rate"] is None and gates["unsupported_rate"] is None
+
+
+def test_unsupported_gate_scores_when_items_were_checked():
+    from navai.evaluate import load, run_rules, score
+    gold = load("test")
+    preds, lat = run_rules(gold)
+    gates = {g["metric"]: g["pass"] for g in score(gold, preds, lat, unsupported=0, items=100)["gates"]}
+    assert gates["unsupported_rate"] is True
+    gates = {g["metric"]: g["pass"] for g in score(gold, preds, lat, unsupported=2, items=100)["gates"]}
+    assert gates["unsupported_rate"] is False
 
 
 def test_api_falls_back_to_rules_without_medgemma(monkeypatch):

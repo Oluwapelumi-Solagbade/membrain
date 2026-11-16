@@ -55,9 +55,9 @@
  "timeline_cases": "7/10",
  "onset_exact": 0.633,
  "confounder_f1": 0.889,
- "unsupported_rate": 0.0,
+ "unsupported_rate": null,
  "unsupported_items": "0/0",
- "latency_p95_s": 0.002,
+ "latency_p95_s": 0.0,
  "gates": [
   {
    "metric": "domain_macro_f1",
@@ -91,14 +91,14 @@
    "metric": "unsupported_rate",
    "label": "Unsupported field rate",
    "target": "< 0.01",
-   "value": 0.0,
-   "pass": true
+   "value": null,
+   "pass": null
   },
   {
    "metric": "latency_p95_s",
    "label": "p95 latency (seconds)",
    "target": "< 5.0",
-   "value": 0.002,
+   "value": 0.0,
    "pass": true
   }
  ],

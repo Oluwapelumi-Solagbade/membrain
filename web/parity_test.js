@@ -5,8 +5,10 @@ const makeEngine = require("./engine.js"); const E = makeEngine(window.MB_DATA);
 const cases = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "tests", "golden_vectors.json"), "utf8"));
 let fail = 0, n = 0;
 for (const c of cases) {
-  const got = E.evaluate(c.participant, c.sessions).history.map((h) => h.level); n += got.length;
+  const hist = E.evaluate(c.participant, c.sessions).history; const got = hist.map((h) => h.level); n += got.length;
   if (JSON.stringify(got) !== JSON.stringify(c.expected_levels)) { fail++; console.log("MISMATCH", c.participant.id, got, c.expected_levels); }
+  if (c.expected_reasons && JSON.stringify(hist.map((h) => h.reasons)) !== JSON.stringify(c.expected_reasons)) {
+    fail++; console.log("REASON MISMATCH", c.participant.id, JSON.stringify(hist.map((h) => h.reasons)), "\n want", JSON.stringify(c.expected_reasons)); }
 }
 // scoring parity spot check
 const r = E.scoreTranscripts({ memory_immediate: "جَمَل، الشباك، برتقال وقهوة والقمر", fluency: "كلب قطة جمل حصان الحصان أسد دب" }, "A", "ar");

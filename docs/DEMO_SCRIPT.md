@@ -16,7 +16,7 @@
 - Switch to Mariam: the decline was held because of low mood and poor sleep, and she was offered the mental-health pathway instead.
 
 **1:40–2:00 · Navigator.**
-- Start page → "I'm worried about someone" → the Gulf Arabic sample: the facts appear highlighted in the family's own words, are read back aloud and are confirmed. Then the "urgent" sample: the fall and slurred speech trigger the emergency banner, and no testing happens.
+- Start page → "I've noticed a change in memory or thinking" → the Gulf Arabic sample: the facts appear highlighted in the family's own words, are read back aloud and are confirmed. Then the "urgent" sample: the fall and slurred speech trigger the emergency banner, and no testing happens. Then "English: my own memory": the person raises the concern themselves, and the dossier shows it as their own account with what is still missing.
 - Open Referrals: Ahmed's memory-clinic referral is tracked to "attended". Mariam missed her mental-health appointment, so she sits at the top of the worklist.
 - New referral: the clinical pathway is chosen first, then a service she can reach; funding never removes the pathway. Show the Arabic next-steps pack.
 - Enrolment with "sudden onset" ticked: an urgent review is created at once, with no testing first.

@@ -103,7 +103,7 @@ def markdown(rep: dict) -> str:
         L += [f"## {name} set (n = {s['rules']['n']})", "",
               "| Release gate | Target | Rules (fallback) | MedGemma | MedGemma + rule red flags |", "|---|---|---|---|---|"]
         for i, (m, op, t, lab) in enumerate(GATES):
-            cell = lambda r: f"{r[m]} {'✓' if r['gates'][i]['pass'] else '✗'}"
+            cell = lambda r: "n/a" if r["gates"][i]["pass"] is None else f"{r[m]} {'✓' if r['gates'][i]['pass'] else '✗'}"
             L.append(f"| {lab} | {op} {t} | {cell(s['rules'])} | {cell(s['medgemma'])} | {cell(s['medgemma_plus_rule_red_flags'])} |")
         L += ["", f"Urgent cases caught: rules {s['rules']['urgent_recall_cases']}, MedGemma {s['medgemma']['urgent_recall_cases']}, "
                   f"combined {s['medgemma_plus_rule_red_flags']['urgent_recall_cases']}. "

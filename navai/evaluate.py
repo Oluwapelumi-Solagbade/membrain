@@ -80,10 +80,12 @@ def score(gold: list[dict], preds: list[dict], latencies: list[float], unsupport
            "red_flag_type_recall": round(flag_tp / flag_n, 3) if flag_n else None,
            "timeline_exact": round(tl_exact / len(tl_cases), 3) if tl_cases else None, "timeline_cases": f"{tl_exact}/{len(tl_cases)}",
            "onset_exact": round(on_exact / len(all_), 3), "confounder_f1": round(cf_f1, 3),
-           "unsupported_rate": round(unsupported / items, 4) if items else 0.0, "unsupported_items": f"{unsupported}/{items}",
+           # None when nothing was checked (the rules quote the narrative by construction, so 0/0 is not a measurement).
+           "unsupported_rate": round(unsupported / items, 4) if items else None, "unsupported_items": f"{unsupported}/{items}",
            "latency_p95_s": round(p95, 3) if p95 is not None else None}
+    # pass is None ("n/a") when the metric could not be measured, so an empty denominator never shows as a pass.
     res["gates"] = [{"metric": m, "label": lab, "target": f"{op} {t}", "value": res[m],
-                     "pass": (res[m] is not None and (res[m] >= t if op == ">=" else res[m] < t))} for m, op, t, lab in GATES]
+                     "pass": None if res[m] is None else (res[m] >= t if op == ">=" else res[m] < t)} for m, op, t, lab in GATES]
     return res
 
 

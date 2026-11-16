@@ -62,6 +62,10 @@ RED_FLAGS = {
     "safety_risk": "Immediate safety risk (wandering, unsafe at home, self-neglect)",
 }
 
+# A concern can warrant clinician review before any testing (do not wait for a baseline).
+INTAKE_REVIEW_MIN_ACTIVITIES = 2          # everyday activities now done by someone else, confirmed at intake
+INTAKE_REVIEW_ROUTES = ["primary_care"]   # concern raised by a healthcare professional
+
 # --- Confounders -----------------------------------------------------------
 PHQ2_CUTOFF = 3      # PHQ-2 >= 3: positive depression screen
 GAD2_CUTOFF = 3      # GAD-2 >= 3: positive anxiety screen

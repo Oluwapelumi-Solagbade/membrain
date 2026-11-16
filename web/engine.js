@@ -137,6 +137,8 @@
       if (s.assisted) out.push({ code: "assisted", label: "Session completed with a helper", action: "Cannot confirm change alone; repeat unassisted if possible" });
       return out;
     }
+    // Format a float the way Python str() does, so reason text is identical across engines (-2.0, not -2).
+    const pyNum = (x) => (Number.isInteger(x) ? x.toFixed(1) : String(x));
     const DLABEL = { memory_immediate: "Word learning", memory_delayed: "Delayed word recall", fluency: "Word generation (fluency)", story_recall: "Story recall", judgement: "Everyday judgement" };
 
     function evaluateHistory(p, sessionsIn) {
@@ -169,8 +171,25 @@
         }
         if (s.type === "intake") {
           ev.valid = false; ev.intake = true;
-          if (ev.level === "BASELINE") ev.reasons.push("Intake recorded: " + (s.concern || "concern documented") + "; no red flags. First check-in to follow");
-          ev.next_action = ev.level === "BASELINE" ? "first_session" : "urgent_review_task";
+          if (ev.level === "BASELINE") {
+            // A significant concern goes to review now; the person does not wait for testing.
+            const why = []; const acts = s.activities_taken_over || [];
+            if (acts.length >= C.INTAKE_REVIEW_MIN_ACTIVITIES) {
+              why.push(`${acts.length} everyday activities now done by someone else`);
+              ev.drivers.push({ input: "Activities taken over (intake)", value: acts.length, threshold: C.INTAKE_REVIEW_MIN_ACTIVITIES });
+            }
+            if (fflag) {
+              why.push(`informant questionnaire above cutoff (IQCODE ${iq.toFixed(2)} > ${C.IQCODE_CUTOFF})`);
+              ev.drivers.push({ input: "Informant questionnaire (IQCODE-16)", value: iq, threshold: C.IQCODE_CUTOFF });
+            }
+            if ((C.INTAKE_REVIEW_ROUTES || []).includes(s.reporter)) why.push("concern raised by a healthcare professional");
+            if (why.length) {
+              ev.level = "CLINICIAN_REVIEW";
+              ev.reasons.push("Concern at intake warrants review: " + why.join("; ") + ". Clinician review without waiting for testing; the first check-in can still go ahead");
+              ev.pathways.push("primary_care");
+            } else ev.reasons.push("Intake recorded: " + (s.concern || "concern documented") + "; no red flags. First check-in to follow");
+          }
+          ev.next_action = { BASELINE: "first_session", CLINICIAN_REVIEW: "review_task" }[ev.level] || "urgent_review_task";
           evals.push(ev); continue;
         }
         const gate = audioGate(s.audio);
@@ -191,7 +210,7 @@
           ev.reasons.push(`Building personal baseline (${bl.length}/${C.BASELINE_SESSIONS} sessions, channel: ${ch})`);
           if (hz.length === 1 && zp.composite <= C.FIRST_VISIT_REVIEW_Z) {
             ev.level = lvMax(ev.level, "CLINICIAN_REVIEW");
-            ev.reasons.push(`Very low score at first visit for age and education (composite z ${zp.composite.toFixed(2)} <= ${C.FIRST_VISIT_REVIEW_Z}); clinician review without waiting for a baseline`);
+            ev.reasons.push(`Very low score at first visit for age and education (composite z ${zp.composite.toFixed(2)} <= ${pyNum(C.FIRST_VISIT_REVIEW_Z)}); clinician review without waiting for a baseline`);
             ev.drivers.push({ input: "First-visit composite (education-stratified)", value: r2(zp.composite), threshold: C.FIRST_VISIT_REVIEW_Z });
             ev.pathways.push("memory_clinic");
           }
