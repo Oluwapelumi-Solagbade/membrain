@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import { Info, type LucideIcon } from "lucide-react";
+import { asset } from "@/lib/asset";
 
 /** Closes a popover when you click outside it or press Escape. Destructure the result (the lint rule needs it). */
 export function usePopover() {
@@ -24,7 +25,7 @@ export function usePopover() {
 }
 
 export function Avatar({ size = 48 }: { size?: number }) {
-  return <Image src="/images/avatar-dr-demo.webp" alt="" width={size} height={size} className="rounded-full object-cover ring-1 ring-black/5" style={{ width: size, height: size }} />;
+  return <Image src={asset("/images/avatar-dr-demo.webp")} alt="" width={size} height={size} className="rounded-full object-cover ring-1 ring-black/5" style={{ width: size, height: size }} />;
 }
 
 /** Page title in the serif, a line under it, and an optional element on the right. */

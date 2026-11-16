@@ -230,8 +230,8 @@ def _today() -> str:
 
 
 def _default_save(body: dict) -> dict:
-    from api.main import ConcernIn, raise_concern   # late import: api.main includes this router
-    return raise_concern(ConcernIn(**body))
+    from api.main import ConcernIn, create_concern   # late import: api.main includes this router
+    return create_concern(ConcernIn(**body))
 
 
 def _default_task_status(pid: str) -> str | None:

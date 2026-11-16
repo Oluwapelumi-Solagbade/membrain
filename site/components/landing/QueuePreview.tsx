@@ -2,6 +2,7 @@ import Image from "next/image";
 import { getEngine, config, type Level, type Persona } from "@/lib/mb";
 import personas from "@/lib/generated/personas.json";
 import { LevelPill } from "../ui";
+import { asset } from "@/lib/asset";
 
 const ORDER: Level[] = ["URGENT", "CLINICIAN_REVIEW", "CHECK_AGAIN", "BASELINE", "STABLE", "INVALID"];
 
@@ -31,7 +32,7 @@ export function QueuePreview() {
       <figure className="ms-auto w-[94%] overflow-hidden rounded-2xl border border-black/[0.06] bg-white shadow-[0_24px_60px_-30px_rgb(15_40_30/0.4)]">
         <WindowBar path="membrain / clinician / case / MB-1187" />
         <Image
-          src="/images/clinician-case.webp"
+          src={asset("/images/clinician-case.webp")}
           alt="The clinician case page for MB-1187: clinician review, consent, why this level, and the assessment inputs against their thresholds"
           width={1600}
           height={1000}

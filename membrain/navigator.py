@@ -89,6 +89,21 @@ def _r(x: float, d: int) -> float:
     return math.floor(x * f + 0.5) / f
 
 
+CONCERN_LEVELS = ("CHECK_AGAIN", "CLINICIAN_REVIEW", "URGENT")
+
+
+def concern_date(p: dict, history: list[dict] | None = None) -> str | None:
+    """When the concern started, for 'days from first concern to clinician review': the intake date if someone
+    raised a concern, otherwise the first session where the engine flagged one. Never the enrolment date."""
+    for s in p.get("sessions") or []:
+        if s.get("type") == "intake":
+            return str(s["date"])[:10]
+    for h in history or []:
+        if h.get("level") in CONCERN_LEVELS:
+            return str(h["date"])[:10]
+    return None
+
+
 # --- service directory -------------------------------------------------------
 def directory() -> list[dict]:
     S = []

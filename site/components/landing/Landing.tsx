@@ -25,6 +25,7 @@ import { QueuePreview } from "@/components/landing/QueuePreview";
 import { btn, Eyebrow, SectionHeading } from "@/components/ui";
 import type { Lang } from "@/lib/mb";
 import { LANDING, type Hl } from "./copy";
+import { asset } from "@/lib/asset";
 
 const PILLAR_ICONS = [ClipboardList, TrendingUp, UsersRound, Network];
 const STEP_ICONS = [UsersRound, MessageSquareText, ShieldAlert, Route];
@@ -72,7 +73,7 @@ export function Landing({ lang }: { lang: Lang }) {
               from the text (right in English, left in Arabic), so the card can be placed in the photo's coordinates. */}
           <div aria-hidden className="absolute inset-y-0 end-0 hidden w-[56vw] max-w-[900px] overflow-hidden [container-type:size] xl:block">
             <div className="absolute right-0 top-0 aspect-[844/774] w-[max(100cqw,109.05cqh)]">
-              <Image src="/images/hero-family.webp" alt="" fill priority sizes="900px" className="object-cover" />
+              <Image src={asset("/images/hero-family.webp")} alt="" fill priority sizes="900px" className="object-cover" />
             </div>
             <div className="absolute inset-y-0 start-0 w-[24%] bg-gradient-to-r from-[#f9f9f8] via-[#f9f9f8]/60 to-transparent rtl:bg-gradient-to-l" />
           </div>
@@ -118,7 +119,7 @@ export function Landing({ lang }: { lang: Lang }) {
             {/* Phones and tablets: the photo above, the card overlapping it. */}
             <div className="mt-12 xl:hidden">
               <div className="relative overflow-hidden rounded-[22px]">
-                <Image src="/images/hero-family-top.webp" alt={t.heroImageAlt} width={724} height={378} sizes="(max-width: 1280px) 100vw" className="h-auto w-full" />
+                <Image src={asset("/images/hero-family-top.webp")} alt={t.heroImageAlt} width={724} height={378} sizes="(max-width: 1280px) 100vw" className="h-auto w-full" />
               </div>
               <div className="relative mx-2 -mt-10 sm:mx-10 sm:-mt-16">
                 <HeroCard lang={lang} />

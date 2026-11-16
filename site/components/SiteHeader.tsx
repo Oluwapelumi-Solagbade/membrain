@@ -6,6 +6,7 @@ import { ArrowRight, ExternalLink, Menu, UserRound, X } from "lucide-react";
 import type { Lang } from "@/lib/mb";
 import { LANDING } from "./landing/copy";
 import { Logo } from "./Logo";
+import { asset } from "@/lib/asset";
 
 const navItem = "text-[15px] font-medium text-ink transition-colors hover:text-leaf";
 
@@ -67,11 +68,11 @@ export function SiteHeader({ lang = "en" }: { lang?: Lang }) {
       {open && (
         <nav aria-label="Mobile" className="border-t border-line bg-white px-4 pb-5 pt-2 lg:hidden">
           {[...t.nav, { label: t.clinicianView, href: "/clinician/" }, { label: t.signIn, href: lang === "ar" ? "/signin/patient/?lang=ar" : "/signin/" }].map((item) => (
-            <a key={item.href} href={item.href} onClick={close} className="block border-b border-line py-3.5 text-[16px] font-medium">
+            <a key={item.href} href={item.href.startsWith("#") ? item.href : asset(item.href)} onClick={close} className="block border-b border-line py-3.5 text-[16px] font-medium">
               {item.label}
             </a>
           ))}
-          <a href={t.concernHref} onClick={close} className="mt-4 block rounded-xl bg-deep px-4 py-3.5 text-center text-[15px] font-medium text-white">
+          <a href={asset(t.concernHref)} onClick={close} className="mt-4 block rounded-xl bg-deep px-4 py-3.5 text-center text-[15px] font-medium text-white">
             {t.raise}
           </a>
         </nav>

@@ -4,6 +4,7 @@
 // The level meter, audio quality and voice features are worked out here, on the device; audio is never kept.
 // A port of the recorder in web/app.js.
 import type { Lang } from "./mb";
+import { asset } from "@/lib/asset";
 
 export type Engine = "local" | "azure" | "browser" | "typed";
 export type Speech = { engine: Engine; label: string; base: string | null; region?: string; locales?: Record<string, string> };
@@ -15,7 +16,7 @@ export type Recording = { text: string; engine: string; locale: string | null; a
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type AnyWin = Window & { SpeechRecognition?: any; webkitSpeechRecognition?: any; SpeechSDK?: any; webkitAudioContext?: any };
 const win = () => window as AnyWin;
-const SDK_URL = "/prototype/vendor/speech-sdk-1.53.0.min.js"; // Microsoft's Speech SDK (MIT), vendored with the site
+const SDK_URL = asset("/prototype/vendor/speech-sdk-1.53.0.min.js"); // Microsoft's Speech SDK (MIT), vendored with the site
 
 export const LABEL: Record<Engine, string> = {
   local: "MemBrain Gulf Whisper (self-hosted, in-country)",

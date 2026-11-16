@@ -52,7 +52,65 @@ def test_self_hosted_asr_is_off_unless_configured(monkeypatch):
     from fastapi.testclient import TestClient
     from api.main import app
     monkeypatch.delenv("WHISPER_MODEL", raising=False)
+    monkeypatch.delenv("AZURE_SPEECH_KEY", raising=False)
     c = TestClient(app)
-    assert c.get("/api/asr/config").json() == {"enabled": False, "prefer": False, "engine": None, "label": "MemBrain Gulf Whisper (in-country)"}
+    assert c.get("/api/asr/config").json()["enabled"] is False
     r = c.post("/api/asr/transcribe", files={"audio": ("a.webm", b"x", "audio/webm")}, data={"lang": "ar"})
     assert r.status_code == 503
+
+
+
+def test_recorded_answers_fall_back_to_azure_uae_north(monkeypatch):
+    """Without our Whisper model, /api/asr/transcribe sends the decoded audio (WAV, 16 kHz) to Azure in UAE North."""
+    import io, subprocess, tempfile, wave, pathlib
+    import httpx
+    import numpy as np
+    from fastapi.testclient import TestClient
+    from api.main import app
+    monkeypatch.delenv("WHISPER_MODEL", raising=False)
+    monkeypatch.setenv("AZURE_SPEECH_KEY", "test-key")
+    monkeypatch.setenv("AZURE_SPEECH_REGION", "uaenorth")
+    seen = {}
+
+    class R:
+        status_code = 200
+        def raise_for_status(self): pass
+        def json(self): return {"RecognitionStatus": "Success", "DisplayText": "أبوي صار ينسى"}
+
+    def fake_post(url, content=None, timeout=None, headers=None):
+        seen.update(url=url, headers=headers)
+        with wave.open(io.BytesIO(content)) as w:
+            seen["rate"], seen["frames"] = w.getframerate(), w.getnframes()
+        return R()
+    monkeypatch.setattr(httpx, "post", fake_post)
+    d = pathlib.Path(tempfile.mkdtemp())
+    import soundfile as sf
+    sf.write(d / "a.wav", (0.2 * np.sin(2 * np.pi * 220 * np.arange(32000) / 16000)).astype("float32"), 16000)
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", str(d / "a.wav"), "-c:a", "libopus", str(d / "a.webm")], check=True)
+    c = TestClient(app)
+    cfg = c.get("/api/asr/config").json()
+    assert cfg["enabled"] and cfg["engine"] == "azure-uaenorth" and cfg["prefer"] is False
+    r = c.post("/api/asr/transcribe", files={"audio": ("a.webm", (d / "a.webm").read_bytes(), "audio/webm")}, data={"lang": "ar"})
+    assert r.status_code == 200 and r.json()["text"] == "أبوي صار ينسى" and r.json()["engine"] == "azure-uaenorth"
+    assert seen["url"].startswith("https://uaenorth.stt.speech.microsoft.com/") and "language=ar-AE" in seen["url"]
+    assert seen["rate"] == 16000 and 1.8 * 16000 < seen["frames"] < 2.2 * 16000
+    assert seen["headers"]["Ocp-Apim-Subscription-Key"] == "test-key"
+
+
+def test_preload_is_a_no_op_without_a_model(monkeypatch):
+    import threading
+    import api.asr_local as A
+    monkeypatch.delenv("WHISPER_MODEL", raising=False)
+    n = threading.active_count()
+    A.preload()
+    assert threading.active_count() == n
+
+
+def test_asr_config_does_not_claim_uae_unless_told(monkeypatch):
+    from fastapi.testclient import TestClient
+    from api.main import app
+    c = TestClient(app)
+    monkeypatch.delenv("SERVER_IN_UAE", raising=False)
+    assert c.get("/api/asr/config").json()["in_uae"] is False
+    monkeypatch.setenv("SERVER_IN_UAE", "1")
+    assert c.get("/api/asr/config").json()["in_uae"] is True

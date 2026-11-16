@@ -24,6 +24,8 @@ async function healthy(base: string): Promise<boolean> {
 async function pick(): Promise<Backend> {
   const q = new URLSearchParams(window.location.search);
   if (q.get("mode") === "browser") return localBackend;
+  // Static hosting with no API next to it (GitHub Pages): skip probing, unless ?api=<url> names one.
+  if (process.env.NEXT_PUBLIC_STATIC_ONLY === "1" && !q.get("api")) return localBackend;
   const candidates = [q.get("api"), process.env.NEXT_PUBLIC_API_URL, ""].filter((x): x is string => x != null).map((x) => x.replace(/\/$/, ""));
   for (const base of [...new Set(candidates)]) if (await healthy(base)) return serverBackend(base);
   return localBackend;

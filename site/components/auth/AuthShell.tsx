@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, FlaskConical, MapPin, Phone, ShieldCheck } from "lucide-react";
 import { Logo } from "../Logo";
 import type { Lang } from "@/lib/mb";
+import { asset } from "@/lib/asset";
 
 export type Trust = { icon: typeof ShieldCheck; text: string }[];
 
@@ -42,12 +43,12 @@ export function AuthShell({
       <aside className="relative hidden w-[46%] max-w-[760px] shrink-0 flex-col overflow-hidden bg-deep text-white lg:flex">
         {variant === "patient" && (
           <div aria-hidden className="absolute inset-0">
-            <Image src="/images/hero-family-top.webp" alt="" fill priority sizes="46vw" className="object-cover object-[60%_30%] opacity-[0.38]" />
+            <Image src={asset("/images/hero-family-top.webp")} alt="" fill priority sizes="46vw" className="object-cover object-[60%_30%] opacity-[0.38]" />
             <div className="absolute inset-0 bg-gradient-to-b from-deep/70 via-deep/85 to-[#0b3324]" />
           </div>
         )}
         <div aria-hidden className="absolute inset-0 bg-[radial-gradient(120%_80%_at_0%_0%,rgb(42_96_69/0.55),transparent_60%),radial-gradient(90%_70%_at_100%_100%,rgb(224_173_98/0.16),transparent_60%)]" />
-        <Image aria-hidden src="/brand/membrain-mark-white.png" alt="" width={355} height={312} className="pointer-events-none absolute -bottom-24 -end-20 w-[440px] opacity-[0.05]" />
+        <Image aria-hidden src={asset("/brand/membrain-mark-white.png")} alt="" width={355} height={312} className="pointer-events-none absolute -bottom-24 -end-20 w-[440px] opacity-[0.05]" />
 
         <div className="relative flex flex-1 flex-col px-12 py-11 xl:px-16">
           <Link href={ar ? "/ar/" : "/"} aria-label="MemBrain">

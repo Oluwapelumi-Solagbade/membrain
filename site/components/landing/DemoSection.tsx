@@ -5,6 +5,7 @@ import { Download, PlayCircle } from "lucide-react";
 import type { Lang } from "@/lib/mb";
 import { SectionHeading, btn } from "../ui";
 import { LANDING } from "./copy";
+import { asset } from "@/lib/asset";
 
 // The demo: one real journey recorded from the live site and API on synthetic data (scripts/record-demo.mjs).
 // The looping clip is the concern chat at double speed; it stays still for people who ask for less motion.
@@ -26,8 +27,8 @@ function LoopClip() {
     <video
       ref={ref}
       className="block h-auto w-full"
-      src="/demo/membrain-chat-loop.mp4"
-      poster="/demo/membrain-chat-loop-poster.jpg"
+      src={asset("/demo/membrain-chat-loop.mp4")}
+      poster={asset("/demo/membrain-chat-loop-poster.jpg")}
       muted
       loop
       playsInline
@@ -75,7 +76,7 @@ export function DemoSection({ lang = "en" }: { lang?: Lang }) {
               <button type="button" onClick={play} className={btn.primary}>
                 <PlayCircle size={18} /> {t.watch}
               </button>
-              <a href="/demo/membrain-chat.gif" download className={btn.secondary}>
+              <a href={asset("/demo/membrain-chat.gif")} download className={btn.secondary}>
                 <Download size={17} /> {t.gif}
               </a>
             </div>
@@ -99,18 +100,18 @@ export function DemoSection({ lang = "en" }: { lang?: Lang }) {
           <video
             id="demo-video"
             className="aspect-[1440/900] w-full rounded-[22px] border border-line bg-[#fbfaf7] shadow-[0_24px_60px_-28px_rgb(15_40_30/0.4)]"
-            src="/demo/membrain-demo.mp4"
-            poster="/demo/membrain-demo-poster.jpg"
+            src={asset("/demo/membrain-demo.mp4")}
+            poster={asset("/demo/membrain-demo-poster.jpg")}
             controls
             playsInline
             preload="none"
             aria-describedby="demo-video-note"
           >
-            <a href="/demo/membrain-demo.mp4">Download the demo video (MP4, 12 MB)</a>
+            <a href={asset("/demo/membrain-demo.mp4")}>Download the demo video (MP4, 12 MB)</a>
           </video>
           <figcaption id="demo-video-note" className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[13.5px] text-muted">
             <span>{t.videoNote}</span>
-            <a href="/demo/membrain-demo.mp4" download className="font-medium text-leaf hover:underline">
+            <a href={asset("/demo/membrain-demo.mp4")} download className="font-medium text-leaf hover:underline">
               {t.videoDownload}
             </a>
           </figcaption>

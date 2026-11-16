@@ -1,0 +1,58 @@
+# Deploys the API + site to the Azure App Service on every push to main, so nobody has to log in to Azure.
+# One-time setup by someone with Azure access:
+#   Azure portal -> App Service "membrain-cerebrospark" -> Overview -> "Download publish profile";
+#   GitHub repo -> Settings -> Secrets and variables -> Actions -> New repository secret:
+#   name AZURE_WEBAPP_PUBLISH_PROFILE, value = the whole downloaded file.
+# Until that secret exists this workflow does nothing. App settings (speech key, startup command) stay as they are.
+name: Deploy to Azure (UAE North)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: azure-deploy
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      APP_NAME: membrain-cerebrospark
+      HAS_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE != '' }}
+    steps:
+      - name: Skip if Azure is not connected yet
+        if: env.HAS_PROFILE != 'true'
+        run: echo "AZURE_WEBAPP_PUBLISH_PROFILE is not set; skipping the Azure deployment."
+      - uses: actions/checkout@v4
+        if: env.HAS_PROFILE == 'true'
+      - uses: actions/setup-node@v4
+        if: env.HAS_PROFILE == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - name: Build the site (served by the API at /)
+        if: env.HAS_PROFILE == 'true'
+        working-directory: site
+        env:
+          NEXT_PUBLIC_SITE_URL: https://${{ env.APP_NAME }}.azurewebsites.net
+        run: npm ci --no-audit --no-fund && npm run build
+      - name: Package the code plus the built site (no node_modules, no git history)
+        if: env.HAS_PROFILE == 'true'
+        run: |
+          git archive --format=zip -o deploy.zip HEAD
+          zip -qr deploy.zip site/out
+          ls -lh deploy.zip
+      - uses: azure/webapps-deploy@v3
+        if: env.HAS_PROFILE == 'true'
+        with:
+          app-name: ${{ env.APP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: deploy.zip
+      - name: Check the live app
+        if: env.HAS_PROFILE == 'true'
+        run: |
+          sleep 60
+          curl -fsS "https://${APP_NAME}.azurewebsites.net/health" && echo
+          curl -fsS "https://${APP_NAME}.azurewebsites.net/" | grep -q "right clinician" && echo "new site is live"

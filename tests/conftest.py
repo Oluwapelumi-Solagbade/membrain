@@ -3,3 +3,14 @@
 import os
 
 os.environ.setdefault("ALLOW_ROLE_HEADER", "1")
+
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _fresh_concern_rate_limit():
+    """POST /concerns allows a few concerns a minute per connection; every test client shares one address."""
+    import api.main as M
+    M._CONCERN_HITS.clear()
+    yield
