@@ -8,6 +8,7 @@ import { LogoMark, Mark } from "../Logo";
 import { Narrative } from "../Narrative";
 import { config, getEngine, getIntake, LEVEL_TONE, REPORTER_LABEL, type Evaluation, type IntakeResult, type Lang, type Reporter } from "@/lib/mb";
 import { ACTIVITY, CONFOUNDER, DOMAIN, ONSET, RED_FLAG, WHO, label } from "@/lib/labels";
+import { rememberClaim } from "@/lib/auth";
 import { getBackend } from "@/lib/workspace/backend";
 import { COPY, EXAMPLES, REPORTERS, type Copy } from "./copy";
 
@@ -259,6 +260,8 @@ export function ConcernChat() {
       .then((b) => b.raiseConcern(body))
       .then((c) => {
         setCaseId(c.participant.id);
+        const claim = (c as { claim_token?: string }).claim_token;
+        if (claim) rememberClaim(c.participant.id, claim);
         return c.latest ?? ev;
       })
       .catch(() => ev);
@@ -327,7 +330,7 @@ export function ConcernChat() {
     const onset = result.onset && ok.onset ? label(ONSET, result.onset.value, L, result.onset.label) : "";
     const text =
       L === "ar"
-        ? `سمعت إنك لاحظت تغيّر في: ${doms.join("، ") || "شي ما تحدد للحين"}. ${onset}. ${flags.length ? "وذكرت علامات ممكن تكون عاجلة، فبيشوفها طبيب. " : ""}هل هذا صحيح؟`
+        ? `فهمت أنك لاحظت تغيّرًا في: ${doms.join("، ") || "أمر لم يتحدّد بعد"}. ${onset}. ${flags.length ? "وذكرت علامات قد تكون عاجلة، وسيطّلع عليها طبيب. " : ""}هل هذا صحيح؟`
         : `I heard that you have noticed changes in ${doms.join(", ") || "nothing specific yet"}${onset ? ". " + onset : ""}. ${flags.length ? "You also mentioned signs that may be urgent, so a clinician will look at them. " : ""}Is that right?`;
     setReading(true);
     speak(text, L, () => setReading(false));
@@ -577,7 +580,7 @@ export function ConcernChat() {
           <Stethoscope size={18} /> {t.clinician}
         </Link>
         {outcome?.level !== "URGENT" && (
-          <Link href="/prototype/#participant" className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-line bg-white px-4 py-3.5 text-[15px] font-medium hover:bg-mist">
+          <Link href={caseId ? `/checkin/?id=${encodeURIComponent(caseId)}&lang=${lang}` : `/checkin/?lang=${lang}`} className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-line bg-white px-4 py-3.5 text-[15px] font-medium hover:bg-mist">
             {t.checkin}
           </Link>
         )}

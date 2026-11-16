@@ -163,3 +163,34 @@ def test_reasoning_blocks_are_removed_before_reading_or_checking():
     v = I.verify_referral("<unused94>thought\nprobably dementia<unused95>A family member reports changes in memory. No diagnosis has been made.",
                           {"narrative": t, "domains": ["memory"]})
     assert v["grounded"] and v["n"] == 2
+
+
+# Standard Arabic (written for these tests; the gold sets are mostly Gulf dialect). MemBrain itself now speaks
+# Modern Standard Arabic, so people answering it may write that way too.
+MSA = [
+    ("منذ حوالي سنتين أصبحت أمي تنسى كثيرًا، وأحيانًا تكرر السؤال نفسه، ولم تعد ترغب في الخروج كما كانت. وأختي الآن تدفع الفواتير عنها.",
+     {"memory", "executive", "mood"}, "years", {("money", "sister")}),
+    ("لاحظت في الأشهر الأخيرة أن والدي لا يتذكر مواعيده، وأصبح ابني يقوده إلى كل مكان بعد أن تاه في الطريق.",
+     {"memory", "orientation"}, "months", {("driving", "son")}),
+    ("منذ ثلاثة أشهر تجد والدتي صعوبة في إيجاد الكلمات ولا تستطيع متابعة الحديث.", {"language"}, "months", set()),
+    ("منذ عدة أسابيع تتولى ابنتي إدارة أمور أمي المالية لأنها لم تعد قادرة على التعامل مع المال.",
+     {"executive"}, "weeks", {("money", "daughter")}),
+    ("أصبح زوجي سريع الغضب وعدوانيًا، ولا ينام في الليل.", {"behaviour", "sleep"}, None, set()),
+]
+
+
+def test_standard_arabic_accounts_are_read():
+    for text, domains, onset, timeline in MSA:
+        k = keys(text, "ar")
+        assert domains <= set(k["domains"]), (text, k)
+        assert k["onset"] == onset, (text, k)
+        assert timeline <= set(k["timeline"]), (text, k)
+
+
+def test_standard_arabic_red_flags_and_what_is_not_one():
+    assert "recent_fall_head_injury" in keys("سقط أبي أمس في الحمام وأصيب في رأسه.", "ar")["red_flags"]
+    assert "safety_risk" in keys("ترك والدي الغاز مشتعلًا مرتين هذا الشهر.", "ar")["red_flags"]
+    assert "new_neuro_symptoms" in keys("عنده ضعف في يده اليمنى منذ الصباح.", "ar")["red_flags"]
+    hearing = keys("يعاني والدي من ضعف في السمع.", "ar")
+    assert hearing["red_flags"] == [] and "hearing" in hearing["confounders"]   # weak hearing is not a stroke sign
+    assert "memory" not in keys("لا توجد مشكلة في ذاكرته، لكنه حزين.", "ar")["domains"]

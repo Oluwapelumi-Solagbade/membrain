@@ -41,6 +41,8 @@
       const toks = split(pre).slice(-2); const neg = new Set(X.NEG[lang]);
       return toks.some((t) => neg.has(t) || (lang === "ar" && t !== "ولا" && "وف".includes(t[0]) && neg.has(t.slice(1))));
     }
+    // A hit that starts one of these phrases belongs elsewhere (weak hearing is not a stroke's new weakness).
+    const notAHit = (norm, start, lang) => ((X.NOT_A_HIT || {})[lang] || []).some((x) => norm.startsWith(norm1(x), start));
     const span = (idx, s, e) => [idx[s], idx[e - 1] + 1];
     const detectLang = (t) => { let ar = 0; for (const c of t) if (c >= "؀" && c <= "ۿ") ar++; return ar > t.length * 0.2 ? "ar" : "en"; };
     function confidence(s, w) { if (s >= 2) return 0.95; if (s === 1) return w ? 0.9 : 0.85; return w >= 2 ? 0.7 : 0.55; }
@@ -48,10 +50,11 @@
     // --- onset
     const NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, few: 3, "couple of": 2, several: 4, last: 1, past: 1, "18": 18 };
     const RX_EN = /(?<![a-z])([0-9]+|an|a|one|two|three|four|five|six|few|couple of|several|last|past)\s+(?:few\s+)?(?:or\s+\w+\s+)?(day|week|month|year)s?(?![a-z])/g;
-    const AR_UNITS = { "يوم": ["day", 1], "ايام": ["day", 3], "يومين": ["day", 2], "اسبوع": ["week", 1], "اسابيع": ["week", 3], "اسبوعين": ["week", 2], "شهر": ["month", 1], "شهور": ["month", 3], "اشهر": ["month", 3], "شهرين": ["month", 2], "سنه": ["year", 1], "سنين": ["year", 3], "سنتين": ["year", 2], "سنوات": ["year", 3] };
-    const AR_NUM = { "كم": 3, "ثلاث": 3, "الثلاث": 3, "اربع": 4, "خمس": 5, "ست": 6, "الست": 6, "سبع": 7, "ثمان": 8, "عشر": 10 };
-    const RX_AR = /(?<![ء-ي])(?:من|قبل|خلال)\s+(?:حوالي\s+|تقريبا\s+)?(?:([0-9]+|كم|ثلاث|الثلاث|اربع|خمس|ست|الست|سبع|ثمان|عشر)\s+)?(يومين|يوم|ايام|اسبوعين|اسبوع|اسابيع|شهرين|شهر|شهور|اشهر|سنتين|سنه|سنين|سنوات)(?![ء-ي])/g;
-    const RX_AR_LAST = /(?<![ء-ي])من\s+(الاسبوع|الشهر|السنه)\s+(?:اللي\s+طاف|الماضي|الماضيه)/g;
+    const AR_UNITS = { "عام": ["year", 1], "عامين": ["year", 2], "اعوام": ["year", 3], "يوم": ["day", 1], "ايام": ["day", 3], "يومين": ["day", 2], "اسبوع": ["week", 1], "اسابيع": ["week", 3], "اسبوعين": ["week", 2], "شهر": ["month", 1], "شهور": ["month", 3], "اشهر": ["month", 3], "شهرين": ["month", 2], "سنه": ["year", 1], "سنين": ["year", 3], "سنتين": ["year", 2], "سنوات": ["year", 3] };
+    const AR_NUM = { "ثلاثه": 3, "اربعه": 4, "خمسه": 5, "سته": 6, "سبعه": 7, "ثمانيه": 8, "عشره": 10, "بضعه": 3, "بضع": 3, "عده": 4, "كم": 3, "ثلاث": 3, "الثلاث": 3, "اربع": 4, "خمس": 5, "ست": 6, "الست": 6, "سبع": 7, "ثمان": 8, "عشر": 10 };
+    const RX_AR = /(?<![ء-ي])(?:منذ|من|قبل|خلال)\s+(?:حوالي\s+|تقريبا\s+|نحو\s+)?(?:([0-9]+|ثلاثه|اربعه|خمسه|سته|سبعه|ثمانيه|عشره|بضعه|بضع|عده|كم|ثلاث|الثلاث|اربع|خمس|ست|الست|سبع|ثمان|عشر)\s+)?(يومين|يوم|ايام|اسبوعين|اسبوع|اسابيع|شهرين|شهر|شهور|اشهر|سنتين|سنه|سنين|سنوات|عامين|عام|اعوام)(?![ء-ي])/g;
+    const RX_AR_LAST = /(?<![ء-ي])(?:منذ|من|خلال)\s+(الاسبوع|الشهر|السنه|العام)\s+(?:اللي\s+طاف|الماضي|الماضيه)/g;
+    const RX_AR_RECENT = /(?<![ء-ي])(?:في|خلال)\s+(الايام|الاسابيع|الاشهر|الشهور|السنوات|الاعوام)\s+(?:الاخيره|الماضيه|القليله\s+الماضيه)/g;
     const RANK = { days: 0, weeks: 1, months: 2, years: 3 };
     const bucket = (u, n) => (u === "day" ? (n < 14 ? "days" : "weeks") : u === "week" ? (n < 8 ? "weeks" : "months") : u === "month" ? (n < 12 ? "months" : "years") : "years");
     function onset(norm, idx, lang) {
@@ -63,7 +66,8 @@
           consider(bucket(m[2], n), m.index, m.index + m[0].length);
         }
       } else {
-        for (const m of norm.matchAll(RX_AR_LAST)) consider({ "الاسبوع": "weeks", "الشهر": "months", "السنه": "years" }[m[1]], m.index, m.index + m[0].length);
+        for (const m of norm.matchAll(RX_AR_LAST)) consider({ "الاسبوع": "weeks", "الشهر": "months", "السنه": "years", "العام": "years" }[m[1]], m.index, m.index + m[0].length);
+        for (const m of norm.matchAll(RX_AR_RECENT)) consider({ "الايام": "days", "الاسابيع": "weeks", "الاشهر": "months", "الشهور": "months", "السنوات": "years", "الاعوام": "years" }[m[1]], m.index, m.index + m[0].length);
         for (const m of norm.matchAll(RX_AR)) { const [u, base] = AR_UNITS[m[2]]; const n = !m[1] ? base : /^[0-9]+$/.test(m[1]) ? parseInt(m[1], 10) : AR_NUM[m[1]]; consider(bucket(u, n), m.index, m.index + m[0].length); }
       }
       return best ? { value: best[0], label: X.ONSET[best[0]], confidence: 0.8, spans: [span(idx, best[1], best[2])] } : null;
@@ -93,7 +97,7 @@
       const LAB = { domain: X.DOMAINS, red_flag: X.RED_FLAGS, confounder: X.CONFOUNDERS };
       for (const [kind, groups] of Object.entries(X.LEX)) for (const [key, lx] of Object.entries(groups)) {
         const hits = [];
-        for (const [ph, weak, rb] of entries(lx[lang])) for (const [a, b] of find(norm, ph, rb)) if (!negated(norm, a, lang)) hits.push([a, b, weak]);
+        for (const [ph, weak, rb] of entries(lx[lang])) for (const [a, b] of find(norm, ph, rb)) if (!negated(norm, a, lang) && !(kind === "red_flag" && notAHit(norm, a, lang))) hits.push([a, b, weak]);
         if (!hits.length) continue;
         hits.sort((x, y) => x[0] - y[0] || x[1] - y[1] || (x[2] - y[2]));
         const spans = []; let ns = 0, nw = 0, last = -1;

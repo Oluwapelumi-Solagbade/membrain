@@ -3,7 +3,7 @@
 This puts the API and the demo on one in-country address, `https://membrain-cerebrospark.azurewebsites.net`. Live Arabic speech recognition then works through Azure Speech. The GitHub Pages link keeps working too, and calls this API for speech.
 
 ## Once: install and sign in
-1. Install the Azure CLI for Windows: https://aka.ms/installazurecliwindows. Close and reopen Git Bash afterwards.
+1. Install the Azure CLI. Windows: https://aka.ms/installazurecliwindows, then reopen Git Bash. Mac: `brew install azure-cli`.
 2. Run `az login`. A browser opens; sign in with the team's Azure account.
 3. Run `az account show --output table` and check it shows the right subscription.
 
@@ -17,6 +17,7 @@ git pull
 bash scripts/deploy_azure.sh
 ```
 - When it asks, paste **Key 2**. The input is hidden.
+- Next it asks for the Telegram bot token from @BotFather (hidden too). Press Enter to skip. See [docs/TELEGRAM_BOT.md](docs/TELEGRAM_BOT.md).
 - It takes 5–10 minutes.
 - At the end it prints `{"status":"ok"...}` and `{"enabled":true...}`.
 

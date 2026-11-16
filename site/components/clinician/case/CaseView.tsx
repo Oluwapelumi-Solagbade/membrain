@@ -14,6 +14,7 @@ import {
   LineChart,
   ListChecks,
   MessageSquareText,
+  Mic,
   Printer,
   Route,
   Stethoscope,
@@ -29,7 +30,7 @@ import { useWorkspace } from "../WorkspaceProvider";
 import { fhirBundle } from "./fhir";
 import { ReferralForm } from "./ReferralForm";
 import { EDUCATION_LABEL, type Evaluation } from "@/lib/mb";
-import { dueFor, fmtDate, fmtTime, isIntakeOnly, levelOf } from "@/lib/workspace/derive";
+import { dueOf, fmtDate, fmtTime, isIntakeOnly, levelOf } from "@/lib/workspace/derive";
 import { NAV } from "@/lib/workspace/navigator";
 import type { AuditEntry, Case } from "@/lib/workspace/types";
 
@@ -107,7 +108,7 @@ function CaseBody({ c }: { c: Case }) {
   const ev = c.latest;
   const intakeOnly = isIntakeOnly(c);
   const referred = p.referrals.length > 0;
-  const due = referred || c.task?.status === "closed" ? null : dueFor(ev);
+  const due = referred || c.task?.status === "closed" ? null : dueOf(c);
   const [referring, setReferring] = useState(false);
   const [activity, setActivity] = useState<AuditEntry[] | null>(null);
   const actionsTaken = c.task?.actions.length ?? 0;
@@ -164,6 +165,9 @@ function CaseBody({ c }: { c: Case }) {
           <ArrowLeft size={17} /> Back to queue
         </Link>
         <div className="flex flex-wrap gap-2.5">
+          <Link href={`/checkin/?id=${encodeURIComponent(p.id)}&lang=${p.language ?? "en"}`} className={btnClass.secondary}>
+            <Mic size={17} /> Start a check-in
+          </Link>
           <button type="button" onClick={exportFhir} className={btnClass.secondary}>
             <Download size={17} /> Export FHIR
           </button>
@@ -223,7 +227,11 @@ function CaseBody({ c }: { c: Case }) {
             <div>
               <p className="text-[17px] font-semibold">Why this level</p>
               <ul className="mt-1.5 space-y-1 text-[15.5px] leading-snug">
-                {ev.reasons.map((r) => (
+                {(c.task && c.task.status !== "closed" && c.task.id !== `${p.id}:${ev.session_id}`
+                  ? // An earlier review is still open: its reasons lead, and the later check-in follows (it does not close it).
+                    [...c.task.reasons, `Still open from ${fmtDate(c.task.created)}; a later check-in does not close it. Latest check-in: ${ev.reasons[0] ?? ev.level}`]
+                  : ev.reasons
+                ).map((r) => (
                   <li key={r} className="flex gap-2.5">
                     <span className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-ink" />
                     {r.replace(/->/g, "→")}

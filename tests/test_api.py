@@ -115,3 +115,52 @@ def test_concern_from_a_professional_maps_to_primary_care_route():
     assert case["participant"]["entry_route"] == "primary_care" and case["latest"]["level"] == "CLINICIAN_REVIEW"
     assert case["concern"]["raised_by"] == "Healthcare professional"
     assert c.post("/concerns", json=body | {"reporter": "primary_care"}).status_code == 422
+
+
+def _answers(form, lang):
+    from membrain.items import FLUENCY_LEXICON, JUDGEMENT, STORIES, WORD_LISTS
+    w = WORD_LISTS[form][lang]
+    return {"memory_immediate": " ".join(w[:7]), "memory_delayed": " ".join(w[:6]),
+            "fluency": " ".join(FLUENCY_LEXICON[form][lang].split()[:16]),
+            "story_recall": STORIES[form][lang], "judgement": " ".join(r[0] for r in JUDGEMENT[form]["rubric"][lang][:3])}
+
+
+def test_check_in_after_a_concern_needs_age_and_schooling_then_scores_with_the_form_used():
+    case = c.post("/concerns", json={"reporter": "self", "lang": "en", "narrative": "I keep forgetting appointments lately.",
+                                     "domains": ["memory"], "date": "2026-11-16"}).json()
+    pid = case["participant"]["id"]
+    body = {"date": "2026-11-16", "form": "C", "lang": "en", "transcripts": _answers("C", "en"), "phq2": 0, "gad2": 0,
+            "sleep_hours": 7.5, "input_mode": "typed (demo)"}
+    assert c.post(f"/participants/{pid}/sessions", json=body).status_code == 409
+    assert c.patch(f"/participants/{pid}/profile", json={"age": 66, "education": "secondary"}).status_code == 200
+    r = c.post(f"/participants/{pid}/sessions", json=body).json()
+    assert r["level"] == "BASELINE" and r["message"]["key"] == "BASELINE"
+    s = c.get(f"/cases/{pid}", headers=CL).json()["participant"]["sessions"][-1]
+    assert s["form"] == "C" and s["lang"] == "en" and s["raw"]["memory_immediate"] == 7
+
+
+def test_check_in_scores_in_the_language_it_was_done_in():
+    body = {"date": "2026-12-20", "form": "A", "lang": "en", "transcripts": _answers("A", "en")}
+    r = c.post("/participants/MB-1041/sessions", json=body)   # Fatima enrolled in Arabic, did this one in English
+    assert r.status_code == 200
+    s = c.get("/cases/MB-1041", headers=CL).json()["participant"]["sessions"][-1]
+    assert s["raw"]["memory_immediate"] == 7 and s["lang"] == "en"
+    assert c.patch("/participants/MB-1041/profile", json={"age": 50, "education": "none"}).status_code == 409
+    c.post("/demo/reset")
+
+
+def test_a_later_check_in_does_not_close_a_review_the_concern_opened():
+    case = c.post("/concerns", json={"reporter": "family", "lang": "en", "narrative": "Mum keeps forgetting and my sister now pays her bills.",
+                                     "domains": ["memory"], "timeline": [["money", "sister"]], "date": "2026-11-14"}).json()
+    pid = case["participant"]["id"]
+    assert case["task"]["level"] == "CLINICIAN_REVIEW"
+    c.patch(f"/participants/{pid}/profile", json={"age": 70, "education": "primary"})
+    c.post(f"/participants/{pid}/sessions", json={"date": "2026-11-15", "form": "A", "lang": "en", "transcripts": _answers("A", "en")})
+    after = c.get(f"/cases/{pid}", headers=CL).json()
+    assert after["latest"]["level"] != "CLINICIAN_REVIEW"            # the check-in itself looks fine...
+    assert after["task"]["level"] == "CLINICIAN_REVIEW" and after["task"]["status"] == "open"   # ...the review stays open
+    assert any(t["participant_id"] == pid for t in c.get("/queue", headers=CL).json())
+    tid = after["task"]["id"]
+    c.post(f"/tasks/{tid}/action", headers=CL, json={"action": "dismiss", "note": "Reviewed with the family"})
+    assert c.get(f"/cases/{pid}", headers=CL).json()["task"]["status"] == "closed"
+    c.post("/demo/reset")

@@ -4,10 +4,12 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, Camera, ChevronLeft, Mic, MoreVertical, Paperclip, Phone, Smile, Video } from "lucide-react";
 import { AndroidPhone, IPhone } from "../Phones";
 import { LogoMark } from "../Logo";
+import type { Lang } from "@/lib/mb";
 import { SectionHeading } from "../ui";
+import { LANDING } from "./copy";
 
 /**
- * "Raise it in the chat apps families already use": a WhatsApp chat in Gulf Arabic on an Android phone and a
+ * "Raise it in the chat apps families already use": a WhatsApp chat in Arabic on an Android phone (the family writes in Gulf dialect; MemBrain answers in Modern Standard Arabic) and a
  * Telegram chat in English on an iPhone. Both are previews of a planned channel, labelled as such.
  * The facts in the replies are what the rules extractor really picks out of these two messages, and the
  * outcome is what the triage engine decides for them (two activities taken over, so clinician review).
@@ -31,13 +33,13 @@ const waMessages: Msg[] = [
     time: "٨:١٢ م",
     body: (
       <>
-        <b>هذا اللي فهمته:</b>
+        <b>هذا ما فهمته:</b>
         <br />• الذاكرة: «ينسى»، «يعيد نفس»
         <br />• الأنشطة اليومية: «يسوق»
-        <br />• من سنة أو أكثر
-        <br />• أخوك الحين يسوق عنه ويدفع الفواتير
+        <br />• منذ سنة أو أكثر
+        <br />• أخوك يقود عنه الآن ويدفع فواتيره
         <br />
-        <br />ما فيه علامات عاجلة. صح كذا؟
+        <br />لا توجد علامات عاجلة. هل هذا صحيح؟
       </>
     ),
   },
@@ -46,7 +48,7 @@ const waMessages: Msg[] = [
     id: "w5",
     side: "in",
     time: "٨:١٣ م",
-    body: <>شكرًا لك. لأن أخوك صار يسوي عنه شيئين، بنرسل الحالة لطبيب يراجعها خلال ٢١ يوم، بدون ما ننتظر أي فحص. الطبيب هو اللي يقرر.</>,
+    body: <>شكرًا لك. بما أن أخاك أصبح يقوم بأمرين عنه، سنرسل الحالة إلى طبيب ليراجعها خلال ٢١ يومًا، دون انتظار أي فحص. والقرار للطبيب.</>,
   },
 ];
 
@@ -85,7 +87,7 @@ function WhatsAppChat({ shown, typing }: { shown: number; typing: boolean }) {
 
       <div className="mb-wa-wallpaper relative flex min-h-0 flex-1 flex-col justify-end overflow-hidden px-2.5 pb-1.5 pt-2">
         <p className="mx-auto mb-2 max-w-[94%] rounded-[7px] bg-[#ffeecd] px-2.5 py-[5px] text-center text-[11.5px] leading-snug text-[#54656f]">
-          الرسائل مشفّرة. MemBrain ما يشخّص، والطبيب يأكد كل معلومة.
+          الرسائل مشفّرة. MemBrain لا يشخّص، ويؤكّد الطبيب كل معلومة.
         </p>
         {list.map((m, i) => {
           const first = list[i - 1]?.side !== m.side;
@@ -363,7 +365,8 @@ function TelegramIcon({ size = 15 }: { size?: number }) {
   );
 }
 
-export function ChatChannels() {
+export function ChatChannels({ lang = "en" }: { lang?: Lang }) {
+  const t = LANDING[lang].chat;
   const { ref: waRef, shown: waShown, typing: waTyping } = useChatPlayback(waMessages.length, waIsReply);
   const { ref: tgRef, shown: tgShown, typing: tgTyping } = useChatPlayback(tgMessages.length, tgIsReply);
 
@@ -372,16 +375,18 @@ export function ChatChannels() {
       <div className="mx-auto max-w-[1320px] px-4 sm:px-6">
         <SectionHeading
           id="chat-title"
-          eyebrow="No app needed"
+          eyebrow={t.eyebrow}
           title={
             <>
-              Raise it where families already talk: <span className="text-leaf">WhatsApp and Telegram</span>
+              {t.title[0]}
+              <span className="text-leaf">{t.title[1]}</span>
+              {t.title[2]}
             </>
           }
-          intro="Send a voice note or a message in Gulf Arabic or English. MemBrain reads back what it understood, with the words each fact came from, and tells you what happens next. It never gives a diagnosis."
+          intro={t.intro}
         />
 
-        <div className="mt-12 grid gap-14 md:grid-cols-2 md:gap-8 lg:gap-14">
+        <div className="mt-12 grid gap-14 md:grid-cols-2 md:gap-8 lg:gap-14" dir="ltr">
           <div className="flex flex-col items-center">
             <div ref={waRef} className="w-full">
               <AndroidPhone label="A WhatsApp chat in Gulf Arabic: a daughter's voice note about her father, the facts MemBrain picked out, and the next step">
@@ -393,9 +398,9 @@ export function ChatChannels() {
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#25d366] text-white">
                   <WhatsAppIcon />
                 </span>
-                WhatsApp, in Gulf Arabic
+                {t.wa[0]}
               </p>
-              <p className="mt-1.5 text-[14px] leading-snug text-body">The app most families in the UAE already have open. A voice note is enough.</p>
+              <p className="mt-1.5 text-[14px] leading-snug text-body">{t.wa[1]}</p>
             </div>
           </div>
 
@@ -410,14 +415,14 @@ export function ChatChannels() {
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#229ed9] text-white">
                   <TelegramIcon />
                 </span>
-                Telegram, in English
+                {t.tg[0]}
               </p>
-              <p className="mt-1.5 text-[14px] leading-snug text-body">For expatriate families and carers. The same checks, the same clinician queue.</p>
+              <p className="mt-1.5 text-[14px] leading-snug text-body">{t.tg[1]}</p>
             </div>
           </div>
         </div>
         <p className="mt-10 text-center text-[13px] text-muted">
-          Both channels are planned for the pilot and shown here as previews. The facts and the outcome are the engine&apos;s real output for these two messages.
+          {t.note}
         </p>
       </div>
     </section>

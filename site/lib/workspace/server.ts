@@ -1,12 +1,14 @@
-// The workspace against the MemBrain API (api/main.py). The role header stands in for sign-in, as in the API's
-// demo; production uses SMART on FHIR / OAuth2.
-import type { AuditEntry, Backend, Case, ConcernIn, Referral, ReferralIn, ReferralState, TaskAction } from "./types";
+// The workspace against the MemBrain API (api/main.py). Every call carries the signed-in session's bearer token
+// (lib/auth.ts); the server decides from it what the caller may see.
+import { authHeader, sessionEnded } from "../auth";
+import type { AuditEntry, Backend, Case, CheckinResult, ConcernIn, ProfileIn, Referral, ReferralIn, ReferralState, SessionIn, TaskAction } from "./types";
 
 async function call<T>(base: string, path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(base + path, {
     ...init,
-    headers: { "Content-Type": "application/json", "X-Role": "clinician", ...(init.headers ?? {}) },
+    headers: { "Content-Type": "application/json", ...authHeader(), ...(init.headers ?? {}) },
   });
+  if (res.status === 401) sessionEnded();
   if (!res.ok) {
     let detail = `${res.status} ${res.statusText}`;
     try {
@@ -33,6 +35,10 @@ export function serverBackend(base: string): Backend {
     advance: (rid: string, state: ReferralState, date: string, reason = "") => post<Referral>(`/referrals/${encodeURIComponent(rid)}/status`, { state, date, reason }),
     audit: () => call<AuditEntry[]>(base, "/audit"),
     raiseConcern: (body: ConcernIn) => post<Case>("/concerns", body),
+    setProfile: (pid: string, body: ProfileIn) =>
+      call<Case>(base, `/participants/${encodeURIComponent(pid)}/profile`, { method: "PATCH", body: JSON.stringify(body) }),
+    submitSession: (pid: string, body: SessionIn) =>
+      call<CheckinResult>(base, `/participants/${encodeURIComponent(pid)}/sessions`, { method: "POST", body: JSON.stringify(body) }),
     reset: async () => {
       await post("/demo/reset", {});
     },

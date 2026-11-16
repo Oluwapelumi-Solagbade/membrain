@@ -1,13 +1,13 @@
 {
  "n": 30,
- "domain_macro_f1": 0.849,
- "worst_language_f1": 0.834,
+ "domain_macro_f1": 0.854,
+ "worst_language_f1": 0.846,
  "by_language": {
   "ar": {
    "n": 15,
-   "domain_macro_f1": 0.834,
+   "domain_macro_f1": 0.846,
    "per_domain": {
-    "memory": 0.667,
+    "memory": 0.769,
     "language": 0.667,
     "orientation": 1.0,
     "executive": 1.0,
@@ -33,9 +33,9 @@
   },
   "all": {
    "n": 30,
-   "domain_macro_f1": 0.849,
+   "domain_macro_f1": 0.854,
    "per_domain": {
-    "memory": 0.769,
+    "memory": 0.815,
     "language": 0.857,
     "orientation": 0.947,
     "executive": 0.8,
@@ -57,20 +57,20 @@
  "confounder_f1": 0.889,
  "unsupported_rate": null,
  "unsupported_items": "0/0",
- "latency_p95_s": 0.0,
+ "latency_p95_s": 0.002,
  "gates": [
   {
    "metric": "domain_macro_f1",
    "label": "Concern-domain macro F1",
    "target": ">= 0.9",
-   "value": 0.849,
+   "value": 0.854,
    "pass": false
   },
   {
    "metric": "worst_language_f1",
    "label": "Macro F1 in the worst language",
    "target": ">= 0.85",
-   "value": 0.834,
+   "value": 0.846,
    "pass": false
   },
   {
@@ -98,12 +98,12 @@
    "metric": "latency_p95_s",
    "label": "p95 latency (seconds)",
    "target": "< 5.0",
-   "value": 0.0,
+   "value": 0.002,
    "pass": true
   }
  ],
  "engine": "rules",
- "version": "intake-0.1.0",
+ "version": "intake-0.2.0",
  "set": "test",
  "errors": [
   {
@@ -367,9 +367,7 @@
   {
    "id": "t-ar-15",
    "domains": {
-    "missed": [
-     "memory"
-    ],
+    "missed": [],
     "extra": [
      "daily_function"
     ]

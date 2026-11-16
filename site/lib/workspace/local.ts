@@ -2,10 +2,11 @@
 // referrals, concerns, the audit trail) are kept in this browser's storage. It mirrors api/main.py so the pages
 // behave the same as against the server. Nothing leaves the browser.
 import personasJson from "../generated/personas.json";
-import { config, getEngine, type Level, type Persona } from "../mb";
+import programmeData from "../generated/programme-data.json";
+import { config, getEngine, type Level, type Persona, type Session } from "../mb";
 import { concernSummary } from "./concern";
 import { nav } from "./navigator";
-import type { AuditEntry, Backend, Case, ConcernIn, Participant, Referral, ReferralIn, ReferralState, Task, TaskAction } from "./types";
+import type { AuditEntry, Backend, Case, CheckinResult, ConcernIn, Participant, ProfileIn, Referral, ReferralIn, ReferralState, SessionIn, Task, TaskAction } from "./types";
 
 const KEY = "membrain.workspace.v2";
 // Who raised the concern -> the navigator's entry route (as api/main.py and web/app.js do).
@@ -16,10 +17,13 @@ type State = {
   concerns: Participant[];
   referrals: Record<string, Referral[]>; // a participant's full referral list, once it has changed
   tasks: Record<string, Task>; // tasks that have been acted on
+  sessions: Record<string, Session[]>; // check-ins done here, added after a participant's own sessions
+  profiles: Record<string, ProfileIn>; // age and schooling given at a first check-in after a concern
   audit: AuditEntry[];
 };
 
-const empty = (): State => ({ concerns: [], referrals: {}, tasks: {}, audit: [] });
+const MESSAGES = (programmeData as unknown as { messages: Record<string, [string, string]> }).messages;
+const empty = (): State => ({ concerns: [], referrals: {}, tasks: {}, sessions: {}, profiles: {}, audit: [] });
 
 function load(): State {
   try {
@@ -53,27 +57,37 @@ function audit(s: State, actor: string, action: string, target: string, detail: 
 
 function participants(s: State): Participant[] {
   const base = clone(personasJson as unknown as Participant[]);
-  return [...base, ...clone(s.concerns)].map((p) => ({ ...p, referrals: s.referrals[p.id] ?? p.referrals ?? [] }));
+  return [...base, ...clone(s.concerns)].map((p) => ({
+    ...p,
+    ...(s.profiles[p.id] ?? {}),
+    sessions: [...p.sessions, ...clone(s.sessions[p.id] ?? [])],
+    referrals: s.referrals[p.id] ?? p.referrals ?? [],
+  }));
 }
 
 function buildCase(p: Participant, s: State): Case {
   const E = getEngine();
   const ev = p.sessions.length ? E.evaluate(p as unknown as Persona, p.sessions) : { latest: null, history: [] };
   const latest = ev.latest;
-  let task: Task | null = null;
-  if (latest && HELD.includes(latest.level)) {
-    const id = `${p.id}:${latest.session_id}`;
-    task = s.tasks[id] ?? {
+  // The case's task: the most recent held one still open, else the latest session's. A later check-in does not
+  // close a review or urgent hold opened earlier (by a concern, say); only a clinician's action does (as api/main.py).
+  const taskOf = (e: (typeof ev.history)[number]): Task => {
+    const id = `${p.id}:${e.session_id}`;
+    return s.tasks[id] ?? {
       id,
       participant_id: p.id,
-      level: latest.level,
+      level: e.level,
       status: "open",
-      created: latest.date,
-      review_target_days: config.REVIEW_TARGET_DAYS[latest.level],
-      reasons: latest.reasons,
+      created: e.date,
+      review_target_days: config.REVIEW_TARGET_DAYS[e.level],
+      reasons: e.reasons,
       actions: [],
     };
-  }
+  };
+  const held = ev.history.filter((e) => HELD.includes(e.level)).map(taskOf);
+  let task: Task | null = [...held].reverse().find((t) => t.status !== "closed") ?? null;
+  if (!task && latest && HELD.includes(latest.level)) task = taskOf(latest);
+  if (!task && held.length) task = held[held.length - 1]; // the last one, closed: the case shows it was handled
   const lang = p.language ?? "en";
   return {
     participant: p,
@@ -182,6 +196,47 @@ export const localBackend: Backend = {
     audit(s, "public", "concern_raised", pid, { reporter: body.reporter, red_flags: body.red_flags, activities: acts });
     commit(s);
     return buildCase(p, s);
+  },
+
+  async setProfile(pid: string, body: ProfileIn) {
+    const s = clone(state());
+    const p = participants(s).find((x) => x.id === pid);
+    if (!p) throw new Error("Participant not found");
+    if (p.enrolled !== false && !s.profiles[pid] && p.age != null) throw new Error("This participant is enrolled; their profile is changed through enrolment");
+    s.profiles[pid] = { sex: "U", ...body };
+    audit(s, "participant", "profile_set", pid, { age: body.age, education: body.education });
+    commit(s);
+    return buildCase(participants(s).find((x) => x.id === pid)!, s);
+  },
+
+  async submitSession(pid: string, body: SessionIn): Promise<CheckinResult> {
+    const s = clone(state());
+    const p = participants(s).find((x) => x.id === pid);
+    if (!p) throw new Error("Participant not found");
+    if (p.age == null || p.education == null) throw new Error("Age and schooling are needed before a check-in can be scored");
+    const E = getEngine() as unknown as { scoreTranscripts: (tr: SessionIn["transcripts"], form: string, lang: string) => { raw: Record<string, number>; detail: unknown } };
+    const sc = E.scoreTranscripts(body.transcripts, body.form, body.lang);
+    const { lang, ...rest } = body;
+    const session: Session = {
+      ...rest,
+      lang,
+      session_id: `${pid}-s${p.sessions.length}`,
+      raw: sc.raw,
+      scoring_detail: sc.detail,
+      voice_features: p.consent?.voice_features ? body.voice_features : null,
+    };
+    (s.sessions[pid] ??= []).push(session);
+    const after = participants(s).find((x) => x.id === pid)!;
+    const ev = getEngine().evaluate(after as unknown as Persona, after.sessions).latest as ReturnType<ReturnType<typeof getEngine>["evaluate"]>["latest"] & { confounders?: { code: string }[] };
+    audit(s, "participant", "session_submitted", pid, { session_id: session.session_id, level: ev.level });
+    commit(s);
+    const i = lang === "ar" ? 1 : 0;
+    const key = ev.valid === false ? "INVALID" : ev.level;
+    const message: CheckinResult["message"] = { key, text: (MESSAGES[key] ?? MESSAGES.INVALID)[i] };
+    if ((ev.confounders ?? []).some((c) => c.code === "mood")) message.support = MESSAGES.MOOD_SUPPORT[i];
+    const out: CheckinResult = { session_id: session.session_id, message, level: ev.level, held_for_clinician: Boolean(ev.held_for_clinician) };
+    if (ev.level === "BASELINE" || ev.level === "STABLE") out.prevention = p.prevention?.[lang] ?? null;
+    return out;
   },
 
   async reset() {

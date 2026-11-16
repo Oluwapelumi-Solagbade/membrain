@@ -21,6 +21,7 @@ MemBrain is a bilingual (Arabic dialects and English), voice-first cognitive and
 | Azure AI Speech (UAE North): server-side token broker, streaming transcription by dialect, automatic fallback | `api/speech.py`, `web/app.js` | Working; goes live once deployed with the key |
 | Enrolment: identity vault, consent for each data type, informant, health context, session plan, audited re-identification | `web/app.js`, `api/main.py` | Working, tested |
 | Navigator: red-flag screen, service directory, accessibility matching, closed-loop referral tracking, next-steps pack, programme metrics | `membrain/navigator.py`, Referrals tab | Working, tested |
+| Telegram bot: raise a concern by text or voice note (AR/EN), read-back with evidence, same triage and clinician queue as the website | `api/telegram.py`, [guide](docs/TELEGRAM_BOT.md) | Working, tested; needs a bot token |
 | Web prototype: enrolment, participant app, clinician dashboard, referrals, validation, architecture | `web/` | Working; also published as a hosted demo |
 | Python/JavaScript parity (90 golden cases, 461 session evaluations, navigator metrics; 0 mismatches) | `web/parity_test.js` | Passing |
 
@@ -55,6 +56,7 @@ docs/          technical documentation, assumptions and limitations, data source
 - [Navigator AI: family intake, referral drafting, release gates](docs/NAVIGATOR_AI.md)
 - [Evidence pack: robustness, ablation, operating point, decision curve](docs/EVIDENCE_PACK.md)
 - [Navigator layer: from alert to completed care](docs/NAVIGATOR.md)
+- [Telegram bot](docs/TELEGRAM_BOT.md)
 - [Azure Speech integration](docs/AZURE_SPEECH.md) · [Deploy to Azure UAE North](docs/DEPLOY_AZURE.md)
 - [On-device vs cloud architecture + speech stack](docs/ARCHITECTURE_DEVICE_CLOUD.md)
 - [Assumptions and limitations](docs/ASSUMPTIONS_LIMITATIONS.md)

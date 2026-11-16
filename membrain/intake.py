@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import re
 
-INTAKE_VERSION = "intake-0.1.0"
+INTAKE_VERSION = "intake-0.2.0"   # 0.2: Modern Standard Arabic phrasing alongside Gulf dialect
 REVIEW_BELOW = 0.7          # fields under this confidence are shown as "needs confirmation"
 # "~" in a lexicon entry marks a weak cue. Confidence is a fixed table (identical in Python and JS):
 # one strong cue 0.85, strong + weak 0.9, two or more strong 0.95, one weak 0.55, two or more weak 0.7.
@@ -58,109 +58,114 @@ LEX = {
                           "short term memory", "where he put", "where she put", "~memory"],
                    "ar": ["ينسى", "تنسى", "نسى", "نسي", "نست", "نسيان", "يعيد نفس", "تعيد نفس", "نفس السؤال", "يعيد كلامه",
                           "تعيد كلامها", "يكرر", "تكرر", "ما يتذكر", "ما تتذكر", "ما تذكر", "ما يذكر", "ما تذكرت", "ما تذكر",
-                          "ذاكرته تخف", "ذاكرتها تخف", "~ذاكرته", "~ذاكرتها", "~الذاكره", "وين حط", "وين حطت"]},
+                          "ذاكرته تخف", "ذاكرتها تخف", "~ذاكرته", "~ذاكرتها", "~الذاكره", "وين حط", "وين حطت", "انسى", "لا يتذكر", "لا تتذكر", "لا اتذكر", "لم يعد يتذكر", "لم تعد تتذكر", "السؤال نفسه", "ذاكرته ضعفت", "ذاكرتها ضعفت", "ضعف الذاكره", "اين وضع", "اين وضعت"]},
         "language": {"en": ["finding the right word", "finding words", "find the right word", "find the word", "word-finding",
                             "word finding", "lost for words", "mixes up words", "mixing up words", "wrong name", "wrong word",
                             "follow the conversation", "follow conversation", "following conversation", "speech has become harder"],
                      "ar": ["تدور على الكلمه", "يدور على الكلمه", "ما يلقى الكلمه", "ما تلقى الكلمه", "يلخبط الكلام", "تلخبط الكلام",
                             "بغير اسمها", "بغير اسمه", "يغلط في الاسامي", "تغلط في الاسامي", "تتابع السالفه", "يتابع السالفه",
-                            "كلامه صعب", "كلامها صعب"]},
+                            "كلامه صعب", "كلامها صعب", "يبحث عن الكلمه", "تبحث عن الكلمه", "لا يجد الكلمه", "لا تجد الكلمه", "ايجاد الكلمات", "يخلط بين الكلمات", "تخلط بين الكلمات", "يخلط الاسماء", "تخلط الاسماء", "متابعه الحديث", "يتابع الحديث", "تتابع الحديث"]},
         "orientation": {"en": ["got lost", "gets lost", "getting lost", "get lost", "lost his way", "lost her way", "didn't recognise",
                                "didn't recognize", "doesn't recognise", "doesn't recognize", "what day it is", "where she was",
                                "where he was", "know what day", "doesn't know what day", "didn't know what day", "don't know what day", "doesn't know where", "didn't know where", "~confused", "~muddled", "~disorient"],
                         "ar": ["ضاع", "ضاعت", "تضيع في", "يضيع في", "ضيع الطريق", "ضيعت الطريق", "ما عرفني", "ما عرفتني",
-                               "ما عرف وين", "ما تعرف وين", "ما يعرف وين", "اي يوم اليوم", "ما تعرف اي يوم", "ما يعرف اي يوم", "اي يوم", "~متلخبط", "~متلخبطه"]},
+                               "ما عرف وين", "ما تعرف وين", "ما يعرف وين", "اي يوم اليوم", "ما تعرف اي يوم", "ما يعرف اي يوم", "اي يوم", "~متلخبط", "~متلخبطه", "يتوه", "تتوه", "تاه", "تاهت", "ضل الطريق", "ضلت الطريق", "لم يعرفني", "لم تعرفني", "لا يعرف اين", "لا تعرف اين", "لا يعرف اي يوم", "لا تعرف اي يوم", "~مشوش", "~مشوشه"]},
         "executive": {"en": ["money", "bills", "bank", "finances", "scam", "budget", "the remote", "~planning", "~decisions"],
-                      "ar": ["الفلوس", "فلوس", "الفواتير", "البنك", "نصاب", "الريموت", "يدير الفلوس", "~يخطط"]},
+                      "ar": ["الفلوس", "فلوس", "الفواتير", "البنك", "نصاب", "الريموت", "يدير الفلوس", "~يخطط", "المال", "الامور الماليه", "اموره الماليه", "امورها الماليه", "الحسابات", "احتيال", "~التخطيط", "~القرارات"]},
         "daily_function": {"en": ["cook", "stopped driving", "the driving", "~driving", "~drive", "shopping", "dressing", "dress himself",
                                   "dress herself", "his appearance", "her appearance", "hygiene", "praying on time", "fridge is empty",
                                   "washing machine", "medicines", "his tablets", "her tablets", "~the phone"],
                            "ar": ["يطبخ", "تطبخ", "الطبخ", "~يسوق", "~اسوق", "السواقه", "المقاضي", "يلبس", "تلبس", "يتسبح", "تتسبح",
                                   "ادويته", "ادويتها", "حبوبه", "حبوبها", "يصلي في وقته", "تصلي في وقتها", "الثلاجه فاضيه",
-                                  "الغساله", "~التلفون"]},
+                                  "الغساله", "~التلفون", "الطهي", "يطهو", "تطهو", "القياده", "~يقود", "~تقود", "التسوق", "ارتداء ملابسه", "ارتداء ملابسها", "النظافه الشخصيه", "الادويه"]},
         "mood": {"en": ["sad", "feeling low", "very low", "seems low", "low mood", "feeling down", "seems down", "depress",
                         "withdrawn", "doesn't want to go out", "lost interest", "no interest", "cries", "crying", "anxious",
                         "lonely"],
                  "ar": ["حزين", "حزينه", "ضايق", "ضايقه", "متضايق", "متضايقه", "مكتئب", "مكتئبه", "اكتئاب", "يبكي", "تبكي",
-                        "ما يبي يطلع", "ما تبي تطلع", "ما تبي تشوف", "ما يبي يشوف", "ما له خلق", "ما لها خلق", "قلقان", "قلقانه"]},
+                        "ما يبي يطلع", "ما تبي تطلع", "ما تبي تشوف", "ما يبي يشوف", "ما له خلق", "ما لها خلق", "قلقان", "قلقانه", "لم يعد يرغب في الخروج", "لم تعد ترغب في الخروج", "لا يرغب في الخروج", "لا ترغب في الخروج", "فقد الاهتمام", "فقدت الاهتمام", "منعزل", "منعزله", "منطوي", "منطويه"]},
         "behaviour": {"en": ["irritable", "angry", "aggressive", "shouts", "shouting", "snaps", "suspicious", "accuses", "blames",
                              "stealing", "personality", "not like him", "not like her", "rude", "sees things", "sees children",
                              "who aren't there", "hallucinat", "~not himself", "~not herself"],
                       "ar": ["عصبي", "عصبيه", "يعصب", "تعصب", "يصارخ", "تصارخ", "يصرخ", "تصرخ", "يشك", "تشك", "يتهم", "تتهم",
-                             "سرقت", "تغير طبعه", "تغير طبعها", "قلة ادب", "يشوف عيال", "يشوف اشياء", "تشوف اشياء", "ما لهم وجود"]},
+                             "سرقت", "تغير طبعه", "تغير طبعها", "قلة ادب", "يشوف عيال", "يشوف اشياء", "تشوف اشياء", "ما لهم وجود", "سريع الغضب", "سريعه الغضب", "عدواني", "عدوانيه", "يغضب", "تغضب", "تغيرت شخصيته", "تغيرت شخصيتها", "يرى اشياء", "ترى اشياء", "هلوسه"]},
         "sleep": {"en": ["sleeping most", "not sleeping", "can't sleep", "awake at night", "up at night", "insomnia", "~sleep"],
-                  "ar": ["تنام اغلب", "ينام اغلب", "ما ينام", "ما تنام", "يصحى بالليل", "تصحى بالليل", "~النوم"]},
+                  "ar": ["تنام اغلب", "ينام اغلب", "ما ينام", "ما تنام", "يصحى بالليل", "تصحى بالليل", "~النوم", "لا ينام", "لا تنام", "يستيقظ ليلا", "تستيقظ ليلا", "يستيقظ في الليل", "تستيقظ في الليل", "الارق", "ينام معظم", "تنام معظم"]},
     },
     "red_flag": {
         "sudden_onset": {"en": ["sudden", "overnight", "out of nowhere", "since yesterday", "yesterday", "since tuesday", "since monday",
                                 "since wednesday", "since thursday", "since friday", "since saturday", "since sunday", "since then",
                                 "since a fall"],
                          "ar": ["فجاه", "بين يوم وليله", "من امس", "امس", "البارحه", "من يومها", "من يوم الثلاثاء", "من يوم الاثنين",
-                                "من يوم الاربعاء", "من يوم الخميس", "من يوم الجمعه", "من يوم السبت", "من يوم الاحد"]},
+                                "من يوم الاربعاء", "من يوم الخميس", "من يوم الجمعه", "من يوم السبت", "من يوم الاحد", "بشكل مفاجئ", "فجاه", "منذ ذلك اليوم"]},
         "fluctuating_confusion": {"en": ["comes and goes", "good days and bad days", "worse at night", "worse in the evening",
                                          "better in the morning", "drowsy", "in and out"],
-                                  "ar": ["يوم زين ويوم", "ساعات زين", "بالليل اسوا", "بالليل اسوء", "الصبح احسن", "نعسان", "نعسانه"]},
+                                  "ar": ["يوم زين ويوم", "ساعات زين", "بالليل اسوا", "بالليل اسوء", "الصبح احسن", "نعسان", "نعسانه", "يتحسن ويسوء", "تتحسن وتسوء", "يوم جيد ويوم", "اسوا في الليل", "اسوا ليلا", "ناعس", "ناعسه"]},
         "new_neuro_symptoms": {"en": ["slurred", "slurring", "droop", "weak on one side", "felt weak", "hand weak", "arm weak",
                                       "weakness", "can't move his", "can't move her", "severe headache", "worst headache", "numb$",
                                       "double vision"],
                                "ar": ["كلامه ثقيل", "كلامها ثقيل", "ثقل في", "ضعيفه", "ضعف في", "ما يقدر يحرك", "ما تقدر تحرك",
-                                      "مايل", "صداع قوي", "صداع شديد", "تنميل", "خدر"]},
+                                      "مايل", "صداع قوي", "صداع شديد", "تنميل", "خدر", "ثقل في الكلام", "لا يستطيع تحريك", "لا تستطيع تحريك", "ميلان في الوجه", "ميلان الوجه", "تلعثم مفاجئ"]},
         "recent_fall_head_injury": {"en": ["fell$", "fallen$", "a fall$", "had a fall", "hit his head", "hit her head", "head injury",
                                            "banged his head", "banged her head", "slipped"],
-                                    "ar": ["طاح", "طاحت", "طيحه", "ضرب راسه", "ضربت راسها", "زلق", "زلقت", "انزلق", "انزلقت"]},
+                                    "ar": ["طاح", "طاحت", "طيحه", "ضرب راسه", "ضربت راسها", "زلق", "زلقت", "انزلق", "انزلقت", "سقط", "سقطت", "سقوط", "اصيب في راسه", "اصيبت في راسها", "اصابه في الراس", "ارتطم راسه", "ارتطم راسها"]},
         "rapid_deterioration": {"en": ["worse quickly", "getting worse fast", "downhill fast", "gone downhill", "rapidly", "much worse",
                                        "declined fast"],
-                                "ar": ["بسرعه", "تتدهور", "يتدهور", "ساءت", "تدهورت"]},
+                                "ar": ["بسرعه", "تتدهور", "يتدهور", "ساءت", "تدهورت", "تدهور سريع", "ساءت حالته", "ساءت حالتها", "تسوء بسرعه", "يسوء بسرعه"]},
         "safety_risk": {"en": ["wander", "left the gas", "gas on", "left the stove", "stove on", "burned", "burnt", "walked out of the house",
                                "leave the house at night", "found her outside", "found him outside", "unsafe", "lives alone and",
                                "stopped eating", "not eating"],
                         "ar": ["الغاز مفتوح", "خلى الغاز", "خلت الغاز", "نسى الغاز", "نست الغاز", "طلع من البيت", "طلعت من البيت",
-                               "يطلع من البيت", "تطلع من البيت", "حرقت", "حرق", "لقوها برا", "لقوه برا", "يهيم", "ما ياكل", "ما تاكل"]},
+                               "يطلع من البيت", "تطلع من البيت", "حرقت", "حرق", "لقوها برا", "لقوه برا", "يهيم", "ما ياكل", "ما تاكل", "ترك الغاز", "تركت الغاز", "الغاز مشتعلا", "خرج من المنزل", "خرجت من المنزل", "يخرج من المنزل", "تخرج من المنزل", "يتجول", "تتجول", "لا ياكل", "لا تاكل", "توقف عن الاكل", "توقفت عن الاكل", "وجدناه في الشارع", "وجدناها في الشارع"]},
     },
     "confounder": {
         "new_medication": {"en": ["new medicine", "new medication", "new tablets", "new pills", "new blood pressure tablets",
                                   "changed her medication", "changed his medication", "changed her medicine", "changed his medicine",
                                   "started on", "sleeping pills"],
                            "ar": ["الدوا الجديد", "دوا جديد", "دواء جديد", "علاج جديد", "حبوب جديده", "غير لها الدوا",
-                                  "غير له الدوا", "غيروا الدوا", "حبوب النوم"]},
+                                  "غير له الدوا", "غيروا الدوا", "حبوب النوم", "ادويه جديده", "بدا دواء", "بدات دواء", "بدا علاج", "بدات علاج", "غير الطبيب دواءه", "غير الطبيب دواءها", "حبوب منومه"]},
         "recent_illness": {"en": ["infection", "fever", "flu", "hospital", "admitted", "surgery", "operation", "pneumonia", "covid"],
-                           "ar": ["التهاب", "حمى", "انفلونزا", "المستشفى", "عمليه", "كورونا"]},
+                           "ar": ["التهاب", "حمى", "انفلونزا", "المستشفى", "عمليه", "كورونا", "عدوى", "دخل المستشفى", "دخلت المستشفى", "جراحه"]},
         "hearing": {"en": ["can't hear", "cannot hear", "hard of hearing", "hearing aid", "deaf"],
-                    "ar": ["ما يسمع", "ما تسمع", "سمعه ضعيف", "سمعها ضعيف", "سماعه", "اطرش"]},
+                    "ar": ["ما يسمع", "ما تسمع", "سمعه ضعيف", "سمعها ضعيف", "سماعه", "اطرش", "لا يسمع", "لا تسمع", "ضعف في السمع", "ضعف السمع", "ضعيف السمع", "ضعيفه السمع"]},
         "bereavement": {"en": ["passed away", "died", "death of", "widow", "funeral"],
-                        "ar": ["توفى", "توفت", "توفي", "وفاه", "الله يرحمه", "الله يرحمها", "ارمله"]},
+                        "ar": ["توفى", "توفت", "توفي", "وفاه", "الله يرحمه", "الله يرحمها", "ارمله", "فقد زوجته", "فقدت زوجها", "رحيل"]},
     },
 }
 ACT_LEX = {
-    "money": {"en": ["money", "bills", "bank", "finances", "pay"], "ar": ["الفلوس", "فلوس", "الفواتير", "البنك", "يدفع", "تدفع", "ادفع"]},
-    "medicines": {"en": ["medicines", "medication", "tablets", "pills"], "ar": ["ادويته", "ادويتها", "الدوا", "حبوبه", "حبوبها"]},
-    "cooking": {"en": ["cook", "meals"], "ar": ["تطبخ", "يطبخ", "الطبخ"]},
-    "shopping": {"en": ["shopping", "groceries"], "ar": ["المقاضي", "التسوق"]},
-    "driving": {"en": ["driving", "drives", "drive$"], "ar": ["يسوق فيه", "يسوق", "يوديه", "توديه", "يوصله"]},
-    "phone": {"en": ["phone"], "ar": ["التلفون", "الجوال"]},
+    "money": {"en": ["money", "bills", "bank", "finances", "pay"], "ar": ["الفلوس", "فلوس", "الفواتير", "البنك", "يدفع", "تدفع", "ادفع", "المال", "الحسابات", "الامور الماليه", "اموره الماليه", "امورها الماليه", "يسدد", "تسدد"]},
+    "medicines": {"en": ["medicines", "medication", "tablets", "pills"], "ar": ["ادويته", "ادويتها", "الدوا", "حبوبه", "حبوبها", "الادويه", "الدواء", "ادويتي"]},
+    "cooking": {"en": ["cook", "meals"], "ar": ["تطبخ", "يطبخ", "الطبخ", "الطهي", "يطهو", "تطهو"]},
+    "shopping": {"en": ["shopping", "groceries"], "ar": ["المقاضي", "التسوق", "المشتريات"]},
+    "driving": {"en": ["driving", "drives", "drive$"], "ar": ["يسوق فيه", "يسوق", "يوديه", "توديه", "يوصله", "القياده", "يقوده", "تقوده", "يقود", "تقود", "يوصلها", "توصله", "توصلها"]},
+    "phone": {"en": ["phone"], "ar": ["التلفون", "الجوال", "الهاتف"]},
     "appointments": {"en": ["appointments"], "ar": ["المواعيد", "مواعيده", "مواعيدها"]},
-    "household": {"en": ["housework", "cleaning"], "ar": ["شغل البيت", "التنظيف"]},
+    "household": {"en": ["housework", "cleaning"], "ar": ["شغل البيت", "التنظيف", "الاعمال المنزليه", "اعمال المنزل"]},
     "prayer": {"en": ["prayer", "praying"], "ar": ["يصلي", "صلاه", "الصلاه"]},
 }
 WHO_LEX = {
-    "son": {"en": ["my son", "her son", "his son"], "ar": ["ولدي", "ولده", "ولدها"]},
-    "daughter": {"en": ["my daughter", "her daughter", "his daughter"], "ar": ["بنتي", "بنته", "بنتها"]},
+    "son": {"en": ["my son", "her son", "his son"], "ar": ["ولدي", "ولده", "ولدها", "ابني", "ابنه", "ابنها"]},
+    "daughter": {"en": ["my daughter", "her daughter", "his daughter"], "ar": ["بنتي", "بنته", "بنتها", "ابنتي", "ابنته", "ابنتها"]},
     "wife": {"en": ["my wife", "his wife"], "ar": ["زوجتي", "زوجته"]},
     "husband": {"en": ["my husband", "her husband"], "ar": ["زوجي", "زوجها"]},
-    "brother": {"en": ["my brother$", "her brother$", "his brother$"], "ar": ["اخوي", "اخوه", "اخوها"]},
-    "sister": {"en": ["my sister$", "her sister$", "his sister$"], "ar": ["اختي", "اخته", "اختها"]},
-    "driver": {"en": ["driver"], "ar": ["السايق", "الدريول"]},
-    "helper": {"en": ["maid", "helper", "housekeeper", "nanny"], "ar": ["الخدامه", "الشغاله", "المربيه"]},
+    "brother": {"en": ["my brother$", "her brother$", "his brother$"], "ar": ["اخوي", "اخوه", "اخوها", "اخي", "شقيقي", "شقيقه"]},
+    "sister": {"en": ["my sister$", "her sister$", "his sister$"], "ar": ["اختي", "اخته", "اختها", "شقيقتي"]},
+    "driver": {"en": ["driver"], "ar": ["السايق", "الدريول", "السائق"]},
+    "helper": {"en": ["maid", "helper", "housekeeper", "nanny"], "ar": ["الخدامه", "الشغاله", "المربيه", "العامله المنزليه", "الخادمه", "العامله"]},
     "informant": {"en": ["i$", "i'm$", "i've$"], "ar": ["انا"]},
     "other": {"en": ["my cousin", "my uncle", "my aunt", "my nephew", "my niece", "my mum$", "my mom$"], "ar": ["ولد عمي", "بنت عمي", "خالي", "عمي"]},
 }
 TAKEOVER = {"en": ["now", "took over", "takes over", "instead", "handles", "has to", "reminds"],
-            "ar": ["الحين", "صار", "صارت", "عنه", "عنها", "بداله", "بدالها"]}
+            "ar": ["الحين", "صار", "صارت", "عنه", "عنها", "بداله", "بدالها", "الان", "اصبح", "اصبحت", "بدلا منه", "بدلا منها", "يتولى", "تتولى", "تولى", "تولت"]}
 NEG = {"en": {"no", "not", "never", "isn't", "doesn't", "don't", "didn't", "hasn't", "haven't", "without", "denies", "none"},
-       "ar": {"ما", "مب", "مو", "لا", "بدون", "مافي", "مش", "ابد"}}
+       "ar": {"ما", "مب", "مو", "لا", "بدون", "مافي", "مش", "ابد", "ليس", "ليست", "لست"}}   # not "لم": "لم يعد" (no longer) is a change
 # a clause that opens with one of these negates everything after it ("no problem with his memory or behaviour")
 NEG_CLAUSE = {"en": ["no problem", "no real problem", "nothing wrong", "no issue", "no concern"],
-              "ar": ["ما فيه مشكله", "ما في مشكله", "مافي مشكله", "ما فيه شي", "ما عليه شي"]}
+              "ar": ["ما فيه مشكله", "ما في مشكله", "مافي مشكله", "ما فيه شي", "ما عليه شي", "لا توجد مشكله", "لا يوجد مشكله",
+                     "لا مشكله", "ليس لديه مشكله", "ليس لديها مشكله", "لا يوجد شيء"]}
+# A red-flag hit that starts one of these phrases is not one: weak hearing or eyesight is not the new weakness
+# of a stroke, and should not show emergency steps. (It still counts as what it is, such as a hearing problem.)
+NOT_A_HIT = {"en": ["weakness in his hearing", "weakness in her hearing", "weak hearing", "weak eyesight"],
+             "ar": ["ضعف في السمع", "ضعف في النظر", "ضعف في البصر", "ضعف في الذاكره", "ضعف في التركيز", "ضعيفه السمع", "ضعيفه النظر"]}
 AR_PREFIX = ["وال", "بال", "فال", "لل", "ال", "و", "ف", "ب", "ل"]
 CLAUSE = ".!?;,،؛؟\n"
 SENT = ".!?;؟\n"
@@ -235,6 +240,10 @@ def _negated(norm: str, start: int, lang: str) -> bool:
     return any(t in neg or (lang == "ar" and t != "ولا" and t[:1] in "وف" and t[1:] in neg) for t in toks)
 
 
+def _not_a_hit(norm: str, start: int, lang: str) -> bool:
+    return any(norm.startswith(_norm(x), start) for x in NOT_A_HIT[lang])
+
+
 def _span(idx, s, e):
     return [idx[s], idx[e - 1] + 1]
 
@@ -249,13 +258,17 @@ _NUM = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "
         "several": 4, "last": 1, "past": 1, "18": 18}
 _UNIT_EN = {"day": "day", "week": "week", "month": "month", "year": "year"}
 _RX_EN = re.compile(r"(?<![a-z])([0-9]+|an|a|one|two|three|four|five|six|few|couple of|several|last|past)\s+(?:few\s+)?(?:or\s+\w+\s+)?(day|week|month|year)s?(?![a-z])")
-_AR_UNITS = {"يوم": ("day", 1), "ايام": ("day", 3), "يومين": ("day", 2), "اسبوع": ("week", 1), "اسابيع": ("week", 3),
+_AR_UNITS = {"عام": ("year", 1), "عامين": ("year", 2), "اعوام": ("year", 3), "يوم": ("day", 1), "ايام": ("day", 3), "يومين": ("day", 2), "اسبوع": ("week", 1), "اسابيع": ("week", 3),
              "اسبوعين": ("week", 2), "شهر": ("month", 1), "شهور": ("month", 3), "اشهر": ("month", 3), "شهرين": ("month", 2),
              "سنه": ("year", 1), "سنين": ("year", 3), "سنتين": ("year", 2), "سنوات": ("year", 3)}
-_AR_NUM = {"كم": 3, "ثلاث": 3, "الثلاث": 3, "اربع": 4, "خمس": 5, "ست": 6, "الست": 6, "سبع": 7, "ثمان": 8, "عشر": 10}
-_RX_AR = re.compile(r"(?<![ء-ي])(?:من|قبل|خلال)\s+(?:حوالي\s+|تقريبا\s+)?(?:([0-9]+|كم|ثلاث|الثلاث|اربع|خمس|ست|الست|سبع|ثمان|عشر)\s+)?"
-                    r"(يومين|يوم|ايام|اسبوعين|اسبوع|اسابيع|شهرين|شهر|شهور|اشهر|سنتين|سنه|سنين|سنوات)(?![ء-ي])")
-_RX_AR_LAST = re.compile(r"(?<![\u0621-\u064a])من\s+(الاسبوع|الشهر|السنه)\s+(?:اللي\s+طاف|الماضي|الماضيه)")
+_AR_NUM = {"ثلاثه": 3, "اربعه": 4, "خمسه": 5, "سته": 6, "سبعه": 7, "ثمانيه": 8, "عشره": 10, "بضعه": 3, "بضع": 3, "عده": 4,
+           "كم": 3, "ثلاث": 3, "الثلاث": 3, "اربع": 4, "خمس": 5, "ست": 6, "الست": 6, "سبع": 7, "ثمان": 8, "عشر": 10}
+_RX_AR = re.compile(r"(?<![ء-ي])(?:منذ|من|قبل|خلال)\s+(?:حوالي\s+|تقريبا\s+|نحو\s+)?"
+                    r"(?:([0-9]+|ثلاثه|اربعه|خمسه|سته|سبعه|ثمانيه|عشره|بضعه|بضع|عده|كم|ثلاث|الثلاث|اربع|خمس|ست|الست|سبع|ثمان|عشر)\s+)?"
+                    r"(يومين|يوم|ايام|اسبوعين|اسبوع|اسابيع|شهرين|شهر|شهور|اشهر|سنتين|سنه|سنين|سنوات|عامين|عام|اعوام)(?![ء-ي])")
+_RX_AR_LAST = re.compile(r"(?<![\u0621-\u064a])(?:منذ|من|خلال)\s+(الاسبوع|الشهر|السنه|العام)\s+(?:اللي\s+طاف|الماضي|الماضيه)")
+# "in recent weeks / over the last few months" (standard Arabic)
+_RX_AR_RECENT = re.compile(r"(?<![\u0621-\u064a])(?:في|خلال)\s+(الايام|الاسابيع|الاشهر|الشهور|السنوات|الاعوام)\s+(?:الاخيره|الماضيه|القليله\s+الماضيه)")
 _RANK = {"days": 0, "weeks": 1, "months": 2, "years": 3}
 
 
@@ -281,7 +294,11 @@ def _onset(norm: str, idx: list[int], lang: str):
                 best = (b, m.start(), m.end())
     else:
         for m in _RX_AR_LAST.finditer(norm):
-            b = {"الاسبوع": "weeks", "الشهر": "months", "السنه": "years"}[m.group(1)]
+            b = {"الاسبوع": "weeks", "الشهر": "months", "السنه": "years", "العام": "years"}[m.group(1)]
+            if best is None or _RANK[b] > _RANK[best[0]]:
+                best = (b, m.start(), m.end())
+        for m in _RX_AR_RECENT.finditer(norm):
+            b = {"الايام": "days", "الاسابيع": "weeks", "الاشهر": "months", "الشهور": "months", "السنوات": "years", "الاعوام": "years"}[m.group(1)]
             if best is None or _RANK[b] > _RANK[best[0]]:
                 best = (b, m.start(), m.end())
         for m in _RX_AR.finditer(norm):
@@ -348,7 +365,7 @@ def extract_rules(text: str, lang: str | None = None) -> dict:
             hits = []
             for ph, weak, rb in _entries(lx.get(lang, [])):
                 for a, b in _find(norm, ph, rb):
-                    if not _negated(norm, a, lang):
+                    if not _negated(norm, a, lang) and not (kind == "red_flag" and _not_a_hit(norm, a, lang)):
                         hits.append((a, b, weak))
             if not hits:
                 continue

@@ -94,6 +94,38 @@ export type ConcernIn = {
   date: string;
 };
 
+/** A finished check-in, as the participant app sends it (api/main.py SessionIn). Transcripts are scored by the
+ * engine: in Python on the server, or by the byte-identical JavaScript copy in the browser. */
+export type SessionIn = {
+  date: string;
+  channel: "app";
+  form: "A" | "B" | "C";
+  lang: Lang;
+  transcripts: { memory_immediate: string; memory_delayed: string; fluency: string; story_recall: string; judgement: string };
+  audio: { snr_db: number; clipping: number; speech_ratio: number; duration_s: number } | null;
+  precheck: { hearing_ok: boolean; vision_ok: boolean; noise_ok: boolean };
+  phq2: number;
+  gad2: number;
+  sleep_hours: number;
+  acute_illness: boolean;
+  assisted: boolean;
+  helper_role: string | null;
+  input_mode: string;
+  asr: { engine: string; locale?: string | null } | null;
+  voice_features: Record<string, number> | null;
+};
+
+/** What the person is shown afterwards: a message, never a score. */
+export type CheckinResult = {
+  session_id: string;
+  message: { key: string; text: string; support?: string };
+  level: Level;
+  held_for_clinician: boolean;
+  prevention?: PreventionPlan;
+};
+
+export type ProfileIn = { age: number; education: NonNullable<Participant["education"]>; sex?: "F" | "M" | "U"; dialect?: string | null };
+
 export type ReferralIn = { pathway: string; service_id: string | null; urgency: "routine" | "urgent"; reason: string; date: string };
 
 /** What every page uses. Implemented by the server (FastAPI) and by the browser (engine copies + local storage). */
@@ -106,5 +138,7 @@ export interface Backend {
   advance(rid: string, state: ReferralState, date: string, reason?: string): Promise<Referral>;
   audit(): Promise<AuditEntry[]>;
   raiseConcern(body: ConcernIn): Promise<Case>;
+  setProfile(pid: string, body: ProfileIn): Promise<Case>;
+  submitSession(pid: string, body: SessionIn): Promise<CheckinResult>;
   reset(): Promise<void>;
 }

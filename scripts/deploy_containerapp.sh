@@ -23,11 +23,21 @@ az containerapp update --name "$APP" --resource-group "$RG" --output none --set-
   AZURE_SPEECH_KEY=secretref:speech-key AZURE_SPEECH_REGION=uaenorth \
   ALLOWED_ORIGINS="https://oluwapelumi-solagbade.github.io,https://$FQDN"
 
+# Optional: the Telegram bot (docs/TELEGRAM_BOT.md). Enter skips it; an earlier token stays set.
+read -r -s -p "Paste the Telegram bot token from @BotFather (input hidden, Enter to skip): " TG; echo
+if [ -n "$TG" ]; then
+  az containerapp secret set --name "$APP" --resource-group "$RG" --secrets telegram-token="$TG" --output none
+  az containerapp update --name "$APP" --resource-group "$RG" --output none --set-env-vars \
+    TELEGRAM_BOT_TOKEN=secretref:telegram-token TELEGRAM_WEBHOOK_URL="https://$FQDN/telegram/webhook"
+fi
+unset TG
+
 echo "https://$FQDN" > web/api_url.txt
 python scripts/build_web.py
 sleep 20
 curl -s "https://$FQDN/health"; echo
 curl -s "https://$FQDN/api/speech/config" | head -c 120; echo
+curl -s "https://$FQDN/telegram/status"; echo
 echo
 echo "Live app: https://$FQDN/"
 echo "Now commit and push so the GitHub Pages copy uses this API:"

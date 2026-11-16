@@ -1,6 +1,6 @@
 # Navigator AI: measured results (2026-11-15)
 
-Model: `google/medgemma-4b-it` · extractor rules `intake-0.1.0` · synthetic narratives only (Zone 0). Run on FZJ juseless (RTX PRO 4000 Blackwell, transformers, bf16, greedy decoding, one prompt). Full per-narrative output stays on the cluster; the numbers are in `RESULTS_medgemma_summary.json`.
+Model: `google/medgemma-4b-it` · extractor rules `intake-0.1.0` (rules column updated to `intake-0.2.0`, 2026-11-16) · synthetic narratives only (Zone 0). Run on FZJ juseless (RTX PRO 4000 Blackwell, transformers, bf16, greedy decoding, one prompt). Full per-narrative output stays on the cluster; the numbers are in `RESULTS_medgemma_summary.json`.
 
 ## dev set (n = 20)
 
@@ -21,8 +21,8 @@ Referral drafting: 15 of 80 MedGemma sentences blocked by the verifier; 8/20 dra
 
 | Release gate | Target | Rules (fallback) | MedGemma | MedGemma + rule red flags |
 |---|---|---|---|---|
-| Concern-domain macro F1 | >= 0.9 | 0.849 ✗ | 0.515 ✗ | 0.515 ✗ |
-| Macro F1 in the worst language | >= 0.85 | 0.834 ✗ | 0.479 ✗ | 0.479 ✗ |
+| Concern-domain macro F1 | >= 0.9 | 0.854 ✗ | 0.515 ✗ | 0.515 ✗ |
+| Macro F1 in the worst language | >= 0.85 | 0.846 ✗ | 0.479 ✗ | 0.479 ✗ |
 | Delegation timeline exact match | >= 0.8 | 0.7 ✗ | 0.2 ✗ | 0.2 ✗ |
 | Urgent red-flag recall (any red flag) | >= 0.99 | 1.0 ✓ | 0.417 ✗ | 1.0 ✓ |
 | Unsupported field rate | < 0.01 | 0.0 ✓ | 0.523 ✗ | 0.523 ✗ |

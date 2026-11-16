@@ -133,8 +133,8 @@ export const REPORTER_LABEL: Record<Lang, Record<Reporter, string>> = {
   },
   ar: {
     self: "أنا نفسي",
-    family: "أحد من العائلة",
-    helper: "العاملة أو المساعد في البيت",
+    family: "أحد أفراد العائلة",
+    helper: "العاملة أو المساعد في المنزل",
     professional: "طبيب أو ممرض",
     coordinator: "منسق البرنامج",
   },
@@ -144,10 +144,10 @@ export const DOMAIN_AR: Record<string, string> = {
   memory: "الذاكرة",
   language: "إيجاد الكلمات والمحادثة",
   orientation: "معرفة الوقت والمكان والناس",
-  executive: "الفلوس والتخطيط",
+  executive: "الأمور المالية والتخطيط",
   daily_function: "الأنشطة اليومية",
   mood: "المزاج",
-  behaviour: "التصرفات أو الطبع",
+  behaviour: "السلوك أو الطباع",
   sleep: "النوم",
 };
 

@@ -7,7 +7,12 @@ export const ORDER: Level[] = ["URGENT", "CLINICIAN_REVIEW", "CHECK_AGAIN", "BAS
 export const HELD: Level[] = ["URGENT", "CLINICIAN_REVIEW"];
 export const QUIET: Level[] = ["STABLE", "BASELINE", "INVALID"];
 
-export const levelOf = (c: Case): Level => c.latest?.level ?? "BASELINE";
+/** The level a case is worked at: the latest check-in's, unless an earlier review or urgent hold is still open. */
+export const levelOf = (c: Case): Level => {
+  const l = c.latest?.level ?? "BASELINE";
+  const t = c.task && c.task.status !== "closed" ? c.task.level : null;
+  return t && ORDER.indexOf(t) < ORDER.indexOf(l) ? t : l;
+};
 export const isIntakeOnly = (c: Case) => c.participant.enrolled === false || c.participant.id.startsWith("MB-C");
 export const lastAction = (c: Case) => c.task?.actions[c.task.actions.length - 1] ?? null;
 /** Waiting for a clinician: a held level whose task is still open and that has not been referred. */
@@ -21,6 +26,9 @@ export const dueFor = (ev: Evaluation | null) => {
   const d = ev ? config.REVIEW_TARGET_DAYS?.[ev.level] : undefined;
   return ev && d ? addDays(ev.date, d) : null;
 };
+/** When the case should be reviewed: the open task's target, else the latest check-in's. */
+export const dueOf = (c: Case) =>
+  c.task && c.task.status !== "closed" ? addDays(c.task.created, c.task.review_target_days) : dueFor(c.latest);
 export const fmtDate = (d: string | null | undefined) =>
   d ? new Date(d.slice(0, 10) + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : "–";
 export const fmtTime = (iso: string) =>
@@ -35,7 +43,7 @@ export function profileLine(c: Case): string {
 export function sortCases(list: Case[], by: "urgency" | "due" = "urgency"): Case[] {
   return [...list].sort((a, b) => {
     if (by === "due") {
-      const da = dueFor(a.latest) ?? "9999", db = dueFor(b.latest) ?? "9999";
+      const da = dueOf(a) ?? "9999", db = dueOf(b) ?? "9999";
       if (da !== db) return da < db ? -1 : 1;
     }
     const ia = isIntakeOnly(a), ib = isIntakeOnly(b);

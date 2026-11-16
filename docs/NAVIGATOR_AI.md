@@ -59,12 +59,14 @@ The gold set (`navai/gold/`) contains 50 synthetic caregiver narratives, written
 
 | Release gate | Target | Rules extractor | MedGemma 4B (as is) | MedGemma + rule red flags |
 |---|---|---|---|---|
-| Concern-domain macro F1 | ≥ 0.90 | 0.849 ✗ | 0.515 ✗ | 0.515 ✗ |
-| Macro F1, worst language | ≥ 0.85 | 0.834 ✗ | 0.479 ✗ | 0.479 ✗ |
+| Concern-domain macro F1 | ≥ 0.90 | 0.854 ✗ | 0.515 ✗ | 0.515 ✗ |
+| Macro F1, worst language | ≥ 0.85 | 0.846 ✗ | 0.479 ✗ | 0.479 ✗ |
 | Delegation timeline exact match | ≥ 0.80 | 0.70 ✗ | 0.20 ✗ | 0.20 ✗ |
 | Urgent red-flag recall | ≥ 0.99 | 12/12 ✓ (0 false alarms in 18) | 5/12 ✗ | 12/12 ✓ |
 | Unsupported field rate | < 1% | n/a (0 of 0 checked) | 52% ✗ (dropped) | 52% ✗ (dropped) |
 | p95 latency | < 5 s | 0.002 s ✓ | 27 s ✗ | 27 s ✗ |
+
+Rules column: extractor `intake-0.2.0` (2026-11-16), which added Modern Standard Arabic phrasing alongside Gulf dialect and stopped weak hearing or eyesight counting as a stroke sign. On the frozen test set this moved F1 from 0.849 to 0.854 and the worst language (Arabic) from 0.834 to 0.846, with urgent recall still 12/12 and still no false alarms. The new phrases were written from general Standard Arabic usage, not from the test set's errors; the standard Arabic checks are in `tests/test_intake.py`.
 
 **Reading this honestly:**
 

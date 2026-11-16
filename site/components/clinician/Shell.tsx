@@ -3,12 +3,13 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, ChartColumn, ChartNoAxesColumn, ChevronDown, Inbox, Menu, Route, Search, Settings, SquarePlus, UsersRound, X, type LucideIcon } from "lucide-react";
+import { Bell, ChartColumn, ChartNoAxesColumn, ChevronDown, Inbox, LogOut, Menu, Route, Search, Settings, SquarePlus, UsersRound, X, type LucideIcon } from "lucide-react";
 import { Logo, Mark } from "../Logo";
 import { LevelPill } from "../ui";
 import { Avatar, usePopover } from "./parts";
 import { useWorkspace } from "./WorkspaceProvider";
-import { caseHref, fmtDate, isActive, isIntakeOnly, isWaiting, levelOf, matchesQuery, dueFor } from "@/lib/workspace/derive";
+import { signOut, useSession } from "@/lib/auth";
+import { caseHref, fmtDate, isActive, isIntakeOnly, isWaiting, levelOf, matchesQuery, dueOf } from "@/lib/workspace/derive";
 import { STALLED, STATE_LABEL } from "@/lib/workspace/navigator";
 
 type NavItem = { href: string; label: string; icon: LucideIcon; badge?: number };
@@ -34,6 +35,7 @@ function NavLinks({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => 
 }
 
 function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
+  const me = useMe();
   const { cases, mode, base } = useWorkspace();
   const active = cases.filter(isActive).length;
   return (
@@ -72,10 +74,10 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
         </p>
         <UserMenu align="bottom">
           <span className="flex items-center gap-3 rounded-2xl bg-white/[0.06] px-3.5 py-3 hover:bg-white/10">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f1deb2] text-[14px] font-semibold text-deep">DR</span>
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f1deb2] text-[14px] font-semibold text-deep">{initials(me.name)}</span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[15.5px] font-medium text-white">Dr. Demo</span>
-              <span className="block text-[13.5px] text-white/65">Geriatrics</span>
+              <span className="block truncate text-[15.5px] font-medium text-white">{me.name}</span>
+              <span className="block truncate text-[13.5px] text-white/65">{me.title}</span>
             </span>
             <ChevronDown size={18} className="text-white/70" />
           </span>
@@ -85,8 +87,37 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+/** The signed-in person, as the shell shows them. */
+function useMe() {
+  const { session } = useSession();
+  const u = session?.user;
+  return { name: u?.name ?? "Signed in", title: u?.title ?? (u?.role === "coordinator" ? "Programme coordinator" : "Clinician"), email: u?.email ?? "", demo: session?.mode === "browser" };
+}
+const initials = (n: string) =>
+  n
+    .replace(/^Dr\.?\s+/i, "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase() || "MB";
+
+/** The demo doctor has a photo; anyone else gets their initials. */
+function MeAvatar({ size }: { size: number }) {
+  const me = useMe();
+  if (me.email === "dr.demo@membrain.ae") return <Avatar size={size} />;
+  return (
+    <span className="flex shrink-0 items-center justify-center rounded-full bg-[#f1deb2] font-semibold text-deep" style={{ width: size, height: size, fontSize: size * 0.34 }}>
+      {initials(me.name)}
+    </span>
+  );
+}
+
 function UserMenu({ align, children }: { align: "top" | "bottom"; children: ReactNode }) {
   const { open, setOpen, ref } = usePopover();
+  const me = useMe();
+  const router = useRouter();
   return (
     <div ref={ref} className="relative">
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="menu" className="w-full text-left">
@@ -95,10 +126,10 @@ function UserMenu({ align, children }: { align: "top" | "bottom"; children: Reac
       {open && (
         <div role="menu" className={`absolute z-50 w-[260px] rounded-2xl border border-line bg-white p-2 text-ink shadow-xl ${align === "top" ? "right-0 top-full mt-2" : "bottom-full left-0 mb-2"}`}>
           <div className="flex items-center gap-3 px-3 py-2.5">
-            <Avatar size={40} />
-            <div>
-              <p className="text-[15px] font-semibold">Dr. Demo</p>
-              <p className="text-[13px] text-muted">Geriatrics · synthetic demo account</p>
+            <MeAvatar size={40} />
+            <div className="min-w-0">
+              <p className="truncate text-[15px] font-semibold">{me.name}</p>
+              <p className="truncate text-[13px] text-muted">{me.email || me.title}</p>
             </div>
           </div>
           <div className="my-1 h-px bg-line" />
@@ -111,6 +142,19 @@ function UserMenu({ align, children }: { align: "top" | "bottom"; children: Reac
               {l.label}
             </Link>
           ))}
+          <div className="my-1 h-px bg-line" />
+          <button
+            type="button"
+            role="menuitem"
+            onClick={async () => {
+              setOpen(false);
+              await signOut();
+              router.replace("/signin/clinician/");
+            }}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-start text-[14.5px] font-medium text-lv-urgent hover:bg-lv-urgent-soft"
+          >
+            <LogOut size={16} /> Sign out
+          </button>
         </div>
       )}
     </div>
@@ -123,7 +167,7 @@ function Alerts() {
   const router = useRouter();
   const alerts = [
     ...cases.filter((c) => isIntakeOnly(c) && c.task?.status !== "closed").map((c) => ({ id: c.participant.id, title: `New concern ${c.participant.id}`, detail: `Raised by ${c.concern.raised_by.toLowerCase()}`, tone: "bg-[#2f8a5b]" })),
-    ...cases.filter((c) => isWaiting(c) && !isIntakeOnly(c)).map((c) => ({ id: c.participant.id, title: `${c.participant.id} is waiting for review`, detail: `Review by ${fmtDate(dueFor(c.latest))}`, tone: "bg-lv-review" })),
+    ...cases.filter((c) => isWaiting(c) && !isIntakeOnly(c)).map((c) => ({ id: c.participant.id, title: `${c.participant.id} is waiting for review`, detail: `Review by ${fmtDate(dueOf(c))}`, tone: "bg-lv-review" })),
     ...cases.flatMap((c) =>
       c.participant.referrals.filter((r) => STALLED.includes(r.state)).map((r) => ({ id: c.participant.id, title: `${c.participant.id} referral ${STATE_LABEL[r.state].toLowerCase()}`, detail: "The navigator needs to follow this up", tone: "bg-lv-check" })),
     ),
@@ -243,7 +287,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <span aria-hidden className="hidden h-8 w-px bg-line sm:block" />
             <UserMenu align="top">
               <span className="flex items-center gap-2">
-                <Avatar size={44} />
+                <MeAvatar size={44} />
                 <ChevronDown size={20} className="hidden text-ink sm:block" />
               </span>
             </UserMenu>

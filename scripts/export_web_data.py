@@ -71,7 +71,7 @@ data = {"config": cfg, "items": {"WORD_LISTS": I.WORD_LISTS, "FLUENCY": I.FLUENC
                                                                                  (66, True, False, "e4/e4", "completed_wants_result"), (66, False, True, "e4/e4", "offered"),
                                                                                  (61, True, True, "e3/e3", "offered"), (72, True, False, None, None)])]],
         "intake": {k: getattr(IN, k) for k in ("INTAKE_VERSION", "REVIEW_BELOW", "DOMAINS", "RED_FLAGS", "CONFOUNDERS", "ACTIVITIES", "WHO",
-                                                "ONSET", "LEX", "ACT_LEX", "WHO_LEX", "TAKEOVER", "NEG_CLAUSE", "AR_PREFIX", "CLAUSE", "SENT",
+                                                "ONSET", "LEX", "ACT_LEX", "WHO_LEX", "TAKEOVER", "NEG_CLAUSE", "NOT_A_HIT", "AR_PREFIX", "CLAUSE", "SENT",
                                                 "DRAFT_DOMAIN", "DRAFT_RF", "DRAFT_CF", "DRAFT_ACT", "DRAFT_WHO", "DRAFT_REPORTER", "LEVEL_TXT", "VOCAB", "BLOCKED")}
         | {"NEG": {k: sorted(v) for k, v in IN.NEG.items()}},
         "navai": _navai(),

@@ -6,8 +6,11 @@ demo; production uses SMART on FHIR / OAuth2 + OIDC scopes.
 """
 from __future__ import annotations
 
+import contextlib
 import copy
+import hashlib
 import os
+import secrets
 import pathlib
 import uuid
 from datetime import datetime, timezone
@@ -26,7 +29,16 @@ from membrain.prevention import participant_message, prevention_plan
 from membrain.scoring import score_session_transcripts
 from membrain.triage import LEVELS, evaluate
 
-app = FastAPI(title="MemBrain API", version=C.ENGINE_VERSION,
+
+
+@contextlib.asynccontextmanager
+async def lifespan(_app):
+    from api.telegram import running   # the Telegram bot runs with the API when TELEGRAM_BOT_TOKEN is set
+    async with running():
+        yield
+
+
+app = FastAPI(title="MemBrain API", version=C.ENGINE_VERSION, lifespan=lifespan,
               description="Voice-first longitudinal brain-health check-in. Identifies risk and change; never diagnoses.")
 # Only listed origins may call the API from a browser (GitHub Pages demo, local dev, the App Service itself).
 ALLOWED_ORIGINS = [o.strip() for o in os.getenv(
@@ -43,6 +55,9 @@ app.include_router(navai_router)
 from api.asr_local import router as asr_router  # noqa: E402
 
 app.include_router(asr_router)
+from api.telegram import router as telegram_router  # noqa: E402
+
+app.include_router(telegram_router)
 
 DB: dict = {"participants": {}, "tasks": {}, "audit": []}
 # Identity vault: direct identifiers live here ONLY, keyed by pseudonym.
@@ -55,15 +70,40 @@ def audit(actor: str, action: str, target: str, detail: dict | None = None):
                         "target": target, "detail": detail or {}})
 
 
-def role(x_role: str = Header("participant")) -> str:
-    if x_role not in ("participant", "clinician", "coordinator"):
-        raise HTTPException(403, "unknown role")
-    return x_role
+from api.auth import CLAIMS, Principal, principal  # noqa: E402
+from api.auth import router as auth_router  # noqa: E402
+
+app.include_router(auth_router)
+
+
+def role(p: Principal = Depends(principal)) -> str:
+    """The caller's role, from their signed-in session (api/auth.py)."""
+    return p.role
 
 
 def need(r: str, *allowed: str):
+    if r == "anonymous":
+        raise HTTPException(401, "Please sign in.")
     if r not in allowed:
         raise HTTPException(403, f"role '{r}' not permitted")
+
+
+def own(p: Principal, pid: str):
+    """A participant may act on their own record only; clinicians and coordinators on any."""
+    if p.role == "anonymous":
+        raise HTTPException(401, "Please sign in.")
+    if not p.may_touch(pid):
+        raise HTTPException(403, "This is not your record.")
+
+
+def new_participant() -> str:
+    """A pseudonymous record for someone who signs in without one (no programme enrolment yet)."""
+    pid = "MB-P" + uuid.uuid4().hex[:4].upper()
+    DB["participants"][pid] = {"id": pid, "display_name": {"en": "New participant", "ar": "مشارك جديد"}, "age": None, "education": None,
+                               "sex": "U", "dialect": None, "language": "ar", "languages": ["ar"], "entry_route": "self", "context": {},
+                               "consent": {}, "referrals": [], "enrolled": False, "sessions": []}
+    audit("system", "participant_created", pid, {"via": "sign_in"})
+    return pid
 
 
 def _sync_tasks(p: dict, ev: dict):
@@ -132,6 +172,20 @@ class SessionIn(BaseModel):
     iqcode: float | None = None
     safety_concern: bool = False
     voice_features: dict | None = None
+    # What the check-in actually used: the alternate form it spoke and the language it was done in. Without
+    # them the server assigns the form itself and scores in the participant's enrolment language.
+    form: str | None = Field(None, pattern="^[ABC]$")
+    lang: str | None = Field(None, pattern="^(ar|en)$")
+    input_mode: str | None = None
+    asr: dict | None = None
+
+
+class Profile(BaseModel):
+    """Age and schooling for someone who came in through a concern: the norms need both before a check-in is scored."""
+    age: int = Field(ge=40, le=100)
+    education: str = Field(pattern="^(none|primary|secondary|tertiary)$")
+    sex: str = Field("U", pattern="^(F|M|U)$")
+    dialect: str | None = None
 
 
 class ReferralIn(BaseModel):
@@ -195,7 +249,9 @@ def reidentify(pid: str, reason: dict, r: str = Depends(role)):
 
 
 @app.patch("/participants/{pid}/consent")
-def update_consent(pid: str, consent: dict, r: str = Depends(role)):
+def update_consent(pid: str, consent: dict, who: Principal = Depends(principal)):
+    own(who, pid)
+    r = who.actor
     p = DB["participants"].get(pid)
     if not p:
         raise HTTPException(404)
@@ -213,28 +269,57 @@ def update_consent(pid: str, consent: dict, r: str = Depends(role)):
 
 
 @app.post("/participants/{pid}/sessions")
-def submit_session(pid: str, body: SessionIn, r: str = Depends(role)):
+def submit_session(pid: str, body: SessionIn, who: Principal = Depends(principal)):
+    own(who, pid)
+    r = who.actor
     p = DB["participants"].get(pid)
     if not p:
         raise HTTPException(404)
+    if p.get("age") is None or p.get("education") is None:
+        raise HTTPException(409, "age and schooling are needed before a check-in can be scored (PATCH /participants/{pid}/profile)")
     idx = len(p["sessions"])
     s = body.model_dump()
+    lang = s.pop("lang") or p["language"]
     s["session_id"] = f"{pid}-s{idx}"
-    s["form"] = form_for_session(idx, participant_seed(pid))
+    s["form"] = s.get("form") or form_for_session(idx, participant_seed(pid))
+    s["lang"] = lang
     if s.get("transcripts") and not s.get("raw"):
-        scored = score_session_transcripts(s["transcripts"], s["form"], p["language"])
+        scored = score_session_transcripts(s["transcripts"], s["form"], lang)
         s["raw"], s["scoring_detail"] = scored["raw"], scored["detail"]
+    # An informant questionnaire collected at enrolment travels with the first scored check-in (as web/app.js does).
+    if p.get("pending_iqcode") is not None and s.get("iqcode") is None and not any(x.get("type") != "intake" for x in p["sessions"]):
+        s["iqcode"], p["pending_iqcode"] = p["pending_iqcode"], None
     if not (p.get("consent") or {}).get("voice_features"):
         s["voice_features"] = None
     p["sessions"].append(s)
     ev = evaluate(p, p["sessions"])
     _sync_tasks(p, ev)
     audit(r, "session_submitted", pid, {"session_id": s["session_id"], "level": ev["latest"]["level"]})
-    msg = participant_message(ev["latest"], p["language"])
-    out = {"session_id": s["session_id"], "message": msg, "next_form": form_for_session(idx + 1, participant_seed(pid))}
+    msg = participant_message(ev["latest"], lang)
+    out = {"session_id": s["session_id"], "message": msg, "level": ev["latest"]["level"],
+           "held_for_clinician": bool(ev["latest"].get("held_for_clinician")),
+           "next_form": form_for_session(idx + 1, participant_seed(pid))}
     if ev["latest"]["level"] in ("BASELINE", "STABLE"):
-        out["prevention"] = prevention_plan({**p.get("context", {}), "mood_positive": (body.phq2 or 0) >= 3}, p["language"])
+        out["prevention"] = prevention_plan({**p.get("context", {}), "mood_positive": (body.phq2 or 0) >= 3}, lang)
     return out  # held results: participant sees only the message; details go to clinician
+
+
+@app.patch("/participants/{pid}/profile")
+def set_profile(pid: str, body: Profile, who: Principal = Depends(principal)):
+    """Only for someone who came in through a concern (no enrolment yet); an enrolled profile is not changed here."""
+    own(who, pid)
+    r = who.actor
+    p = DB["participants"].get(pid)
+    if not p:
+        raise HTTPException(404)
+    if p.get("enrolled", True) and p.get("age") is not None:
+        raise HTTPException(409, "this participant is enrolled; their profile is changed through enrolment")
+    p.update({"age": body.age, "education": body.education, "sex": body.sex,
+              "age_band": "50-59" if body.age < 60 else "60-69" if body.age < 70 else "70-75"})
+    if body.dialect:
+        p["dialect"] = body.dialect
+    audit(r, "profile_set", pid, {"age": body.age, "education": body.education})
+    return _case(p)
 
 
 @app.get("/participants")
@@ -444,7 +529,14 @@ from membrain.prevention import risk_context  # noqa: E402
 
 
 def _task_for(p: dict, latest: dict | None) -> dict | None:
-    return DB["tasks"].get(f"{p['id']}:{latest['session_id']}") if latest else None
+    """The case's clinician task: the most recent one still open, else the latest session's. A later check-in does
+    not close a review or urgent hold opened earlier (by a concern, say); only a clinician's action does."""
+    mine = [t for t in DB["tasks"].values() if t["participant_id"] == p["id"]]
+    still_open = [t for t in mine if t["status"] != "closed"]
+    if still_open:
+        return still_open[-1]
+    current = DB["tasks"].get(f"{p['id']}:{latest['session_id']}") if latest else None
+    return current or (mine[-1] if mine else None)   # otherwise the last one, closed: the case shows it was handled
 
 
 def _case(p: dict, full: bool = False) -> dict:
@@ -459,14 +551,24 @@ def _case(p: dict, full: bool = False) -> dict:
 
 
 @app.get("/cases")
-def list_cases(r: str = Depends(role)):
-    need(r, "clinician", "coordinator")
+def list_cases(who: Principal = Depends(principal)):
+    """Every case for clinicians and coordinators; a signed-in participant gets only their own."""
+    if who.role == "participant" and not who.legacy:
+        p = DB["participants"].get(who.pid or "")
+        return [_case(p)] if p else []
+    need(who.role, "clinician", "coordinator")
     return [_case(p) for p in DB["participants"].values()]
 
 
 @app.get("/cases/{pid}")
-def get_case(pid: str, r: str = Depends(role)):
-    need(r, "clinician", "coordinator")
+def get_case(pid: str, who: Principal = Depends(principal)):
+    own(who, pid)
+    if who.role == "participant" and not who.legacy:
+        p = DB["participants"].get(pid)
+        if not p:
+            raise HTTPException(404)
+        return _case(p)
+    r = who.actor
     p = DB["participants"].get(pid)
     if not p:
         raise HTTPException(404)
@@ -485,6 +587,7 @@ class ConcernIn(BaseModel):
     red_flags: list[str] = Field(default_factory=list)
     confounders: list[str] = Field(default_factory=list)
     date: str
+    channel: str = Field("app", pattern="^(app|telegram)$")   # where it was raised; channels are never pooled
 
 
 # Who raised the concern -> the navigator's entry route (as web/app.js does at enrolment).
@@ -503,13 +606,16 @@ def raise_concern(body: ConcernIn):
          "intake": {"reporter": body.reporter, "at": body.date,
                     "confirmed": {"narrative": body.narrative, "domains": body.domains, "onset": body.onset,
                                   "timeline": body.timeline, "red_flags": body.red_flags, "confounders": body.confounders}},
-         "sessions": [{"session_id": f"{pid}-intake", "date": body.date, "type": "intake", "channel": "app",
+         "sessions": [{"session_id": f"{pid}-intake", "date": body.date, "type": "intake", "channel": body.channel,
                        "concern": body.narrative, "onset": body.onset, "red_flags": body.red_flags,
                        "reported_concern": {"reporter": body.reporter, "domains": body.domains, "activities_taken_over": acts}}]}
     DB["participants"][pid] = p
     _sync_tasks(p, evaluate(p, p["sessions"]))
-    audit("public", "concern_raised", pid, {"reporter": body.reporter, "red_flags": body.red_flags, "activities": acts})
-    return _case(p)
+    audit("public", "concern_raised", pid, {"reporter": body.reporter, "channel": body.channel, "red_flags": body.red_flags, "activities": acts})
+    # A one-time token that lets whoever raised it link the concern to their own sign-in later (api/auth.py).
+    claim = secrets.token_urlsafe(18)
+    CLAIMS[pid] = hashlib.sha256(claim.encode()).hexdigest()
+    return _case(p) | {"claim_token": claim}
 
 
 # ------------------------------------------------------------- web app (keep LAST: the mount catches every unmatched path)

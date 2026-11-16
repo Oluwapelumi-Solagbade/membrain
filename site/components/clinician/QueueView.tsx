@@ -10,7 +10,7 @@ import { Loading, PageHeader, Panel, Stat, SyntheticBadge, btnClass, usePopover 
 import { TaskActions } from "./TaskActions";
 import { useWorkspace } from "./WorkspaceProvider";
 import { DEMO_TODAY } from "@/lib/mb";
-import { caseHref, dueFor, fmtDate, HELD, isActive, isIntakeOnly, isWaiting, levelOf, matchesQuery, profileLine, QUIET, sortCases } from "@/lib/workspace/derive";
+import { caseHref, dueOf, fmtDate, HELD, isActive, isIntakeOnly, isWaiting, levelOf, matchesQuery, profileLine, QUIET, sortCases } from "@/lib/workspace/derive";
 import { nav, STATE_LABEL } from "@/lib/workspace/navigator";
 import { config } from "@/lib/mb";
 import type { Case } from "@/lib/workspace/types";
@@ -130,7 +130,7 @@ export function QueueView() {
 
 function QueueRow({ c, on, onPick }: { c: Case; on: boolean; onPick: (id: string) => void }) {
   const ref = c.participant.referrals[0];
-  const due = ref || c.task?.status === "closed" ? null : dueFor(c.latest);
+  const due = ref || c.task?.status === "closed" ? null : dueOf(c);
   const last = c.task?.actions[c.task.actions.length - 1];
   return (
     <li>
@@ -169,7 +169,7 @@ function QueueRow({ c, on, onPick }: { c: Case; on: boolean; onPick: (id: string
 function QueueDetail({ c }: { c: Case }) {
   const ev = c.latest;
   const referred = c.participant.referrals.length > 0;
-  const due = referred || c.task?.status === "closed" ? null : dueFor(ev);
+  const due = referred || c.task?.status === "closed" ? null : dueOf(c);
   const p = c.participant;
   return (
     <>

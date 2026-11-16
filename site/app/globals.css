@@ -130,3 +130,10 @@ mark.mb-ev-timeline { background: transparent; box-shadow: inset 0 -2px 0 #2a604
 
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* High contrast, chosen in the check-in's display settings: darker text and firmer edges. */
+.mb-hc { background: #ffffff; }
+.mb-hc .text-body, .mb-hc .text-muted { color: #17211d; }
+.mb-hc .border-line, .mb-hc .ring-line { border-color: #5f6d67; --tw-ring-color: #5f6d67; }
+.mb-hc .bg-paper { background-color: #ffffff; }
+.mb-hc .text-leaf { color: #0f3f2c; }
