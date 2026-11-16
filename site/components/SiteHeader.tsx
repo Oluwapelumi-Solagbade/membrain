@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ExternalLink, Menu, X } from "lucide-react";
 import { Logo } from "./Logo";
+import { asset } from "@/lib/asset";
 
 const nav = [
   { label: "How it works", href: "/#how" },
@@ -27,7 +28,7 @@ export function SiteHeader() {
 
         <nav aria-label="Main" className="hidden items-center gap-10 lg:flex">
           {nav.map((n) => (
-            <a key={n.label} href={n.href} className={navItem}>
+            <a key={n.label} href={asset(n.href)} className={navItem}>
               {n.label}
             </a>
           ))}
@@ -61,14 +62,14 @@ export function SiteHeader() {
       {open && (
         <nav aria-label="Mobile" className="border-t border-line bg-white px-4 pb-5 pt-2 lg:hidden">
           {[...nav, { label: "Clinician view", href: "/clinician/" }].map((item) => (
-            <a key={item.label} href={item.href} onClick={close} className="block border-b border-line py-3.5 text-[16px] font-medium">
+            <a key={item.label} href={asset(item.href)} onClick={close} className="block border-b border-line py-3.5 text-[16px] font-medium">
               {item.label}
             </a>
           ))}
-          <a href="/concern/?lang=ar" lang="ar" onClick={close} className="block border-b border-line py-3.5 text-[17px] font-medium">
+          <a href={asset("/concern/?lang=ar")} lang="ar" onClick={close} className="block border-b border-line py-3.5 text-[17px] font-medium">
             العربية
           </a>
-          <a href="/concern/" onClick={close} className="mt-4 block rounded-xl bg-deep px-4 py-3.5 text-center text-[15px] font-medium text-white">
+          <a href={asset("/concern/")} onClick={close} className="mt-4 block rounded-xl bg-deep px-4 py-3.5 text-center text-[15px] font-medium text-white">
             Raise a concern
           </a>
         </nav>
