@@ -381,25 +381,58 @@ def summary_keys(res: dict) -> dict:
 
 
 # --- LLM (MedGemma) prompt and grounding --------------------------------------------------------------
-def llm_messages(text: str, lang: str) -> list[dict]:
-    schema = {"domains": [{"key": "|".join(DOMAINS), "evidence": "exact words copied from the text"}],
-              "red_flags": [{"key": "|".join(RED_FLAGS), "evidence": "..."}],
-              "confounders": [{"key": "|".join(CONFOUNDERS), "evidence": "..."}],
-              "onset": {"value": "days|weeks|months|years|unknown", "evidence": "..."},
-              "timeline": [{"activity": "|".join(ACTIVITIES), "who_took_over": "|".join(WHO), "evidence": "..."}]}
-    sys_ = ("You extract facts from a family member's description of an older adult, for a clinician to confirm. "
-            "Return ONLY one JSON object with this shape: " + json.dumps(schema) + ". Rules: include an item only if the text "
-            "states it; copy 'evidence' word for word from the text (any language); leave out anything denied (for example "
-            "'no falls'); onset is when the change began; 'who_took_over' is the person named as now doing the activity "
-            "('informant' if the speaker says 'I'); never diagnose or add anything not in the text.")
-    return [{"role": "system", "content": sys_}, {"role": "user", "content": f"Language: {lang}\nText:\n{text}"}]
+# Worked examples for the model (taken from the DEVELOPMENT set; those ids are excluded when scoring dev).
+FEW_SHOT = [
+    ("d-en-10", "My wife can't cook anymore because she forgets steps, so our maid cooks now. She also gets lost in the neighbourhood.",
+     {"domains": [{"key": "memory", "evidence": "she forgets steps"}, {"key": "daily_function", "evidence": "can't cook anymore"},
+                  {"key": "orientation", "evidence": "gets lost in the neighbourhood"}],
+      "red_flags": [], "confounders": [], "onset": {"value": "unknown", "evidence": ""},
+      "timeline": [{"activity": "cooking", "who_took_over": "helper", "evidence": "our maid cooks now"}]}),
+    ("d-ar-05", "أمي ما تعرف تستخدم الريموت ولا الغسالة، وما تقدر تدير بطاقة البنك. أختي الحين تدفع الفواتير عنها. شوي شوي من ثلاث سنين.",
+     {"domains": [{"key": "daily_function", "evidence": "ما تعرف تستخدم الريموت ولا الغسالة"}, {"key": "executive", "evidence": "ما تقدر تدير بطاقة البنك"}],
+      "red_flags": [], "confounders": [], "onset": {"value": "years", "evidence": "من ثلاث سنين"},
+      "timeline": [{"activity": "money", "who_took_over": "sister", "evidence": "أختي الحين تدفع الفواتير عنها"}]}),
+    ("d-en-03", "My husband had a stroke two years ago. Since a fall last Sunday he is much more confused and keeps trying to leave the house at night.",
+     {"domains": [{"key": "orientation", "evidence": "he is much more confused"}],
+      "red_flags": [{"key": "recent_fall_head_injury", "evidence": "Since a fall last Sunday"}, {"key": "sudden_onset", "evidence": "Since a fall last Sunday"},
+                    {"key": "safety_risk", "evidence": "keeps trying to leave the house at night"}],
+      "confounders": [], "onset": {"value": "days", "evidence": "Since a fall last Sunday"}, "timeline": []}),
+]
+FEW_SHOT_IDS = {x[0] for x in FEW_SHOT}
+
+
+def llm_messages(text: str, lang: str, few_shot: bool = True) -> list[dict]:
+    """Prompt v2: allowed keys as plain lists, explicit rules, worked examples (English and Gulf Arabic)."""
+    keys = (f"domains: {list(DOMAINS)}\nred_flags: {list(RED_FLAGS)}\nconfounders: {list(CONFOUNDERS)}\n"
+            f"onset: ['days', 'weeks', 'months', 'years', 'unknown']\ntimeline activity: {list(ACTIVITIES)}\n"
+            f"timeline who_took_over: {list(WHO)}")
+    sys_ = ("You extract facts from what a family member, helper, clinician or the person themselves says about changes in an "
+            "older adult. A clinician will check every item. Return ONLY one JSON object with the fields domains, red_flags, "
+            "confounders, onset and timeline, using ONLY these keys:\n" + keys + "\n\nRules:\n"
+            "1. 'evidence' must be copied EXACTLY from the text, in the text's own language and spelling. Never translate or paraphrase.\n"
+            "2. Include an item only if the text says it. Leave out anything denied ('no falls', 'his memory is fine').\n"
+            "3. red_flags: sudden_onset = started over hours or days or 'since <a recent day>'; fluctuating_confusion = better and worse "
+            "at different times; new_neuro_symptoms = weakness, slurred or heavy speech, facial droop, severe headache; "
+            "recent_fall_head_injury = a fall or head injury; rapid_deterioration = getting worse fast; safety_risk = gas or stove "
+            "left on, burned pots, wandering or leaving home, found outside, not eating. When unsure about a red flag, include it.\n"
+            "4. onset = when the change began (the longest time mentioned for the change), 'unknown' if not said.\n"
+            "5. timeline = an everyday activity that someone else now does; 'informant' if the speaker says 'I' or 'انا'.\n"
+            "6. Never diagnose and never add anything that is not in the text.")
+    msgs = [{"role": "system", "content": sys_}]
+    if few_shot:
+        for _id, t, j in FEW_SHOT:
+            msgs += [{"role": "user", "content": f"Text:\n{t}"}, {"role": "assistant", "content": json.dumps(j, ensure_ascii=False)}]
+    msgs.append({"role": "user", "content": f"Text:\n{text}"})
+    return msgs
 
 
 def ground_llm_output(raw: str, text: str, lang: str, engine: str = "medgemma") -> dict:
     """Parse model JSON, keep only allowed keys whose evidence is found in the narrative. Returns the common
     output format plus counts of dropped (unsupported) items."""
     norm, idx = normalise(text)
-    stats = {"items": 0, "unsupported": 0, "invalid_key": 0, "parse_error": False}
+    stats = {"items": 0, "unsupported": 0, "invalid_key": 0, "parse_error": False, "translated_evidence": 0}
+    ungrounded = {"domains": set(), "red_flags": set(), "confounders": set(), "onset": None, "timeline": set()}
+    arabic_text = _detect_lang(text) == "ar"
     try:
         j = json.loads(raw[raw.index("{"): raw.rindex("}") + 1])
     except Exception:
@@ -425,7 +458,11 @@ def ground_llm_output(raw: str, text: str, lang: str, engine: str = "medgemma") 
             if k not in key_set:
                 stats["invalid_key"] += 1; stats["unsupported"] += 1
                 continue
-            sp = locate(it.get("evidence"))
+            ungrounded[src].add(k)
+            ev = str(it.get("evidence") or "")
+            if arabic_text and ev and not any("\u0600" <= ch <= "\u06ff" for ch in ev):
+                stats["translated_evidence"] += 1
+            sp = locate(ev)
             if sp is None:
                 stats["unsupported"] += 1
                 continue
@@ -437,6 +474,7 @@ def ground_llm_output(raw: str, text: str, lang: str, engine: str = "medgemma") 
     o = j.get("onset") if isinstance(j.get("onset"), dict) else None
     if o and o.get("value") in ONSET:
         stats["items"] += 1
+        ungrounded["onset"] = o["value"]
         sp = locate(o.get("evidence"))
         if sp is None:
             stats["unsupported"] += 1
@@ -450,6 +488,7 @@ def ground_llm_output(raw: str, text: str, lang: str, engine: str = "medgemma") 
         if it.get("activity") not in ACTIVITIES or it.get("who_took_over") not in WHO:
             stats["invalid_key"] += 1; stats["unsupported"] += 1
             continue
+        ungrounded["timeline"].add((it["activity"], it["who_took_over"]))
         sp = locate(it.get("evidence"))
         if sp is None:
             stats["unsupported"] += 1
@@ -457,7 +496,11 @@ def ground_llm_output(raw: str, text: str, lang: str, engine: str = "medgemma") 
         tl.append({"activity": it["activity"], "activity_label": ACTIVITIES[it["activity"]], "who_took_over": it["who_took_over"],
                    "who_label": WHO[it["who_took_over"]], "confidence": 0.8, "spans": [sp]})
     out = {"engine": engine, "version": INTAKE_VERSION, "lang": lang, "fields": fields, "onset": onset, "timeline": tl,
-           "grounding": stats}
+           "grounding": stats,
+           # what the model said BEFORE the quote check: measures understanding separately from quoting
+           "ungrounded": {"domains": sorted(ungrounded["domains"]), "red_flags": sorted(ungrounded["red_flags"]),
+                          "confounders": sorted(ungrounded["confounders"]), "onset": ungrounded["onset"] if ungrounded["onset"] != "unknown" else None,
+                          "timeline": sorted(ungrounded["timeline"])}}
     out["urgent"] = any(f["kind"] == "red_flag" for f in fields)
     return out
 

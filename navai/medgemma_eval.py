@@ -49,22 +49,27 @@ def main(argv=None):
     ap.add_argument("--model", default="google/medgemma-4b-it")
     ap.add_argument("--sets", nargs="+", default=["dev", "test"])
     ap.add_argument("--out", default=str(ROOT / "docs" / "navai"))
+    ap.add_argument("--tag", default="medgemma", help="output name: docs/navai/RESULTS_<tag>.json and .md")
+    ap.add_argument("--no-few-shot", action="store_true", help="v1 behaviour: no worked examples")
     a = ap.parse_args(argv)
     chat = load_model(a.model)
     chat([{"role": "user", "content": "Say OK."}], max_new_tokens=4)  # warm-up, not timed
-    report = {"model": a.model, "intake_version": I.INTAKE_VERSION, "date": time.strftime("%Y-%m-%d"), "sets": {}}
+    report = {"model": a.model, "tag": a.tag, "prompt": "v1 zero-shot" if a.no_few_shot else "v2 rules + 3 worked examples",
+              "intake_version": I.INTAKE_VERSION, "date": time.strftime("%Y-%m-%d"), "sets": {}}
     for name in a.sets:
-        gold = load(name)
-        preds, merged, lat, raw_out = [], [], [], []
+        gold = [g for g in load(name) if g["id"] not in I.FEW_SHOT_IDS]   # worked examples never scored
+        preds, merged, ungr, lat, raw_out = [], [], [], [], []
         unsup = items = 0
         for g in gold:
             t = time.perf_counter()
-            raw = chat(I.llm_messages(g["text"], g["lang"]))
+            raw = chat(I.llm_messages(g["text"], g["lang"], few_shot=not a.no_few_shot))
             lat.append(time.perf_counter() - t)
             res = I.ground_llm_output(raw, g["text"], g["lang"], engine=a.model)
             unsup += res["grounding"]["unsupported"]; items += res["grounding"]["items"]
             k = I.summary_keys(res); k["timeline"] = [list(x) for x in k["timeline"]]
             preds.append(k)
+            u = dict(res["ungrounded"]); u["timeline"] = [list(x) for x in u["timeline"]]
+            ungr.append(u)
             m = I.summary_keys(I.merge_safety(res, I.extract_rules(g["text"], g["lang"]))); m["timeline"] = [list(x) for x in m["timeline"]]
             merged.append(m)
             raw_out.append({"id": g["id"], "raw": raw, "grounding": res["grounding"]})
@@ -84,6 +89,11 @@ def main(argv=None):
         report["sets"][name] = {
             "medgemma": dict(score(gold, preds, lat, unsup, items), errors=errors(gold, preds)),
             "medgemma_plus_rule_red_flags": score(gold, merged, lat, unsup, items),
+            "medgemma_before_quote_check": _no_quote_gate(score(gold, ungr, lat)),
+            "diagnostics": {"parse_errors": sum(1 for r in raw_out if r["grounding"]["parse_error"]),
+                            "invalid_keys": sum(r["grounding"]["invalid_key"] for r in raw_out),
+                            "translated_evidence": sum(r["grounding"].get("translated_evidence", 0) for r in raw_out),
+                            "items": items, "dropped": unsup, "few_shot": not a.no_few_shot},
             "rules": score(gold, rp, rl),
             "drafting": {"sentences": n_s, "unsupported_sentences": n_bad,
                          "unsupported_sentence_rate": round(n_bad / n_s, 3) if n_s else None,
@@ -91,20 +101,33 @@ def main(argv=None):
                          "template_unsupported_sentences": sum(x["template_unsupported"] for x in drafts), "n": len(drafts)},
             "raw": raw_out, "drafts": drafts}
     out = pathlib.Path(a.out); out.mkdir(parents=True, exist_ok=True)
-    (out / "RESULTS_medgemma.json").write_text(json.dumps(report, indent=1, ensure_ascii=False), encoding="utf-8")
-    (out / "RESULTS.md").write_text(markdown(report), encoding="utf-8")
-    print((out / "RESULTS.md").read_text(encoding="utf-8"))
+    (out / f"RESULTS_{a.tag}.json").write_text(json.dumps(report, indent=1, ensure_ascii=False), encoding="utf-8")
+    (out / f"RESULTS_{a.tag}.md").write_text(markdown(report), encoding="utf-8")
+    print((out / f"RESULTS_{a.tag}.md").read_text(encoding="utf-8"))
+
+
+def _no_quote_gate(r: dict) -> dict:
+    """Before the quote check nothing is grounded, so the unsupported-field gate does not apply."""
+    r["unsupported_rate"] = None
+    for g in r["gates"]:
+        if g["metric"] == "unsupported_rate":
+            g["value"], g["pass"] = "n/a", False
+    return r
 
 
 def markdown(rep: dict) -> str:
     L = [f"# Navigator AI: measured results ({rep['date']})", "",
-         f"Model: `{rep['model']}` · extractor rules `{rep['intake_version']}` · synthetic narratives only (Zone 0).", ""]
+         f"Model: `{rep['model']}` · prompt: {rep['prompt']} · extractor rules `{rep['intake_version']}` · synthetic narratives only (Zone 0). "
+         "Development-set narratives used as worked examples are not scored.", ""]
     for name, s in rep["sets"].items():
         L += [f"## {name} set (n = {s['rules']['n']})", "",
-              "| Release gate | Target | Rules (fallback) | MedGemma | MedGemma + rule red flags |", "|---|---|---|---|---|"]
+              "| Release gate | Target | Rules (fallback) | Model | Model + rule red flags | Model before quote check |", "|---|---|---|---|---|---|"]
         for i, (m, op, t, lab) in enumerate(GATES):
             cell = lambda r: f"{r[m]} {'✓' if r['gates'][i]['pass'] else '✗'}"
-            L.append(f"| {lab} | {op} {t} | {cell(s['rules'])} | {cell(s['medgemma'])} | {cell(s['medgemma_plus_rule_red_flags'])} |")
+            L.append(f"| {lab} | {op} {t} | {cell(s['rules'])} | {cell(s['medgemma'])} | {cell(s['medgemma_plus_rule_red_flags'])} | {cell(s['medgemma_before_quote_check'])} |")
+        dg = s["diagnostics"]
+        L += ["", f"Diagnostics: {dg['parse_errors']} unparseable answers, {dg['invalid_keys']} invalid keys, "
+                  f"{dg['translated_evidence']} Arabic-text quotes given in another language, {dg['dropped']}/{dg['items']} items dropped by the quote check."]
         L += ["", f"Urgent cases caught: rules {s['rules']['urgent_recall_cases']}, MedGemma {s['medgemma']['urgent_recall_cases']}, "
                   f"combined {s['medgemma_plus_rule_red_flags']['urgent_recall_cases']}. "
                   f"Onset exact: rules {s['rules']['onset_exact']}, MedGemma {s['medgemma']['onset_exact']}. "
