@@ -107,7 +107,7 @@ function UserMenu({ align, children }: { align: "top" | "bottom"; children: Reac
             { href: "/", label: "Back to the MemBrain site" },
             { href: "/prototype/", label: "Open the earlier prototype" },
           ].map((l) => (
-            <Link key={l.href} role="menuitem" href={l.href} onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2 text-[14.5px] hover:bg-paper">
+            <Link key={l.href} role="menuitem" href={l.href} prefetch={l.href.startsWith("/prototype") ? false : undefined} onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2 text-[14.5px] hover:bg-paper">
               {l.label}
             </Link>
           ))}

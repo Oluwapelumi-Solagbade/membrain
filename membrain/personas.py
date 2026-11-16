@@ -106,12 +106,15 @@ def personas() -> list[dict]:
     for p in P:
         funding, emirate, langs, entry, refs = nav[p["id"]]
         p.update({"funding": funding, "emirate": emirate, "languages": langs, "entry_route": entry, "referrals": []})
-        first = p["sessions"][0]["date"]
+        from .triage import evaluate as _evaluate
+        from .navigator import concern_date as _concern_date
+        first = _concern_date(p, _evaluate(p, p["sessions"])["history"]) if refs else None
         for k, (pathway, svc, urg, steps) in enumerate(refs):
             last = p["sessions"][-1]["date"]
             r = new_referral(f"REF-{p['id']}-{k}", p["id"], pathway, svc, urg, last if not steps else steps[0][1],
                              "Clinician confirmed concern after review", entry_route=entry)
-            r["concern_date"] = first
+            if first:
+                r["concern_date"] = first
             for st in steps:
                 advance(r, st[0], st[1], st[2] if len(st) > 2 else "")
             p["referrals"].append(r)

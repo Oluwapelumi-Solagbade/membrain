@@ -115,3 +115,22 @@ def test_concern_from_a_professional_maps_to_primary_care_route():
     assert case["participant"]["entry_route"] == "primary_care" and case["latest"]["level"] == "CLINICIAN_REVIEW"
     assert case["concern"]["raised_by"] == "Healthcare professional"
     assert c.post("/concerns", json=body | {"reporter": "primary_care"}).status_code == 422
+
+
+def test_public_concern_endpoint_is_validated_and_rate_limited(monkeypatch):
+    import api.main as M
+    from fastapi.testclient import TestClient
+    c = TestClient(M.app)
+    M._CONCERN_HITS.clear()
+    ok = {"reporter": "family", "lang": "en", "narrative": "Dad forgets things and my brother pays his bills",
+          "domains": ["memory"], "onset": "years", "timeline": [["money", "brother"]], "red_flags": [], "confounders": [],
+          "date": "2026-11-16"}
+    r = c.post("/concerns", json=ok, headers={"x-forwarded-for": "10.9.9.1"})
+    assert r.status_code == 200 and r.json()["latest"]["level"] == "CLINICIAN_REVIEW"
+    assert len(r.json()["participant"]["id"]) == len("MB-C") + 8
+    for bad in ({"timeline": [["money"]]}, {"date": "yesterday"}, {"date": "2026-02-30"}, {"domains": ["<b>x</b>"]},
+                {"red_flags": ["made_up"]}, {"onset": "decades"}, {"timeline": [["money", "brother"]] * 50}):
+        assert c.post("/concerns", json={**ok, **bad}, headers={"x-forwarded-for": "10.9.9.2"}).status_code == 422, bad
+    M._CONCERN_HITS.clear()
+    codes = [c.post("/concerns", json=ok, headers={"x-forwarded-for": "10.9.9.3"}).status_code for _ in range(M.CONCERN_RATE + 2)]
+    assert codes[:M.CONCERN_RATE] == [200] * M.CONCERN_RATE and codes[-1] == 429

@@ -1287,8 +1287,10 @@
     bindDraft(p, ev);
     $("#rf-path").onchange = (e) => referralModal(p, e.target.value);
     $("#rf-cl").onclick = closeModal;
+    const ev0 = p.sessions.length ? E.evaluate(p, p.sessions) : null;
     const create = () => { p.referrals = p.referrals || []; const r = NV.newReferral(`REF-${p.id}-${p.referrals.length}`, p.id, $("#rf-path").value, null, $("#rf-urg").value, TODAY, $("#rf-reason").value || "Clinician confirmed concern", "dr.demo", p.entry_route || "programme");
-      r.concern_date = (p.sessions[0] || {}).date || TODAY; p.referrals.push(r); return r; };
+      const ik = p.sessions.find((x) => x.type === "intake"); const fl = ev0 ? ev0.history.find((h) => ["CHECK_AGAIN", "CLINICIAN_REVIEW", "URGENT"].includes(h.level)) : null;
+      const cd = ik ? ik.date : fl ? fl.date : null; if (cd) r.concern_date = String(cd).slice(0, 10); p.referrals.push(r); return r; };
     $("#rf-send").onclick = () => { const sel = document.querySelector('input[name="svc"]:checked'); if (!sel) { toast("Choose a service, or record that none is accessible"); return; }
       const r = create(); r.service_id = sel.value; r.reason_meta = draftMeta(); NV.advance(r, "sent", TODAY, "", "dr.demo");
       if (r.reason_meta.clinician_edits) log("referral_reason_edited", p.id, `${r.reason_meta.clinician_edits} sentence(s) edited by clinician`);

@@ -9,6 +9,7 @@ import { Narrative } from "../Narrative";
 import { config, getEngine, getIntake, LEVEL_TONE, REPORTER_LABEL, type Evaluation, type IntakeResult, type Lang, type Reporter } from "@/lib/mb";
 import { ACTIVITY, CONFOUNDER, DOMAIN, ONSET, RED_FLAG, WHO, label } from "@/lib/labels";
 import { getBackend } from "@/lib/workspace/backend";
+import { localBackend } from "@/lib/workspace/local";
 import { COPY, EXAMPLES, REPORTERS, type Copy } from "./copy";
 
 type Step = "who" | "describe" | "thinking" | "review" | "outcome";
@@ -144,6 +145,11 @@ export function ConcernChat() {
   const [lang, setLang] = useState<Lang>(params.get("lang") === "ar" ? "ar" : "en");
   const t = COPY[lang];
   const [step, setStep] = useState<Step>("who");
+  // On the MemBrain server what the person confirms is sent to the API, so the privacy wording must say so.
+  const [onServer, setOnServer] = useState(false);
+  useEffect(() => {
+    getBackend().then((b) => setOnServer(b !== localBackend)).catch(() => setOnServer(false));
+  }, []);
   const [reporter, setReporter] = useState<Reporter | null>(null);
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<string[]>([]); // what the person sent, in order
@@ -552,7 +558,7 @@ export function ConcernChat() {
           </button>
         </form>
         <p className="mt-2 flex items-center gap-1.5 px-1 text-[12px] text-muted">
-          <Lock size={12} /> {canDictate ? t.voiceNote : t.disclaimer}
+          <Lock size={12} className="shrink-0" /> <span>{onServer ? t.disclaimerServer : t.disclaimer}{canDictate ? " " + t.voiceNote : ""}</span>
         </p>
       </div>
     );
@@ -577,9 +583,9 @@ export function ConcernChat() {
           <Stethoscope size={18} /> {t.clinician}
         </Link>
         {outcome?.level !== "URGENT" && (
-          <Link href="/prototype/#participant" className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-line bg-white px-4 py-3.5 text-[15px] font-medium hover:bg-mist">
+          <a href="/prototype/#participant" className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-line bg-white px-4 py-3.5 text-[15px] font-medium hover:bg-mist">
             {t.checkin}
-          </Link>
+          </a>
         )}
         <button type="button" onClick={restart} className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-line bg-white px-4 py-3.5 text-[15px] font-medium hover:bg-mist">
           <RotateCcw size={16} /> {t.restart}
@@ -623,7 +629,7 @@ export function ConcernChat() {
         <aside className="hidden w-[280px] shrink-0 py-8 lg:block">
           <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-leaf">{t.asideTitle}</p>
           <ol className="mt-4 space-y-4">
-            {t.aside.map((a, i) => (
+            {(onServer ? [...t.aside.slice(0, 4), t.privacyServer] : t.aside).map((a, i) => (
               <li key={a} className="flex gap-3 text-[14.5px] leading-snug text-body">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white font-mono text-[12px] text-deep shadow-sm">{i + 1}</span>
                 {a}

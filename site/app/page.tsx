@@ -142,9 +142,9 @@ export default function HomePage() {
                 <Link href="/concern/" className="inline-flex items-center gap-2.5 rounded-xl bg-deep px-7 py-4 text-[17px] font-medium text-white shadow-sm transition-colors hover:bg-deep-hover">
                   I&apos;ve noticed a change <ArrowRight size={19} />
                 </Link>
-                <Link href="/prototype/#participant" className="inline-flex items-center rounded-xl border border-line bg-white px-7 py-4 text-[17px] font-medium text-ink shadow-sm transition-colors hover:bg-mist">
+                <a href="/prototype/#participant" className="inline-flex items-center rounded-xl border border-line bg-white px-7 py-4 text-[17px] font-medium text-ink shadow-sm transition-colors hover:bg-mist">
                   Check my own brain health
-                </Link>
+                </a>
               </div>
               <div className="mt-7 flex flex-wrap gap-x-10 gap-y-2">
                 <Link href="/concern/?lang=ar" className="inline-flex items-center gap-2 text-[16.5px] font-medium text-deep underline-offset-4 hover:underline">
@@ -229,7 +229,7 @@ export default function HomePage() {
                   <Eyebrow className="mt-5">{eyebrow}</Eyebrow>
                   <h3 className="mt-2 text-[21px] font-semibold leading-snug tracking-tight">{title}</h3>
                   <p className="mt-2 flex-1 text-[15px] leading-[1.55] text-body">{text}</p>
-                  <Link href={cta.href} className={`${btn.quiet} mt-5`}>
+                  <Link href={cta.href} prefetch={cta.href.startsWith("/prototype") ? false : undefined} className={`${btn.quiet} mt-5`}>
                     {cta.label} <ArrowRight size={15} />
                   </Link>
                 </article>

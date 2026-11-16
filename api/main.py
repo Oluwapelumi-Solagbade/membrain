@@ -12,7 +12,7 @@ import pathlib
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -347,6 +347,9 @@ def create_referral(pid: str, body: ReferralIn, r: str = Depends(role)):
     refs = p.setdefault("referrals", [])
     ref = NAV.new_referral(f"REF-{pid}-{len(refs)}", pid, body.pathway, body.service_id, body.urgency, body.date, body.reason,
                            entry_route=p.get("entry_route", "programme"))
+    cd = NAV.concern_date(p, evaluate(p, p["sessions"])["history"] if p.get("sessions") else [])
+    if cd:
+        ref["concern_date"] = cd
     refs.append(ref)
     audit(r, "referral_recommended", pid, {"pathway": body.pathway, "service": body.service_id})
     return ref
@@ -474,28 +477,92 @@ def get_case(pid: str, r: str = Depends(role)):
     return _case(p, full=True)
 
 
+from membrain import intake as _IK  # noqa: E402
+from pydantic import field_validator  # noqa: E402
+
+
 class ConcernIn(BaseModel):
-    """A concern confirmed by whoever raised it in the chat. Only the confirmed facts are stored."""
+    """A concern confirmed by whoever raised it in the chat. Only the confirmed facts are stored.
+    Public endpoint: only known labels are accepted, sizes are capped, and the date must be a real date."""
     reporter: str = Field(pattern="^(self|family|helper|professional|coordinator)$")   # config.REPORTER_LABEL keys
     lang: str = Field(pattern="^(ar|en)$")
     narrative: str = Field(min_length=3, max_length=4000)
-    domains: list[str] = Field(default_factory=list)
-    onset: str | None = None
-    timeline: list[list[str]] = Field(default_factory=list)   # [activity, who took over]
-    red_flags: list[str] = Field(default_factory=list)
-    confounders: list[str] = Field(default_factory=list)
-    date: str
+    domains: list[str] = Field(default_factory=list, max_length=len(_IK.DOMAINS))
+    onset: str | None = Field(default=None, pattern="^(days|weeks|months|years)$")
+    timeline: list[list[str]] = Field(default_factory=list, max_length=12)   # [activity, who took over]
+    red_flags: list[str] = Field(default_factory=list, max_length=len(C.RED_FLAGS))
+    confounders: list[str] = Field(default_factory=list, max_length=len(_IK.CONFOUNDERS))
+    date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+    @field_validator("domains")
+    @classmethod
+    def _domains(cls, v):
+        bad = [x for x in v if x not in _IK.DOMAINS]
+        if bad:
+            raise ValueError(f"unknown domain {bad[0]!r}")
+        return list(dict.fromkeys(v))
+
+    @field_validator("red_flags")
+    @classmethod
+    def _flags(cls, v):
+        bad = [x for x in v if x not in C.RED_FLAGS]
+        if bad:
+            raise ValueError(f"unknown red flag {bad[0]!r}")
+        return list(dict.fromkeys(v))
+
+    @field_validator("confounders")
+    @classmethod
+    def _conf(cls, v):
+        bad = [x for x in v if x not in _IK.CONFOUNDERS]
+        if bad:
+            raise ValueError(f"unknown confounder {bad[0]!r}")
+        return list(dict.fromkeys(v))
+
+    @field_validator("timeline")
+    @classmethod
+    def _timeline(cls, v):
+        for row in v:
+            if len(row) != 2 or row[0] not in _IK.ACTIVITIES or row[1] not in _IK.WHO:
+                raise ValueError("each timeline row must be [activity, who_took_over] with known keys")
+        return v
+
+    @field_validator("date")
+    @classmethod
+    def _date(cls, v):
+        from datetime import date as _d
+        _d.fromisoformat(v)   # raises on 2026-02-30 etc.
+        return v
 
 
 # Who raised the concern -> the navigator's entry route (as web/app.js does at enrolment).
 ENTRY_ROUTE = {"self": "self", "family": "family", "helper": "household_helper", "professional": "primary_care", "coordinator": "programme"}
 
 
+_CONCERN_HITS: dict = {}
+CONCERN_RATE = int(os.getenv("CONCERN_RATE_PER_MIN", "6"))      # per client address
+PUBLIC_CONCERN_CAP = int(os.getenv("PUBLIC_CONCERN_CAP", "500"))  # demo memory cap
+
+
 @app.post("/concerns")
-def raise_concern(body: ConcernIn):
+def raise_concern(body: ConcernIn, request: Request):
     """Anyone can raise a concern. It becomes a pseudonymous record with an intake session, triaged by the engine;
     a significant concern opens a clinician task straight away. No identifiers are taken here."""
-    pid = "MB-C" + uuid.uuid4().hex[:4].upper()
+    import time as _t
+    from collections import deque
+    ip = (request.headers.get("x-forwarded-for") or (request.client.host if request.client else "?")).split(",")[0].strip()
+    q = _CONCERN_HITS.setdefault(ip, deque())
+    now = _t.time()
+    while q and now - q[0] > 60:
+        q.popleft()
+    if len(q) >= CONCERN_RATE:
+        raise HTTPException(429, "Too many concerns from this connection; please wait a minute")
+    if sum(1 for p in DB["participants"].values() if p["id"].startswith("MB-C")) >= PUBLIC_CONCERN_CAP:
+        raise HTTPException(429, "The demo is full; it is reset when the server restarts")
+    q.append(now)
+    while True:   # 8 hex characters, and never reuse an existing ID
+        pid = "MB-C" + uuid.uuid4().hex[:8].upper()
+        if pid not in DB["participants"]:
+            break
     acts = sorted({a for a, _ in body.timeline})
     p = {"id": pid, "display_name": {"en": "New concern", "ar": "قلق جديد"}, "age": None, "education": None, "sex": "U",
          "dialect": None, "language": body.lang, "languages": [body.lang], "entry_route": ENTRY_ROUTE[body.reporter], "context": {},
