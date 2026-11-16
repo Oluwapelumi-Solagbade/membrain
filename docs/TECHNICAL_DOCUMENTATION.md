@@ -4,7 +4,7 @@ Version: engine 0.4.0 · navigator nav-0.1.0 · norms synthetic-2026.11 · item 
 
 ## 1. Problem and scope
 
-Cognitive change in mid-to-late life is gradual and easily put down to ageing. One-off scores are distorted by language, education, culture, hearing, vision, mood and unfamiliarity with digital tools. The context that would explain a change (metabolic, sleep, mood, family history, wearables) sits in separate systems. MemBrain is the longitudinal front end that brings these together for a health programme or clinic (for example the IFHAS screening programme, Healthy Longevity Medicine Centres, or primary care networks). It flags risk and change and routes the person to the right care. It does not diagnose.
+Cognitive change in mid-to-late life is gradual and easily put down to ageing. One-off scores are distorted by language, education, culture, hearing, vision, mood and unfamiliarity with digital tools. The context that would explain a change (metabolic, sleep, mood, family history, wearables) sits in separate systems. MemBrain starts where a change is first noticed, by the person, a relative, a caregiver or a clinician. It structures that concern, adds an accessible assessment and the health context, and tracks the person until the next clinical step is documented. It is built for a health programme or clinic, for example a population screening programme, a healthy-longevity centre or a primary care network. These are prospective partners: none is agreed yet. It flags risk and change. It does not diagnose.
 
 ## 2. System overview
 
@@ -48,7 +48,7 @@ Clinicians can re-identify someone for follow-up only by giving a reason, and ev
 | Story recall | Local short story, 12 idea units | 0–12 | Keyword-unit matching |
 | Everyday judgement | Smoke in kitchen / lost in mall / phone scam | 0–4 | Rubric elements, clinician-audited sample |
 
-**Alternate forms.** There are three forms (A, B, C), assigned in a Latin-square rotation per participant to limit practice effects. Equating is tested in Phase A.
+**Alternate forms.** There are three forms (A, B, C), assigned in a Latin-square rotation per participant to limit practice effects. Equating is tested in Phase 2.
 
 **Arabic processing.** The engine removes diacritics and tatweel, unifies alef, taa marbuta and alif maqsura, and strips clitics (و، ال، بال، فال). Matching works the same way in Python and JavaScript.
 
@@ -73,13 +73,13 @@ RCI = [(X_n − X̄_baseline) − (g(n) − mean g(baseline))] / SE_diff
 SE_diff = SD·√(1−r) · √(1 + 1/k)          g(i) = practice gain per session · min(i, 3)
 ```
 
-The engine computes this for the composite and for each domain, using each test's reliability *r* and expected practice gain (both re-estimated in Phase A). Every alert shows a 90% range for the true change.
+The engine computes this for the composite and for each domain, using each test's reliability *r* and expected practice gain (both re-estimated in Phase 2). Every alert shows a 90% range for the true change.
 
 | Level | Trigger | Action |
 |---|---|---|
 | Stable | Composite RCI > −1.645 and delayed-recall RCI > −1.96 | Reassurance, prevention plan, routine repeat (6 months) |
 | Check again | One decline signal, or a decline with a confounder, or an invalid recording | Alternate-form repeat in 2–4 weeks |
-| Clinician review | A significant concern at intake, before any testing: two or more everyday activities now done by someone else, an informant questionnaire above the cutoff, or a concern raised by a healthcare professional; a very low first-visit score (≤ −2.0 for age and education, no waiting for baseline); the same decline signal confirmed on the next session; or decline plus an informant functional flag; or entry composite ≤ −1.5 for age and education | Review Task, 21-day target |
+| Clinician review | Very low first-visit score (≤ −2.0 for age and education, no waiting for baseline); the same decline signal confirmed on the next session; or decline plus an informant functional flag; or entry composite ≤ −1.5 for age and education | Review Task, 21-day target |
 | Urgent review | Red flags for an acute presentation at intake (sudden onset, fluctuating confusion, new neurological symptoms, fall or head injury, rapid worsening, safety risk), which follow the emergency protocol with no testing first; composite RCI ≤ −2.576 or a drop of ≥ 1.5 SD within 120 days; new informant-reported functional loss (IQCODE above 3.34 and rising ≥ 0.3); safety concern | Review Task, 3-day target, clinician call |
 
 **Design decisions found through simulation.**
@@ -99,7 +99,7 @@ The clinician sees BP, HbA1c, LDL, BMI, activity, sleep, PHQ-2, GAD-2, IQCODE-16
 - **Prevention.** Clinician-authored, versioned rules turn context into up to 5 actions per person, in Arabic or English, with cultural adaptations (walking after Maghrib, mall walking in summer, shisha and medwakh, majlis, Quran memorisation). Each rule links to its evidence. No AI writes free-text medical advice.
 - **Pathways.** Memory clinic, geriatrics or neurology; mental health; primary care; urgent safety review.
 - **Reversible causes.** The dossier suggests checks for TSH, B12, folate, FBC, HbA1c, renal function, anticholinergic burden, PHQ-9, STOP-BANG, and hearing and vision.
-- **Referral dossier.** A one-page summary that opens with the concern: who raised it, their own words, what changed and since when, who now does which activity, and what information is still missing. It is labelled as the reporter's account until a clinician confirms it. Then come trend, drivers, confounders, risk context and limitations. It is also available as a FHIR bundle.
+- **Referral dossier.** A one-page summary with trend, drivers, confounders, risk context and limitations. It is also available as a FHIR bundle.
 
 ## 6b. Navigator layer: from alert to completed care
 
@@ -117,11 +117,11 @@ See `NAVIGATOR.md`. It covers:
 Each referral is stored as a FHIR `ServiceRequest`.
 
 **Entry and AI (see `NAVIGATOR_AI.md`).**
-- **Two doors.** The app opens on a choice between raising a concern ("I've noticed a change in memory or thinking": in yourself, someone you love, or a patient) and the voice check-in. Whoever raises the concern is recorded with it. Both lead into the same loop.
+- **Two doors.** The app opens on a choice between family intake ("I'm worried about someone") and the voice check-in. Both lead into the same loop.
 - **Family intake.** A narrative is turned into facts that quote their source words, carry a confidence, are read back aloud and are confirmed by a person. The always-on rules extractor runs in the browser. MedGemma 4B runs behind `/api/intake/extract` when an in-country model server is configured.
 - **Safety rules on model output.** A model field without a real quote is dropped, and red flags are the union with the rules.
 - **Referral reasons.** These are drafted from confirmed facts and checked sentence by sentence by a deterministic verifier.
-- **Held-out results for the rules extractor** (30 frozen narratives): it passes the measurable safety gates (12/12 urgent cases, p95 latency 2 ms; the unsupported-field gate is n/a for rules, which quote the narrative by construction) but not yet the accuracy gates (domain F1 0.85 against a 0.90 target). MedGemma is measured on the same set on the FZJ cluster.
+- **Held-out results for the rules extractor** (30 frozen narratives): it passes the measurable safety gates (12/12 urgent cases, p95 latency 2 ms; the unsupported-field gate is n/a for rules, which quote the narrative by construction) but not yet the accuracy gates (domain F1 0.85 against a 0.90 target). MedGemma 4B, used as is, was measured on the same set on the FZJ cluster and did worse on every gate: domain F1 0.52, 5 of 12 urgent cases caught on its own, 52% of items without a real quote, p95 latency 27 s. It is therefore not used. With the rule red flags added, urgent recall stayed at 12/12, and the grounding check blocked 14 of 120 MedGemma referral sentences. Adapting a model to Gulf Arabic caregiver narratives is Phase 1 work.
 
 ## 7. Safety and human oversight (requirement 5)
 
@@ -156,12 +156,33 @@ Below is a synthetic run with n = 2,000 people, 10,766 sessions and 12 months of
 - Ablation shows that confirmation on repeat and stratified norms remove the most false referrals.
 - A 72-setting sweep, re-tested on fresh cohorts, shows that our default was not over-fitted: stricter settings halve false referrals but detect far less change.
 - A decision curve shows net benefit over usual care at all thresholds from 5% to 40%.
-- Small-subgroup estimates (for example, no formal education: 72%–96% across cohorts) are unstable, so Phase A enriches these strata.
+- Small-subgroup estimates (for example, no formal education: 72%–96% across cohorts) are unstable, so Phase 2 enriches these strata.
 
-**Study plan.**
-- Phase A (feasibility and reliability): stratified by dialect, age band and education, with sessions at baseline, about 2 weeks and about 12 weeks. Includes a paper-versus-digital mode-equivalence subsample and ASR word error rate by subgroup.
-- Phase B (accuracy): memory clinic and primary care, with a specialist reference standard.
+**Study plan** (phases as in the MemBrain plan, Nov 2026).
+- **Phase 0, clinical pathway and population discovery:** target population, how concerns are raised today, languages and dialects, choice of licensed and locally adapted instruments, escalation pathways, referral services, governance.
+- **Phase 1, concern-first prototype feasibility:**
+  - whether participants and caregivers can report concerns;
+  - completeness of concern capture;
+  - assessment completion, usability and accessibility;
+  - time to complete the workflow;
+  - accuracy of AI-assisted transcription and extraction. This includes the Navigator AI release gates and speech-recognition error rate by subgroup.
+- **Phase 2, assessment and measurement validation:**
+  - test–retest reliability (sessions at baseline, about 2 weeks and about 12 weeks), stratified by dialect, age band and education;
+  - digital-versus-paper equivalence and practice effects;
+  - sensitivity and specificity against an independent clinical reference;
+  - false-positive and false-negative rates by language, age and education.
+- **Phase 3, longitudinal and care-pathway evaluation:**
+  - primary outcomes: time from first concern to clinical review, share of concerning findings reviewed, referral completion, time to completed assessment, referral appropriateness, false-referral burden and subgroup performance;
+  - secondary outcomes: acceptability, staff workload, preventive-plan uptake and unresolved referrals.
 - A biostatistician sets sample sizes. Decision-curve analysis compares net benefit with usual care.
+- **From pilot data to new parameters** (`scripts/fit_parameters.py`). One command turns Phase 2 check-ins into the values that are placeholders today, each with a bootstrap 95% CI:
+  - norms by education band and age, fitted on first sessions of reference-normal people;
+  - test–retest reliability per domain and for the composite: ICC(3,1) on norm-referenced z-scores, using session pairs 1–6 weeks apart, clean of confounders;
+  - practice gain per domain;
+  - inter-domain correlation.
+
+  It never edits `config.py`; the clinical team approves the values. On an 8,000-person synthetic cohort it recovers the simulator's known values (`docs/FIT_PARAMETERS_RECOVERY.md`; checked by a unit test). It also exposed a real design point: whole-point scoring on the 0–4 judgement task lowers its reliability from 0.70 to about 0.60. The placeholder makes judgement changes look more meaningful than they are, so the fitted value must replace it.
+- We do not claim dementia prevention or better long-term cognition because assessment or referral happens sooner.
 
 ## 9. Data model
 
@@ -183,6 +204,8 @@ If Azure is unavailable, the app falls back to browser speech recognition, and t
 
 For an in-country, self-hosted option we adapted an existing open Gulf-Arabic Whisper model to Emirati speech with a small LoRA adapter. On a held-out Emirati test set (103 clips, topics never seen in training), word error rate fell from 49.5% to 41.2% (−8.3 points, 95% CI −16.9 to −1.2, p = 0.011). Task-word recall did not improve on its 19 words, so the production recogniser is chosen on task-word recall and worst-subgroup error from consented recordings. Method and results are in `asr/README.md` and `docs/asr/BENCHMARK_RESULTS.md`.
 
+The fine-tuned model is wired into the app as a third engine. It is merged and converted to CTranslate2 int8 (`asr/export_model.py`) and served by the API on a CPU container (`/api/asr/transcribe`). It is off unless `WHISPER_MODEL` is set; the engine order is self-hosted Whisper (if preferred), Azure, browser, typed. Audio is transcribed in memory and not kept. The exported model keeps its accuracy (38.0% WER on the held-out Emirati clips; 41.2% in the GPU benchmark) and runs at 0.20 s of CPU time per second of audio, so a 10-second answer takes about 2 s on an ordinary 4-core in-country server.
+
 ## 10. Security and privacy
 
 - **Hosting:** in-country cloud region, with no foreign processing of health data, in line with the ICT Health Law localisation rules.
@@ -202,9 +225,10 @@ For an in-country, self-hosted option we adapted an existing open Gulf-Arabic Wh
 
 | Months | Work |
 |---|---|
-| 0–3 | Ethics approval, partner MoU, native-speaker item review per dialect, ASR benchmark on consented recordings, in-country deployment |
-| 3–9 | Phase A (feasibility and reliability), local norms, mode equivalence |
-| 9–18 | Phase B (diagnostic accuracy, change detection), EDE classification, HIE integration with the partner |
+| 0–3 | Phase 0: pathway and population discovery, ethics approval, partner agreement, native-speaker item review per dialect, instrument licensing, in-country deployment |
+| 3–9 | Phase 1: concern-first feasibility, AI extraction and speech-recognition accuracy on consented data, usability |
+| 9–18 | Phase 2: reliability, local norms, mode equivalence, accuracy against an independent clinical reference; EDE classification |
+| 18+ | Phase 3: longitudinal and care-pathway outcomes; HIE integration with the partner |
 | Later | Validated voice biomarkers, passive monitoring, genomics module (M42 / IROS) |
 
 ## 13. Business model

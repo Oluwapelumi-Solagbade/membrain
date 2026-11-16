@@ -1,5 +1,5 @@
 // The concern that started the journey, attributed to whoever reported it, plus what is still missing.
-// A port of membrain/dossier.py concern_summary (also mirrored in web/app.js); keep the three in step.
+// A port of membrain/dossier.py concern_summary; keep the two in step.
 import intakeData from "../generated/intake-data.json";
 import engineData from "../generated/engine-data.json";
 import type { ConcernSummary, Participant } from "./types";
@@ -10,7 +10,9 @@ const RED_FLAGS = (engineData.config as unknown as { RED_FLAGS: Record<string, s
 export const ENTRY_LABEL: Record<string, string> = {
   family: "Family member",
   self: "The person themselves",
+  helper: "Household helper",
   household_helper: "Household helper",
+  professional: "Healthcare professional",
   primary_care: "Healthcare professional",
   coordinator: "Programme coordinator",
   programme: "Programme screening",
@@ -23,7 +25,8 @@ export function concernSummary(p: Participant): ConcernSummary {
   const ikS = (sessions.find((s) => s.type === "intake") ?? {}) as Record<string, unknown>;
   const ik = p.intake ?? {};
   const c = ik.confirmed ?? ({} as NonNullable<NonNullable<Participant["intake"]>["confirmed"]>);
-  const route = (ik.reporter ?? (ikS.reporter as string | undefined) ?? p.entry_route) as string | undefined;
+  const rc = (ikS.reported_concern ?? {}) as { reporter?: string; domains?: string[] };
+  const route = (ik.reporter ?? rc.reporter ?? (ikS.reporter as string | undefined) ?? p.entry_route) as string | undefined;
   const raisedBy = (route && ENTRY_LABEL[route]) || route || "Not recorded";
   let text: string | null = c.narrative || (ikS.concern as string | undefined) || null;
   if (text === "routine programme screening") text = null;
@@ -47,7 +50,7 @@ export function concernSummary(p: Participant): ConcernSummary {
     date: (ik.at ?? (ikS.date as string | undefined) ?? "").slice(0, 10) || null,
     in_their_words: text,
     onset: onset ? IL.ONSET[onset] ?? null : null,
-    what_changed: (c.domains ?? []).map((d) => IL.DOMAINS[d] ?? d),
+    what_changed: (c.domains?.length ? c.domains : rc.domains ?? []).map((d) => IL.DOMAINS[d] ?? d),
     who_now_does_what: who,
     red_flags_reported: ((ikS.red_flags as string[] | undefined) ?? []).map((f) => RED_FLAGS[f] ?? f),
     confounders_reported: (c.confounders ?? []).map((f) => IL.CONFOUNDERS[f] ?? f),

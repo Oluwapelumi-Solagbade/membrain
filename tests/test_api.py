@@ -106,3 +106,12 @@ def test_concern_with_red_flag_is_urgent_and_bad_reporter_rejected():
     body = {"reporter": "family", "lang": "ar", "narrative": "أبوي طاح أمس وضرب راسه", "red_flags": ["recent_fall_head_injury"], "date": "2026-11-14"}
     assert c.post("/concerns", json=body).json()["latest"]["level"] == "URGENT"
     assert c.post("/concerns", json=body | {"reporter": "stranger"}).status_code == 422
+
+
+def test_concern_from_a_professional_maps_to_primary_care_route():
+    body = {"reporter": "professional", "lang": "en", "narrative": "GP noticed a decline in memory at the last visit.",
+            "domains": ["memory"], "date": "2026-11-14"}
+    case = c.post("/concerns", json=body).json()
+    assert case["participant"]["entry_route"] == "primary_care" and case["latest"]["level"] == "CLINICIAN_REVIEW"
+    assert case["concern"]["raised_by"] == "Healthcare professional"
+    assert c.post("/concerns", json=body | {"reporter": "primary_care"}).status_code == 422

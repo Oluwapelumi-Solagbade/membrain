@@ -1,0 +1,4 @@
+# Self-hosted speech recognition (api/asr_local.py) and model export (asr/export_model.py)
+faster-whisper>=1.1
+ctranslate2>=4.4
+av>=11

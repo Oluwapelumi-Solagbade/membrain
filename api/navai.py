@@ -64,7 +64,7 @@ def referral_draft(body: DraftIn):
     c = body.confirmed
     if not isinstance(c, dict):
         raise HTTPException(422, "confirmed must be an object")
-    raw = _llm(I.llm_draft_messages(c), 300)
+    raw = I.strip_thinking(_llm(I.llm_draft_messages(c), 400) or "")[0]
     if raw:
         v = I.verify_referral(raw, c)
         kept = [s["text"] for s in v["sentences"] if s["ok"]]

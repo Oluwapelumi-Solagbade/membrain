@@ -234,9 +234,12 @@ export function ConcernChat() {
       type: "intake" as const,
       channel: "app",
       concern: narrative,
-      reporter: reporter ?? "family",
-      activities_taken_over: acts,
       red_flags: flags,
+      reported_concern: {
+        reporter: reporter ?? "family",
+        domains: result.fields.filter((f) => f.kind === "domain" && ok[`domain:${f.key}`]).map((f) => f.key),
+        activities_taken_over: acts,
+      },
     };
     const ev = getEngine().evaluate({ id: "new", age: 65, education: "secondary" }, [session]).latest;
     // Hand the confirmed facts to the workspace: the MemBrain server when it answers, otherwise this browser.
@@ -416,8 +419,10 @@ export function ConcernChat() {
   const outcomeCard = outcome && result && (() => {
     const acts = [...new Set(result.timeline.filter((_, i) => ok[`tl:${i}`]).map((x) => x.activity))];
     const reasons: string[] = [];
-    if (acts.length >= config.INTAKE_REVIEW_MIN_ACTIVITIES) reasons.push(t.reasonActs(acts.length));
-    if (reporter === "primary_care") reasons.push(t.reasonPro);
+    // The engine's rule (membrain/config.py): a memory or thinking concern plus lost independence, or one raised by a professional.
+    const thinking = result.fields.some((f) => f.kind === "domain" && ok[`domain:${f.key}`] && config.CONCERN_COGNITIVE_DOMAINS.includes(f.key));
+    if (thinking && acts.length >= config.CONCERN_REVIEW_MIN_ACTIVITIES) reasons.push(t.reasonActs(acts.length));
+    if (thinking && reporter === "professional") reasons.push(t.reasonPro);
     const tone = LEVEL_TONE[outcome.level];
     const head =
       outcome.level === "URGENT" ? t.urgentOutcome : outcome.level === "CLINICIAN_REVIEW" ? t.reviewOutcome(days("CLINICIAN_REVIEW")) : t.routineOutcome;

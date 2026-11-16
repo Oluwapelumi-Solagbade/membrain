@@ -1,13 +1,13 @@
 """Versioned engine configuration.
 
-Every number here is a *starting point* to be re-estimated in Phase A
+Every number here is a *starting point* to be re-estimated in Phase 2
 (feasibility & reliability study). Values marked [PLACEHOLDER] are
 illustrative and must be replaced with locally derived estimates.
 Changing any value requires a new ENGINE_VERSION (change control).
 """
 
 ENGINE_VERSION = "0.4.0"
-NORMS_VERSION = "synthetic-2026.11"  # [PLACEHOLDER] until Phase A local norms
+NORMS_VERSION = "synthetic-2026.11"  # [PLACEHOLDER] until Phase 2 local norms
 
 # --- Cognitive domains in the voice-first battery -------------------------
 # max_score, test-retest reliability r, expected practice gain per session
@@ -62,9 +62,19 @@ RED_FLAGS = {
     "safety_risk": "Immediate safety risk (wandering, unsafe at home, self-neglect)",
 }
 
-# A concern can warrant clinician review before any testing (do not wait for a baseline).
-INTAKE_REVIEW_MIN_ACTIVITIES = 2          # everyday activities now done by someone else, confirmed at intake
-INTAKE_REVIEW_ROUTES = ["primary_care"]   # concern raised by a healthcare professional
+# --- Significant reported concern -----------------------------------------
+# Plan (Jeremiah, Module E): do not wait for repeat assessments when the initial concern is significant.
+# PROVISIONAL rule pending clinical sign-off: a memory/thinking concern WITH loss of everyday independence
+# (at least one activity now done by someone else), or a memory/thinking concern raised by a healthcare
+# professional, goes to clinician review at intake. Reported, not clinically verified.
+CONCERN_COGNITIVE_DOMAINS = ["memory", "language", "orientation", "executive"]
+CONCERN_DOMAIN_LABEL = {"memory": "memory", "language": "word-finding", "orientation": "orientation", "executive": "money and planning"}
+CONCERN_REVIEW_MIN_ACTIVITIES = 1
+REPORTER_LABEL = {"self": "the participant", "family": "a family member", "helper": "a household helper",
+                  "professional": "a healthcare professional", "coordinator": "a programme coordinator"}
+# Change thresholds use provisional reliability and practice-effect values (synthetic norms). Until local
+# validation, change is shown with the statement that its interpretation is not validated.
+CHANGE_THRESHOLDS_VALIDATED = False
 
 # --- Confounders -----------------------------------------------------------
 PHQ2_CUTOFF = 3      # PHQ-2 >= 3: positive depression screen

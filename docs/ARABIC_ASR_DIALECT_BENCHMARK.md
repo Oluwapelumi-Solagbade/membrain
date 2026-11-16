@@ -73,7 +73,7 @@ The data were split by topic so that no show segment appears in two sets:
 - **The fine-tune cuts word errors by 8.3 points against the model it started from (95% CI 1.2 to 16.9 points; paired bootstrap, p = 0.011), and by 13.9 points against original Whisper (95% CI 6.8 to 22.5; p < 0.001).**
 - Three earlier runs, with the epoch fixed in advance, gave 43.4–43.5%, so the improvement is stable.
 - Keyword recall did not improve (14 against 16 of 19 words). That difference is too small to interpret, but it is why the production choice is made on task-word recall from consented recordings, not on WER alone.
-- These are adult broadcast speakers, not older adults. Phase A re-measures on participant audio.
+- These are adult broadcast speakers, not older adults. Phase 1 re-measures on consented participant audio.
 
 ### 4.1 Word error rate (%) by model and dialect
 

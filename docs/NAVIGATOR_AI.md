@@ -6,12 +6,10 @@ Built on 15 November 2026, in response to the Navigator technical audit (Abdulwa
 
 The Navigator documentation makes version 1 *care navigation*, with verbal cognitive testing deferred to Phase 2. The challenge, however, asks for brain-health risk to be found **earlier**, and our measured speech evidence is for the voice check-in. The team chose a **two-door** design:
 
-- **"I've noticed a change in memory or thinking"** (default, "start here"): whoever noticed the change describes it by voice or text. That can be the person themselves, a family member, a household helper, a healthcare professional or a programme coordinator. Who raised it is recorded with the concern, so a family member's account never silently becomes the person's own or a clinical finding. This is the Navigator entry.
+- **"I'm worried about someone"** (default, "start here"): a family member or household helper describes what they have noticed, by voice or text. This is the Navigator entry.
 - **"Check my own brain health"**: the 6-minute voice check-in for adults aged 50–75 in a programme.
 
 Both doors lead to the same red-flag screen, the same clinician review queue and the same closed-loop referral tracking. Jeremiah's phases are unchanged as the pilot plan.
-
-A significant concern goes to clinician review at intake, without waiting for any testing. Significant means two or more everyday activities now done by someone else, an informant questionnaire (IQCODE-16) above the cutoff, or a concern raised by a healthcare professional (`config.INTAKE_REVIEW_*`). Red flags still go to URGENT first. Otherwise the first check-in follows.
 
 ## 2. Family intake extractor
 
@@ -23,7 +21,9 @@ A narrative in Gulf Arabic or English is turned into reviewable facts. Each fact
 - **onset:** days, weeks, months or years;
 - **who took over which activity:** the delegation timeline.
 
-The family sees their words with each fact highlighted. They can untick anything wrong, and the app reads the summary back aloud in their language. A clinician confirms before any referral.
+The reporter is recorded: the person themselves, a family member, a household helper, a healthcare professional or a programme coordinator. The reporter sees their words with each fact highlighted, unticks anything that isn't what they meant, and hears the summary read back. Ticked facts are kept as **that person's report, not as clinical facts**. The clinician view shows them under "Reported concern (reported, not clinically verified)", next to the original words.
+
+**Significant concern goes straight to review.** A memory or thinking concern combined with loss of everyday independence (at least one activity now done by someone else), or one raised by a healthcare professional, goes to clinician review at intake. It does not wait for a baseline. The review stays open in the queue until a clinician marks it reviewed, even if a check-in happens first. This rule is provisional and needs Jeremiah's clinical sign-off (`config.CONCERN_*`).
 
 There are two extractors, with one output format:
 
@@ -37,7 +37,7 @@ Red flags are tuned to catch too much rather than miss one. Any red flag, at any
 
 ## 3. Referral drafting and the grounding verifier
 
-The referral reason is drafted from **confirmed facts only**: the clinician-confirmed intake and the latest check-in result. A deterministic verifier then checks every sentence (`intake.verify_referral`). It rejects:
+The referral reason is drafted **only from facts the reporter checked and the latest check-in result**. Each sentence names who reported it ("A household helper reports…"). A deterministic verifier then checks every sentence (`intake.verify_referral`). It rejects:
 
 - any diagnosis word (dementia, Alzheimer, MCI, "diagnosis" except in "no diagnosis has been made");
 - any number that is not in the record;
@@ -57,26 +57,39 @@ The gold set (`navai/gold/`) contains 50 synthetic caregiver narratives, written
 - 20 development narratives, used to tune the rules;
 - **30 test narratives, frozen (SHA-256 in `test.sha256`, checked by a unit test) before the rules were tuned** and scored once.
 
-| Release gate | Target | Rules extractor | MedGemma 4B |
-|---|---|---|---|
-| Concern-domain macro F1 | ≥ 0.90 | 0.849 ✗ | FZJ run pending |
-| Macro F1, worst language (Arabic) | ≥ 0.85 | 0.834 ✗ | |
-| Delegation timeline exact match | ≥ 0.80 | 0.70 ✗ | |
-| Urgent red-flag recall | ≥ 0.99 | 12/12 ✓ (0 false alarms in 18) | |
-| Unsupported field rate | < 1% | n/a (0 of 0 checked) | |
-| p95 latency | < 5 s | 0.002 s ✓ | |
+| Release gate | Target | Rules extractor | MedGemma 4B (as is) | MedGemma + rule red flags |
+|---|---|---|---|---|
+| Concern-domain macro F1 | ≥ 0.90 | 0.849 ✗ | 0.515 ✗ | 0.515 ✗ |
+| Macro F1, worst language | ≥ 0.85 | 0.834 ✗ | 0.479 ✗ | 0.479 ✗ |
+| Delegation timeline exact match | ≥ 0.80 | 0.70 ✗ | 0.20 ✗ | 0.20 ✗ |
+| Urgent red-flag recall | ≥ 0.99 | 12/12 ✓ (0 false alarms in 18) | 5/12 ✗ | 12/12 ✓ |
+| Unsupported field rate | < 1% | n/a (0 of 0 checked) | 52% ✗ (dropped) | 52% ✗ (dropped) |
+| p95 latency | < 5 s | 0.002 s ✓ | 27 s ✗ | 27 s ✗ |
 
 **Reading this honestly:**
 
-- **The rules pass the measurable safety gates (red-flag recall, latency) and fail the accuracy gates.** That is the case for evaluating MedGemma, and the reason the rules remain the always-on fallback.
-- **The unsupported-field gate does not apply to the rules.** Every rule field quotes the narrative by construction, so there is nothing to drop and the rate is 0 of 0. It is reported as n/a rather than a pass. The gate becomes a real measurement on the MedGemma run, where unquoted fields are counted and dropped.
-- **The urgent-recall gate isn't really demonstrated yet.** 12/12 only shows recall above 0.76 (Wilson 95% lower bound). Showing 0.99 needs about 300 red-flag narratives with none missed, which is a Phase A task.
+- **The rules pass the safety gates but not the accuracy gates.**
+- **The unsupported-field gate does not apply to the rules.** Every rule field quotes the narrative by construction, so nothing can be dropped and the rate is 0 of 0. It is reported as n/a rather than a pass (`navai/evaluate.py`).
+- **MedGemma 4B, used as is with one prompt, did worse than the rules on every gate.** On its own it caught only 5 of 12 urgent cases. About half of what it returned (125 of 239 items) had no real quote in the narrative, so the grounding check dropped it. It took 27 s at the 95th percentile. **It is not used in the product.** The rules extractor is the default, and the MedGemma endpoint stays off unless a server is configured.
+- **The safety design held under a weak model.** With the rule red flags added, urgent recall went back to 12/12. Nothing unsupported reached the output.
+- **The referral checker caught additions in practice.** It blocked 14 of 120 MedGemma referral sentences, mostly "memory" added when memory was not reported. Only 16 of 30 drafts came through clean. Template drafts: 0 blocked.
+- **Why it failed (hypotheses to test, not conclusions):**
+  - MedGemma 4B is tuned mainly for English medical images and text, not Gulf Arabic caregiver speech.
+  - It paraphrases or translates its evidence instead of quoting.
+  - One prompt, no examples, greedy decoding.
+- **Planned next steps:**
+  - few-shot prompting;
+  - constrained JSON output;
+  - a LoRA adapter trained on synthetic (Zone 0) and then consented Phase 1 narratives;
+  - comparison with a larger or Arabic-strong model;
+  - every candidate held to the same gates.
+- **The urgent-recall gate isn't really demonstrated yet.** 12/12 only shows recall above 0.76 (Wilson 95% lower bound). Showing 0.99 needs about 300 red-flag narratives with none missed, which is a Phase 1 task.
 - **Onset exact match is 0.63.** Common misses are day names ("since Tuesday") and months ("since March").
 - **The narratives are synthetic and written by the team**, so real caregiver speech will be harder. Native-speaker review of the Arabic narratives and lexicons (Emirati, other Gulf) is pending.
 
 Full error lists are in `docs/navai/RESULTS_rules_test.json`. Reproduce with `python -m navai.evaluate --set test`.
 
-## 5. MedGemma run on the FZJ cluster
+## 5. MedGemma run on the FZJ cluster (done 15 Nov; results in section 4 and `docs/navai/RESULTS.md`)
 
 `navai/medgemma_eval.py` runs `google/medgemma-4b-it` on both sets with the same metrics. It also measures:
 

@@ -10,6 +10,7 @@
     const DOMAINS = Object.keys(C.DOMAINS);
     const r3 = (x) => Math.round(x * 1000) / 1000;
     const r2 = (x) => Math.round(x * 100) / 100;
+    const pyNum = (x) => (Number.isInteger(x) ? x.toFixed(1) : String(x)); // format numbers as Python's str() does, so reasons match
     const lvMax = (a, b) => (LEVELS.indexOf(a) >= LEVELS.indexOf(b) ? a : b);
     const days = (a, b) => Math.round((Date.parse(b.slice(0, 10)) - Date.parse(a.slice(0, 10))) / 86400000);
 
@@ -137,8 +138,6 @@
       if (s.assisted) out.push({ code: "assisted", label: "Session completed with a helper", action: "Cannot confirm change alone; repeat unassisted if possible" });
       return out;
     }
-    // Format a float the way Python str() does, so reason text is identical across engines (-2.0, not -2).
-    const pyNum = (x) => (Number.isInteger(x) ? x.toFixed(1) : String(x));
     const DLABEL = { memory_immediate: "Word learning", memory_delayed: "Delayed word recall", fluency: "Word generation (fluency)", story_recall: "Story recall", judgement: "Everyday judgement" };
 
     function evaluateHistory(p, sessionsIn) {
@@ -171,25 +170,17 @@
         }
         if (s.type === "intake") {
           ev.valid = false; ev.intake = true;
-          if (ev.level === "BASELINE") {
-            // A significant concern goes to review now; the person does not wait for testing.
-            const why = []; const acts = s.activities_taken_over || [];
-            if (acts.length >= C.INTAKE_REVIEW_MIN_ACTIVITIES) {
-              why.push(`${acts.length} everyday activities now done by someone else`);
-              ev.drivers.push({ input: "Activities taken over (intake)", value: acts.length, threshold: C.INTAKE_REVIEW_MIN_ACTIVITIES });
-            }
-            if (fflag) {
-              why.push(`informant questionnaire above cutoff (IQCODE ${iq.toFixed(2)} > ${C.IQCODE_CUTOFF})`);
-              ev.drivers.push({ input: "Informant questionnaire (IQCODE-16)", value: iq, threshold: C.IQCODE_CUTOFF });
-            }
-            if ((C.INTAKE_REVIEW_ROUTES || []).includes(s.reporter)) why.push("concern raised by a healthcare professional");
-            if (why.length) {
-              ev.level = "CLINICIAN_REVIEW";
-              ev.reasons.push("Concern at intake warrants review: " + why.join("; ") + ". Clinician review without waiting for testing; the first check-in can still go ahead");
-              ev.pathways.push("primary_care");
-            } else ev.reasons.push("Intake recorded: " + (s.concern || "concern documented") + "; no red flags. First check-in to follow");
+          const rc = s.reported_concern || {}; const cog = (rc.domains || []).filter((d) => C.CONCERN_COGNITIVE_DOMAINS.includes(d));
+          const nAct = (rc.activities_taken_over || []).length; const who = C.REPORTER_LABEL[rc.reporter] || "the reporter";
+          if (ev.level === "BASELINE" && cog.length && (nAct >= C.CONCERN_REVIEW_MIN_ACTIVITIES || rc.reporter === "professional")) {
+            ev.level = "CLINICIAN_REVIEW";
+            const why = nAct ? `${nAct} everyday activit${nAct === 1 ? "y" : "ies"} now done by someone else` : "concern raised by a healthcare professional";
+            ev.reasons.push(`Significant reported concern (${cog.map((d) => C.CONCERN_DOMAIN_LABEL[d]).join(", ")}; ${why}); clinician review without waiting for a baseline. Reported by ${who}, not clinically verified`);
+            ev.drivers.push({ input: "Reported loss of everyday independence", value: nAct, threshold: C.CONCERN_REVIEW_MIN_ACTIVITIES });
+            ev.pathways.push("primary_care"); ev.next_action = "clinician_review_task"; evals.push(ev); continue;
           }
-          ev.next_action = { BASELINE: "first_session", CLINICIAN_REVIEW: "review_task" }[ev.level] || "urgent_review_task";
+          if (ev.level === "BASELINE") ev.reasons.push("Intake recorded: " + (s.concern || "concern documented") + "; no red flags. First check-in to follow");
+          ev.next_action = ev.level === "BASELINE" ? "first_session" : "urgent_review_task";
           evals.push(ev); continue;
         }
         const gate = audioGate(s.audio);

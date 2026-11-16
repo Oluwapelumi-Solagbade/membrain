@@ -30,6 +30,12 @@ def _navai():
     f = d / "RESULTS_rules_test.json"
     if f.exists():
         r = json.loads(f.read_text(encoding="utf-8")); out["rules"] = {k: r.get(k) for k in keep}
+    f = d / "RESULTS_medgemma_summary.json"
+    if f.exists():   # measured on the FZJ cluster (full per-item JSON stays on the cluster)
+        m = json.loads(f.read_text(encoding="utf-8")); t = m["sets"]["test"]
+        out["medgemma"] = {"model": m["model"], "date": m["date"], "n": t["n"], "gates": t["medgemma_gates"],
+                           "combined_gates": t["combined_gates"], "urgent": t["urgent"], "drafting": t["drafting"],
+                           "dropped_by_grounding": t["dropped_by_grounding"]}
     f = d / "RESULTS_medgemma.json"
     if f.exists():
         m = json.loads(f.read_text(encoding="utf-8")); t = m["sets"].get("test")
@@ -66,7 +72,7 @@ data = {"config": cfg, "items": {"WORD_LISTS": I.WORD_LISTS, "FLUENCY": I.FLUENC
                                                                                  (61, True, True, "e3/e3", "offered"), (72, True, False, None, None)])]],
         "intake": {k: getattr(IN, k) for k in ("INTAKE_VERSION", "REVIEW_BELOW", "DOMAINS", "RED_FLAGS", "CONFOUNDERS", "ACTIVITIES", "WHO",
                                                 "ONSET", "LEX", "ACT_LEX", "WHO_LEX", "TAKEOVER", "NEG_CLAUSE", "AR_PREFIX", "CLAUSE", "SENT",
-                                                "DRAFT_DOMAIN", "DRAFT_RF", "DRAFT_CF", "DRAFT_ACT", "DRAFT_WHO", "LEVEL_TXT", "VOCAB", "BLOCKED")}
+                                                "DRAFT_DOMAIN", "DRAFT_RF", "DRAFT_CF", "DRAFT_ACT", "DRAFT_WHO", "DRAFT_REPORTER", "LEVEL_TXT", "VOCAB", "BLOCKED")}
         | {"NEG": {k: sorted(v) for k, v in IN.NEG.items()}},
         "navai": _navai(),
         "prevention_always": {"en": ALWAYS[0], "ar": ALWAYS[1]},

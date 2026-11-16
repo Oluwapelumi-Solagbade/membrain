@@ -108,24 +108,9 @@ def _intake(**kw):
     return evaluate(p, [dict({"session_id": "i0", "date": "2026-11-14", "type": "intake", "concern": "c", "red_flags": []}, **kw)])["latest"]
 
 
-@pytest.mark.parametrize("kw,why", [
-    ({"activities_taken_over": ["money", "medicines"]}, "2 everyday activities now done by someone else"),
-    ({"iqcode": 3.6}, "informant questionnaire above cutoff"),
-    ({"reporter": "primary_care"}, "concern raised by a healthcare professional"),
-])
-def test_significant_concern_goes_to_review_before_any_testing(kw, why):
-    ev = _intake(**kw)
-    assert ev["level"] == "CLINICIAN_REVIEW" and ev["next_action"] == "review_task" and "primary_care" in ev["pathways"]
-    assert why in ev["reasons"][0] and "without waiting for testing" in ev["reasons"][0]
-
-
-def test_minor_concern_waits_for_first_check_in():
-    for kw in ({"activities_taken_over": ["money"]}, {"iqcode": 3.2}, {"reporter": "self"}, {"reporter": "family"}):
-        assert _intake(**kw)["level"] == "BASELINE"
-
-
-def test_red_flags_still_outrank_a_review_concern():
-    ev = _intake(red_flags=["recent_fall_head_injury"], activities_taken_over=["money", "cooking"], reporter="primary_care")
+def test_red_flags_still_outrank_a_significant_concern():
+    rc = {"reporter": "professional", "domains": ["memory"], "activities_taken_over": ["money", "cooking"]}
+    ev = _intake(red_flags=["recent_fall_head_injury"], reported_concern=rc)
     assert ev["level"] == "URGENT" and ev["next_action"] == "urgent_review_task"
 
 
@@ -167,10 +152,15 @@ def test_dossier_carries_the_attributed_concern_and_what_is_missing():
          "intake": {"reporter": "self", "at": "2026-11-14", "confirmed": {
              "narrative": "I keep forgetting appointments. My wife now pays the bills.", "domains": ["memory"],
              "red_flags": [], "confounders": [], "onset": "months", "timeline": [["money", "wife"]]}},
-         "sessions": [{"session_id": "i0", "date": "2026-11-14", "type": "intake", "concern": "x", "reporter": "self",
-                       "activities_taken_over": ["money"], "red_flags": []}]}
+         "sessions": [{"session_id": "i0", "date": "2026-11-14", "type": "intake", "concern": "x", "red_flags": [],
+                       "reported_concern": {"reporter": "self", "domains": ["memory"], "activities_taken_over": ["money"]}}]}
     c = build_dossier(p, evaluate(p, p["sessions"]))["concern"]
     assert c["raised_by"] == "The person themselves" and c["in_their_words"].startswith("I keep forgetting")
+    # a concern recorded only on the intake session (no confirmed intake) is still attributed, in either vocabulary
+    q = {"id": "Y", "entry_route": "primary_care", "sessions": [{"session_id": "i0", "date": "2026-11-14", "type": "intake",
+         "concern": "GP noticed decline", "red_flags": [], "reported_concern": {"reporter": "professional", "domains": ["memory"]}}]}
+    from membrain.dossier import concern_summary
+    assert concern_summary(q)["raised_by"] == "Healthcare professional" and concern_summary(q)["what_changed"] == ["Memory"]
     assert c["what_changed"] == ["Memory"] and c["who_now_does_what"] == ["Managing money / bills: now wife"]
     assert "not a clinical finding" in c["attribution"]
     assert {"An informant account (family member or household helper)", "Informant questionnaire (IQCODE-16)",

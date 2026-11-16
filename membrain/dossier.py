@@ -9,7 +9,10 @@ from .triage import DOMAIN_LABEL
 
 PATHWAY_LABEL = {"memory_clinic": "Memory clinic / geriatrics / neurology", "mental_health": "Mental health services",
                  "primary_care": "Primary care", "primary_care_urgent": "Primary care (urgent safety review)"}
-REPORTER_LABEL = {"family": "Family member", "self": "The person themselves", "household_helper": "Household helper",
+# Who raised the concern. Intake records the reporter (config.REPORTER_LABEL keys: self, family, helper, professional,
+# coordinator); older records and the navigator use the entry route (household_helper, primary_care, programme).
+REPORTER_LABEL = {"family": "Family member", "self": "The person themselves", "helper": "Household helper",
+                  "household_helper": "Household helper", "professional": "Healthcare professional",
                   "primary_care": "Healthcare professional", "coordinator": "Programme coordinator",
                   "programme": "Programme screening (no specific concern)"}
 
@@ -17,13 +20,14 @@ REPORTER_LABEL = {"family": "Family member", "self": "The person themselves", "h
 def concern_summary(p: dict) -> dict:
     """The concern that started the journey, attributed to whoever reported it, plus what is still missing.
 
-    Mirrored in web/app.js (concernSummary); keep the two in step.
+    Mirrored in site/lib/workspace/concern.ts; keep the two in step.
     """
     sessions = p.get("sessions") or []
     ik_s = next((s for s in sessions if s.get("type") == "intake"), None) or {}
     ik = p.get("intake") or {}
     c = ik.get("confirmed") or {}
-    route = ik.get("reporter") or ik_s.get("reporter") or p.get("entry_route")
+    rc = ik_s.get("reported_concern") or {}
+    route = ik.get("reporter") or rc.get("reporter") or ik_s.get("reporter") or p.get("entry_route")
     raised_by = REPORTER_LABEL.get(route, route or "Not recorded")
     text = c.get("narrative") or ik_s.get("concern")
     if text == "routine programme screening":
@@ -53,7 +57,7 @@ def concern_summary(p: dict) -> dict:
     return {
         "raised_by": raised_by, "date": (ik.get("at") or ik_s.get("date") or "")[:10] or None,
         "in_their_words": text, "onset": IN.ONSET.get(onset) if onset else None,
-        "what_changed": [IN.DOMAINS.get(d, d) for d in c.get("domains") or []],
+        "what_changed": [IN.DOMAINS.get(d, d) for d in c.get("domains") or rc.get("domains") or []],
         "who_now_does_what": who,
         "red_flags_reported": [C.RED_FLAGS.get(f, f) for f in ik_s.get("red_flags") or []],
         "confounders_reported": [IN.CONFOUNDERS.get(f, f) for f in c.get("confounders") or []],

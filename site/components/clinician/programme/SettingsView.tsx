@@ -9,13 +9,12 @@ import { Fact, Note, selectClass } from "./common";
 import engineData from "@/lib/generated/engine-data.json";
 import { config } from "@/lib/mb";
 import { caseHref, fmtTime } from "@/lib/workspace/derive";
-import { ENTRY_LABEL } from "@/lib/workspace/concern";
 import type { AuditEntry } from "@/lib/workspace/types";
 
 const C = config as unknown as Record<string, unknown> & {
   REVIEW_TARGET_DAYS: Record<string, number>;
   RED_FLAGS: Record<string, string>;
-  INTAKE_REVIEW_ROUTES: string[];
+  CONCERN_COGNITIVE_DOMAINS: string[];
   REPEAT_WEEKS: number[];
   TRIGGER_DOMAINS: string[];
   DOMAINS: Record<string, unknown>;
@@ -38,8 +37,8 @@ const GROUPS: { title: string; rows: Row[] }[] = [
   {
     title: "A concern raised at intake",
     rows: [
-      { key: "INTAKE_REVIEW_MIN_ACTIVITIES", label: "Activities taken over", value: `${v("INTAKE_REVIEW_MIN_ACTIVITIES")} or more`, why: "This many everyday activities now done by someone else sends the concern to a clinician without waiting for testing." },
-      { key: "INTAKE_REVIEW_ROUTES", label: "Routes that go straight to review", value: C.INTAKE_REVIEW_ROUTES.map((r) => ENTRY_LABEL[r] ?? r).join(", "), why: "A concern from these reporters is reviewed straight away." },
+      { key: "CONCERN_REVIEW_MIN_ACTIVITIES", label: "Lost independence", value: `${v("CONCERN_REVIEW_MIN_ACTIVITIES")} or more activities`, why: "A memory or thinking concern with this many everyday activities now done by someone else goes to a clinician at intake, without waiting for a baseline. Provisional, pending clinical sign-off." },
+      { key: "CONCERN_COGNITIVE_DOMAINS", label: "Counts as memory or thinking", value: C.CONCERN_COGNITIVE_DOMAINS.join(", "), why: "Only these reported changes trigger the rule above. A memory or thinking concern raised by a healthcare professional also goes straight to review." },
       { key: "IQCODE_CUTOFF", label: "Informant questionnaire cutoff", value: `above ${v("IQCODE_CUTOFF")}`, why: "IQCODE-16 above this suggests functional decline (best reported Arabic cutoff)." },
       { key: "IQCODE_RISE", label: "New functional loss", value: `rise of ${v("IQCODE_RISE")}`, why: "A rise this large since the last informant report, ending above the cutoff, is urgent." },
     ],

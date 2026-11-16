@@ -40,6 +40,9 @@ app.include_router(speech_router)
 from api.navai import router as navai_router  # noqa: E402
 
 app.include_router(navai_router)
+from api.asr_local import router as asr_router  # noqa: E402
+
+app.include_router(asr_router)
 
 DB: dict = {"participants": {}, "tasks": {}, "audit": []}
 # Identity vault: direct identifiers live here ONLY, keyed by pseudonym.
@@ -473,7 +476,7 @@ def get_case(pid: str, r: str = Depends(role)):
 
 class ConcernIn(BaseModel):
     """A concern confirmed by whoever raised it in the chat. Only the confirmed facts are stored."""
-    reporter: str = Field(pattern="^(self|family|household_helper|primary_care|coordinator)$")
+    reporter: str = Field(pattern="^(self|family|helper|professional|coordinator)$")   # config.REPORTER_LABEL keys
     lang: str = Field(pattern="^(ar|en)$")
     narrative: str = Field(min_length=3, max_length=4000)
     domains: list[str] = Field(default_factory=list)
@@ -484,6 +487,10 @@ class ConcernIn(BaseModel):
     date: str
 
 
+# Who raised the concern -> the navigator's entry route (as web/app.js does at enrolment).
+ENTRY_ROUTE = {"self": "self", "family": "family", "helper": "household_helper", "professional": "primary_care", "coordinator": "programme"}
+
+
 @app.post("/concerns")
 def raise_concern(body: ConcernIn):
     """Anyone can raise a concern. It becomes a pseudonymous record with an intake session, triaged by the engine;
@@ -491,14 +498,14 @@ def raise_concern(body: ConcernIn):
     pid = "MB-C" + uuid.uuid4().hex[:4].upper()
     acts = sorted({a for a, _ in body.timeline})
     p = {"id": pid, "display_name": {"en": "New concern", "ar": "قلق جديد"}, "age": None, "education": None, "sex": "U",
-         "dialect": None, "language": body.lang, "languages": [body.lang], "entry_route": body.reporter, "context": {},
+         "dialect": None, "language": body.lang, "languages": [body.lang], "entry_route": ENTRY_ROUTE[body.reporter], "context": {},
          "consent": {}, "referrals": [], "enrolled": False,
          "intake": {"reporter": body.reporter, "at": body.date,
                     "confirmed": {"narrative": body.narrative, "domains": body.domains, "onset": body.onset,
                                   "timeline": body.timeline, "red_flags": body.red_flags, "confounders": body.confounders}},
          "sessions": [{"session_id": f"{pid}-intake", "date": body.date, "type": "intake", "channel": "app",
-                       "concern": body.narrative, "onset": body.onset, "reporter": body.reporter,
-                       "activities_taken_over": acts, "red_flags": body.red_flags}]}
+                       "concern": body.narrative, "onset": body.onset, "red_flags": body.red_flags,
+                       "reported_concern": {"reporter": body.reporter, "domains": body.domains, "activities_taken_over": acts}}]}
     DB["participants"][pid] = p
     _sync_tasks(p, evaluate(p, p["sessions"]))
     audit("public", "concern_raised", pid, {"reporter": body.reporter, "red_flags": body.red_flags, "activities": acts})

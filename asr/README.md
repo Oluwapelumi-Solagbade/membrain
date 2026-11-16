@@ -59,13 +59,28 @@ Paired bootstrap, 2,000 resamples of clips:
 **Limitations.**
 - Keyword recall did not improve: 14 of 19 task words against 16 of 19 for the starting model. With 19 keywords one or two words swing it by 5–10 points, so this is inconclusive, not evidence of harm. The deployed recogniser is still chosen on keyword recall measured on consented recordings of the MemBrain task words (`docs/asr/TEAM_RECORDING_PROTOCOL.md`).
 - The test clips are adult broadcast speech (TV and podcasts), not adults aged 50–75 doing a cognitive test.
-- One dialect (Emirati) and 103 clips. Per-dialect, per-age and per-education error rates come in Phase A.
+- One dialect (Emirati) and 103 clips. Per-dialect, per-age and per-education error rates come in Phase 1.
 - Azure AI Speech (UAE North) is not yet in this table.
+
+## Serving the model in MemBrain (self-hosted, in-country)
+
+1. **Export** on the cluster (CPU, a few minutes). This merges the LoRA adapter into the base and converts to CTranslate2 int8:
+   `condor_submit asr/export.submit` → `runs/membrain-whisper-gulf-ct2/`.
+   To upload it to a **private** Hugging Face repo for the server, use `HF_PUSH_REPO=<you>/membrain-whisper-gulf-ct2 condor_submit asr/export.submit` (needs a token with write access).
+2. **Serve** from the MemBrain API on an ordinary CPU container in UAE North:
+   - build the image with `--build-arg WITH_WHISPER=1`;
+   - set `WHISPER_MODEL` (a folder, or the private repo id plus `HF_TOKEN` as a secret);
+   - optionally set `ASR_PREFER_LOCAL=1` to make it the app's default engine. Otherwise Azure stays the default and testers add `?asr=local` to the app address.
+3. **How it works in the app:** the browser records the answer; when the person taps "finished", it sends the recording once to `/api/asr/transcribe`. The server transcribes it in memory and returns the text. Nothing is written to disk or kept.
+   - Every session records which engine produced its text: `local`, `azure` or `browser`.
+   - If the server does not answer, the person can type, or a sample answer is used.
+
+Tested without downloads (`python tests/asr_serve_smoke.py`): a tiny random Whisper with a LoRA adapter, exported, served, and called with browser-style WebM/Opus audio. Also tested in Chrome with a simulated microphone: 5 of 5 recordings transcribed. **Measured on the real model** (`docs/asr/EXPORT_CHECK.md`): the exported int8 model scores 38.0% WER and 79.0% keyword recall on the same 103 held-out Emirati clips (the GPU benchmark scored 41.2%), so accuracy is preserved. It runs at 0.20 s of CPU time per second of audio on 4 cores, so no GPU is needed.
 
 ## How to read the result
 - **Keyword recall** is the share of MemBrain task words the recogniser catches. It drives scores directly, so it decides the choice, alongside WER on the **worst** subgroup.
 - The held-out Emirati set has 103 clips from a few shows, so differences of a couple of WER points are within noise. That is why every comparison carries a paired-bootstrap confidence interval.
-- These clips are adult broadcast speech, not older adults with possible impairment. Phase A must re-measure on consented participant audio.
+- These clips are adult broadcast speech, not older adults with possible impairment. Phase 1 must re-measure on consented participant audio.
 
 ## Tested
 `/tmp`-style smoke test (tiny random Whisper with a locally built tokenizer, so no downloads) covered: the real dataset format, the category split, featurising, LoRA, the training loop with falling loss, generation, WER, keyword recall and report writing. The first real run happens on the GPU machine.

@@ -32,7 +32,7 @@ export function HeroCard({ className = "" }: { className?: string }) {
     channel: "app",
     concern: TEXT,
     reporter: REPORTER,
-    activities_taken_over: [...new Set(r.timeline.map((t) => t.activity))],
+    reported_concern: { reporter: REPORTER, domains: domains.map((d) => d.key), activities_taken_over: [...new Set(r.timeline.map((t) => t.activity))] },
     red_flags: flags.map((f) => f.key),
   };
   const ev = getEngine().evaluate({ id: "hero", age: 71, education: "primary" }, [session]).latest;

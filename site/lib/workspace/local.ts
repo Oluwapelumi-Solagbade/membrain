@@ -7,7 +7,9 @@ import { concernSummary } from "./concern";
 import { nav } from "./navigator";
 import type { AuditEntry, Backend, Case, ConcernIn, Participant, Referral, ReferralIn, ReferralState, Task, TaskAction } from "./types";
 
-const KEY = "membrain.workspace.v1";
+const KEY = "membrain.workspace.v2";
+// Who raised the concern -> the navigator's entry route (as api/main.py and web/app.js do).
+const ENTRY_ROUTE: Record<string, string> = { self: "self", family: "family", helper: "household_helper", professional: "primary_care", coordinator: "programme" };
 const HELD: Level[] = ["CLINICIAN_REVIEW", "URGENT"];
 
 type State = {
@@ -158,7 +160,7 @@ export const localBackend: Backend = {
       dialect: null,
       language: body.lang,
       languages: [body.lang],
-      entry_route: body.reporter,
+      entry_route: ENTRY_ROUTE[body.reporter],
       story: "",
       context: {},
       consent: {},
@@ -170,7 +172,10 @@ export const localBackend: Backend = {
         confirmed: { narrative: body.narrative, domains: body.domains, onset: body.onset, timeline: body.timeline, red_flags: body.red_flags, confounders: body.confounders },
       },
       sessions: [
-        { session_id: `${pid}-intake`, date: body.date, type: "intake", channel: "app", concern: body.narrative, onset: body.onset, reporter: body.reporter, activities_taken_over: acts, red_flags: body.red_flags },
+        {
+          session_id: `${pid}-intake`, date: body.date, type: "intake", channel: "app", concern: body.narrative, onset: body.onset, red_flags: body.red_flags,
+          reported_concern: { reporter: body.reporter, domains: body.domains, activities_taken_over: acts },
+        },
       ],
     };
     s.concerns.push(p);

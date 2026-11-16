@@ -8,7 +8,8 @@ import intakeData from "./generated/intake-data.json";
 
 export type Level = "BASELINE" | "STABLE" | "CHECK_AGAIN" | "CLINICIAN_REVIEW" | "URGENT" | "INVALID";
 export type Lang = "en" | "ar";
-export type Reporter = "self" | "family" | "household_helper" | "primary_care" | "coordinator";
+/** Who raised a concern (membrain/config.py REPORTER_LABEL keys). The navigator's entry route is mapped from it. */
+export type Reporter = "self" | "family" | "helper" | "professional" | "coordinator";
 
 export type Span = [number, number];
 export type IntakeField = {
@@ -52,6 +53,7 @@ export type Session = {
   concern?: string;
   reporter?: Reporter;
   activities_taken_over?: string[];
+  reported_concern?: { reporter: Reporter; domains: string[]; activities_taken_over: string[] };
   red_flags?: string[];
   [key: string]: unknown;
 };
@@ -82,7 +84,8 @@ export const config = engineData.config as Record<string, unknown> & {
   ENGINE_VERSION: string;
   NORMS_VERSION: string;
   IQCODE_CUTOFF: number;
-  INTAKE_REVIEW_MIN_ACTIVITIES: number;
+  CONCERN_REVIEW_MIN_ACTIVITIES: number;
+  CONCERN_COGNITIVE_DOMAINS: string[];
   REVIEW_TARGET_DAYS: Record<string, number>;
 };
 
@@ -124,15 +127,15 @@ export const REPORTER_LABEL: Record<Lang, Record<Reporter, string>> = {
   en: {
     self: "Myself",
     family: "A family member",
-    household_helper: "A household helper",
-    primary_care: "A doctor or nurse",
+    helper: "A household helper",
+    professional: "A doctor or nurse",
     coordinator: "A programme coordinator",
   },
   ar: {
     self: "أنا نفسي",
     family: "أحد من العائلة",
-    household_helper: "العاملة أو المساعد في البيت",
-    primary_care: "طبيب أو ممرض",
+    helper: "العاملة أو المساعد في البيت",
+    professional: "طبيب أو ممرض",
     coordinator: "منسق البرنامج",
   },
 };

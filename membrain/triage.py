@@ -5,9 +5,7 @@ Levels (ascending urgency):
   STABLE            within reliable-change range
   CHECK_AGAIN       one unconfirmed change, a confounder, or an invalid session
   CLINICIAN_REVIEW  change confirmed on repeat, change + independent signal,
-                    low entry score vs stratified norms, or a significant concern
-                    at intake (activities taken over, IQCODE above cutoff, or
-                    raised by a healthcare professional), before any testing
+                    or low entry score vs stratified norms
   URGENT            large/rapid decline, new informant-reported functional
                     loss, or a safety concern
 
@@ -132,28 +130,26 @@ def evaluate_history(participant: dict, sessions: list[dict]) -> list[dict]:
         if s.get("type") == "intake":
             ev["valid"] = False
             ev["intake"] = True
+            rc = s.get("reported_concern") or {}
+            cog = [d for d in rc.get("domains") or [] if d in C.CONCERN_COGNITIVE_DOMAINS]
+            n_act = len(rc.get("activities_taken_over") or [])
+            who = C.REPORTER_LABEL.get(rc.get("reporter"), "the reporter")
+            if ev["level"] == "BASELINE" and cog and (n_act >= C.CONCERN_REVIEW_MIN_ACTIVITIES or rc.get("reporter") == "professional"):
+                ev["level"] = "CLINICIAN_REVIEW"
+                why = (f"{n_act} everyday activit{'y' if n_act == 1 else 'ies'} now done by someone else" if n_act
+                       else "concern raised by a healthcare professional")
+                ev["reasons"].append(f"Significant reported concern ({', '.join(C.CONCERN_DOMAIN_LABEL[d] for d in cog)}; {why}); clinician review "
+                                     f"without waiting for a baseline. Reported by {who}, not clinically verified")
+                ev["drivers"].append({"input": "Reported loss of everyday independence", "value": n_act,
+                                      "threshold": C.CONCERN_REVIEW_MIN_ACTIVITIES})
+                ev["pathways"].append("primary_care")
+                ev["next_action"] = "clinician_review_task"
+                evals.append(ev)
+                continue
             if ev["level"] == "BASELINE":
-                # A significant concern goes to review now; the person does not wait for testing.
-                why = []
-                acts = s.get("activities_taken_over") or []
-                if len(acts) >= C.INTAKE_REVIEW_MIN_ACTIVITIES:
-                    why.append(f"{len(acts)} everyday activities now done by someone else")
-                    ev["drivers"].append({"input": "Activities taken over (intake)", "value": len(acts),
-                                          "threshold": C.INTAKE_REVIEW_MIN_ACTIVITIES})
-                if functional_flag:
-                    why.append(f"informant questionnaire above cutoff (IQCODE {iq:.2f} > {C.IQCODE_CUTOFF})")
-                    ev["drivers"].append({"input": "Informant questionnaire (IQCODE-16)", "value": iq, "threshold": C.IQCODE_CUTOFF})
-                if s.get("reporter") in C.INTAKE_REVIEW_ROUTES:
-                    why.append("concern raised by a healthcare professional")
-                if why:
-                    ev["level"] = "CLINICIAN_REVIEW"
-                    ev["reasons"].append("Concern at intake warrants review: " + "; ".join(why) +
-                                         ". Clinician review without waiting for testing; the first check-in can still go ahead")
-                    ev["pathways"].append("primary_care")
-                else:
-                    ev["reasons"].append("Intake recorded: " + (s.get("concern") or "concern documented") +
-                                         "; no red flags. First check-in to follow")
-            ev["next_action"] = {"BASELINE": "first_session", "CLINICIAN_REVIEW": "review_task"}.get(ev["level"], "urgent_review_task")
+                ev["reasons"].append("Intake recorded: " + (s.get("concern") or "concern documented") +
+                                     "; no red flags. First check-in to follow")
+            ev["next_action"] = "first_session" if ev["level"] == "BASELINE" else "urgent_review_task"
             evals.append(ev)
             continue
 
@@ -284,7 +280,7 @@ def evaluate_history(participant: dict, sessions: list[dict]) -> list[dict]:
         ev["uncertainty"] = (
             "This is a screening signal of change, not a diagnosis. Scores vary from day to day; "
             "the 90% range shows how much the true change could differ from what was measured. "
-            "Thresholds are provisional until validated in the local population (Phase A/B)."
+            "Thresholds are provisional until validated in the local population (Phase 2)."
         )
     return evals
 

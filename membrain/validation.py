@@ -1,8 +1,8 @@
 """Validation metrics required by the challenge (requirement 6).
 
-Works identically on synthetic data now and on Phase A/B study data later:
+Works identically on synthetic data now and on Phase 1–2 study data later:
 it only needs participants with sessions, engine evaluations and a
-reference-standard label (specialist assessment in Phase B).
+reference-standard label (specialist assessment in Phase 2).
 """
 from __future__ import annotations
 

@@ -115,13 +115,14 @@
     function confirmedItems(c) {
       const s = new Set(); (c.domains || []).forEach((k) => s.add("dom:" + k)); (c.red_flags || []).forEach((k) => s.add("rf:" + k)); (c.confounders || []).forEach((k) => s.add("cf:" + k));
       if (c.onset) s.add("on:" + c.onset); (c.timeline || []).forEach(([a, w]) => { s.add("act:" + a); s.add("who:" + w); });
-      if ((c.red_flags || []).length || (c.checkin || {}).level === "URGENT") s.add("urgent"); if (c.checkin) s.add("checkin"); return s;
+      if ((c.red_flags || []).length || (c.checkin || {}).level === "URGENT") s.add("urgent"); if (c.checkin) s.add("checkin"); s.add("rep:" + (c.reporter || "family")); return s;
     }
     function draft(c) {
       const out = [];
-      if ((c.red_flags || []).length) out.push({ text: "Urgent: the family reports " + join(c.red_flags.map((k) => X.DRAFT_RF[k])) + ". Please assess urgently; cognitive testing was not started.", sources: c.red_flags.map((k) => "rf:" + k) });
+      const repLower = () => (X.DRAFT_REPORTER[c.reporter] ? X.DRAFT_REPORTER[c.reporter][0].toLowerCase() + X.DRAFT_REPORTER[c.reporter].slice(1) : "the family");
+      if ((c.red_flags || []).length) out.push({ text: "Urgent: " + repLower() + " reports " + join(c.red_flags.map((k) => X.DRAFT_RF[k])) + ". Please assess urgently; cognitive testing was not started.", sources: c.red_flags.map((k) => "rf:" + k) });
       if ((c.domains || []).length) { const on = c.onset ? " " + X.ONSET[c.onset] : "";
-        out.push({ text: `A family member reports changes in ${join(c.domains.map((k) => X.DRAFT_DOMAIN[k]))}${on}.`, sources: [...c.domains.map((k) => "dom:" + k), ...(c.onset ? ["on:" + c.onset] : [])] }); }
+        out.push({ text: `${X.DRAFT_REPORTER[c.reporter] || X.DRAFT_REPORTER.family} reports changes in ${join(c.domains.map((k) => X.DRAFT_DOMAIN[k]))}${on}.`, sources: [...c.domains.map((k) => "dom:" + k), ...(c.onset ? ["on:" + c.onset] : [])] }); }
       const q = (c.quotes || []).filter(Boolean).slice(0, 2);
       if (q.length) out.push({ text: "In their words: " + q.map((x) => `“${x}”`).join("; ") + ".", sources: ["quote"] });
       if ((c.timeline || []).length) out.push({ text: "Activities others have taken over: " + c.timeline.map(([a, w]) => `${X.DRAFT_ACT[a]} (now ${X.DRAFT_WHO[w]})`).join("; ") + ".", sources: c.timeline.map(([a]) => "act:" + a) });
@@ -147,7 +148,10 @@
       const hits = new Map();
       for (const [item, trig] of Object.entries(X.VOCAB)) for (const t of trig) { const rb = t.endsWith("$"); const tt = t.replace(/\$$/, "");
         for (const [a, b] of find(nb, tt, rb)) { if (!hits.has(a)) hits.set(a, []); hits.get(a).push([b, tt, item]); } }
-      for (const [a, hs] of hits) { const longest = Math.max(...hs.map((h) => h[0])); const sup = hs.filter((h) => h[0] === longest).map((h) => h[2]);
+      let covered = -1;
+      for (const a of [...hits.keys()].sort((x, y) => x - y)) { const hs = hits.get(a); const longest = Math.max(...hs.map((h) => h[0]));
+        if (a < covered && longest <= covered) continue; covered = Math.max(covered, longest);
+        const sup = hs.filter((h) => h[0] === longest).map((h) => h[2]);
         if (sup.some((x) => conf.has(x)) || negated(nb, a, "en")) continue;
         const top = hs.reduce((m, h) => (h[0] > m[0] || (h[0] === m[0] && (h[1] > m[1] || (h[1] === m[1] && h[2] > m[2]))) ? h : m));
         reasons.push(`'${top[1]}' is not among the confirmed facts`); }

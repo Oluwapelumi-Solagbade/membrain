@@ -49,7 +49,7 @@ export const COPY = {
     routineOutcome: "Next step: a short spoken check-in",
     routineOutcomeBody:
       "Nothing you described needs urgent care or an early review. The next step is a six-minute check-in, spoken in your own dialect. A clinician sees your summary alongside it.",
-    reasonActs: (n: number) => `${n} everyday activities are now done by someone else`,
+    reasonActs: (n: number) => (n === 1 ? "An everyday activity is now done by someone else" : `${n} everyday activities are now done by someone else`),
     reasonPro: "The concern comes from a doctor or nurse",
     seen: "What the clinician will see",
     raisedBy: "Raised by",
@@ -145,7 +145,7 @@ export const COPY = {
 
 export type Copy = (typeof COPY)[Lang];
 
-export const REPORTERS: Reporter[] = ["self", "family", "household_helper", "primary_care", "coordinator"];
+export const REPORTERS: Reporter[] = ["self", "family", "helper", "professional", "coordinator"];
 
 /** Example narratives: the same ones the prototype ships, so results can be compared. */
 export const EXAMPLES: { label: Record<Lang, string>; lang: Lang; reporter: Reporter; text: string }[] = [
