@@ -20,11 +20,13 @@ import shutil
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default="otozz/whisper-small-dialect_gulf")
-    ap.add_argument("--processor", default=None, help="defaults to --base")
+    ap.add_argument("--processor", default="openai/whisper-small",
+                    help="tokenizer + feature extractor; must be the one used in training and the benchmark")
     ap.add_argument("--adapter", default="runs/emirati-lora/best")
     ap.add_argument("--out", default="runs/membrain-whisper-gulf-ct2")
     ap.add_argument("--quantization", default="int8")
     ap.add_argument("--push", default=None, help="private Hugging Face repo id to upload to")
+    ap.add_argument("--allow-small-vocab", action="store_true", help=argparse.SUPPRESS)   # tiny test models only
     a = ap.parse_args(argv)
 
     from ctranslate2.converters import TransformersConverter
@@ -36,7 +38,10 @@ def main(argv=None):
     base = WhisperForConditionalGeneration.from_pretrained(a.base)
     model = PeftModel.from_pretrained(base, a.adapter).merge_and_unload()
     model.save_pretrained(merged)
-    proc = WhisperProcessor.from_pretrained(a.processor or a.base)
+    proc = WhisperProcessor.from_pretrained(a.processor)
+    tok_n = len(proc.tokenizer)
+    if not a.allow_small_vocab and (tok_n < 51865 or not proc.tokenizer.encode(" -", add_special_tokens=False)):
+        raise SystemExit(f"tokenizer from {a.processor} looks incomplete ({tok_n} tokens); use openai/whisper-small")
     proc.save_pretrained(merged)
     proc.feature_extractor.save_pretrained(merged)   # preprocessor_config.json (newer transformers bundle it otherwise)
     WhisperTokenizerFast.from_pretrained(merged).save_pretrained(merged)   # faster-whisper needs tokenizer.json
@@ -50,6 +55,12 @@ def main(argv=None):
         "licences": ["openai/whisper: MIT", "otozz/whisper-small-dialect_gulf: Apache-2.0",
                      "eabayed/EmiratiDialictShowsAudioTranscription: AFL-3.0", "MASC (otozz/gulf_train_set): CC-BY-4.0"]}, indent=1))
     print("exported", out, sorted(p.name for p in out.iterdir()))
+    if tok_n >= 51865:   # real Whisper vocabulary: the converted model must load as multilingual
+        from faster_whisper import WhisperModel
+        wm = WhisperModel(str(out), device="cpu", compute_type="int8")
+        if not wm.model.is_multilingual:
+            raise SystemExit("exported model is not multilingual: tokenizer/vocabulary mismatch")
+        print("self-check: loads as multilingual, vocabulary", tok_n)
     if a.push:
         from huggingface_hub import HfApi
         api = HfApi()

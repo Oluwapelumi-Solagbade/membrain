@@ -34,7 +34,13 @@ from peft import LoraConfig, get_peft_model
 get_peft_model(WhisperForConditionalGeneration.from_pretrained(T / "base"), LoraConfig(r=4, target_modules=["q_proj", "v_proj"])).save_pretrained(T / "adapter")
 
 from asr import export_model
-export_model.main(["--base", str(T / "base"), "--adapter", str(T / "adapter"), "--out", str(T / "ct2")])
+try:   # an incomplete tokenizer (like the tiny test one) must be refused
+    export_model.main(["--base", str(T / "base"), "--processor", str(T / "base"), "--adapter", str(T / "adapter"), "--out", str(T / "ct2")])
+    raise AssertionError("small vocabulary was not refused")
+except SystemExit as e:
+    assert "incomplete" in str(e), e
+export_model.main(["--base", str(T / "base"), "--processor", str(T / "base"), "--adapter", str(T / "adapter"), "--out", str(T / "ct2"),
+                   "--allow-small-vocab"])
 assert (T / "ct2" / "model.bin").exists() and (T / "ct2" / "tokenizer.json").exists()
 
 # browser-style audio: 2 s tone -> WebM/Opus (what MediaRecorder produces in Chrome)
