@@ -1,0 +1,77 @@
+# Publishes the full demo (API + new site + Gulf Whisper dictation) to a free Hugging Face Space on every push:
+# https://huggingface.co/spaces/Vulcan-Spark/membrain  (app: https://vulcan-spark-membrain.hf.space)
+# One-time setup: GitHub repo Settings -> Secrets and variables -> Actions -> New repository secret
+#   HF_SPACE_TOKEN = a Hugging Face fine-grained token with WRITE access to that Space only.
+# Without that secret this workflow skips quietly.
+name: Demo on Hugging Face Space
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hf-space
+  cancel-in-progress: true
+
+env:
+  SPACE: ${{ vars.HF_SPACE || 'Vulcan-Spark/membrain' }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Token present?
+        id: tok
+        env:
+          T: ${{ secrets.HF_SPACE_TOKEN }}
+        run: |
+          if [ -n "$T" ]; then echo "ok=1" >> "$GITHUB_OUTPUT"; else echo "No HF_SPACE_TOKEN secret: skipping." >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - uses: actions/checkout@v4
+        if: steps.tok.outputs.ok == '1'
+
+      - uses: actions/setup-node@v4
+        if: steps.tok.outputs.ok == '1'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Build the site (server mode, at the Space's root)
+        if: steps.tok.outputs.ok == '1'
+        working-directory: site
+        run: |
+          host=$(echo "$SPACE" | tr '[:upper:]/' '[:lower:]-')
+          NEXT_PUBLIC_SITE_URL="https://$host.hf.space" npm ci --no-audit --no-fund
+          NEXT_PUBLIC_SITE_URL="https://$host.hf.space" npm run build
+
+      - name: Assemble the Space
+        if: steps.tok.outputs.ok == '1'
+        run: |
+          mkdir -p /tmp/space/site
+          git archive HEAD api membrain web requirements.txt | tar -x -C /tmp/space
+          cp -r site/out /tmp/space/site/out
+          cp deploy/hf-space/app.py deploy/hf-space/README.md /tmp/space/
+
+      - name: Upload to Hugging Face
+        if: steps.tok.outputs.ok == '1'
+        env:
+          HF_TOKEN: ${{ secrets.HF_SPACE_TOKEN }}
+        run: |
+          pip install -q "huggingface_hub>=0.25"
+          python - <<'EOF'
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          api.upload_folder(
+              repo_id=os.environ["SPACE"], repo_type="space", folder_path="/tmp/space",
+              commit_message=f"Deploy {os.environ['GITHUB_SHA'][:7]} from GitHub",
+              delete_patterns=["api/**", "membrain/**", "web/**", "site/**"],
+          )
+          EOF
+          host=$(echo "$SPACE" | tr '[:upper:]/' '[:lower:]-')
+          echo "Deployed to https://$host.hf.space" >> "$GITHUB_STEP_SUMMARY"
