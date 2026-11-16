@@ -75,7 +75,7 @@ Paired bootstrap, 2,000 resamples of clips:
    - Every session records which engine produced its text: `local`, `azure` or `browser`.
    - If the server does not answer, the person can type, or a sample answer is used.
 
-Tested without downloads (`python tests/asr_serve_smoke.py`): a tiny random Whisper with a LoRA adapter, exported, served, and called with browser-style WebM/Opus audio. Also tested in Chrome with a simulated microphone: 5 of 5 recordings transcribed. Speed on the real model (whisper-small, int8, 4 CPU threads) is printed by the export job for three held-out clips.
+Tested without downloads (`python tests/asr_serve_smoke.py`): a tiny random Whisper with a LoRA adapter, exported, served, and called with browser-style WebM/Opus audio. Also tested in Chrome with a simulated microphone: 5 of 5 recordings transcribed. **Measured on the real model** (`docs/asr/EXPORT_CHECK.md`): the exported int8 model scores 38.0% WER and 79.0% keyword recall on the same 103 held-out Emirati clips (the GPU benchmark scored 41.2%), so accuracy is preserved. It runs at 0.20 s of CPU time per second of audio on 4 cores, so no GPU is needed.
 
 ## How to read the result
 - **Keyword recall** is the share of MemBrain task words the recogniser catches. It drives scores directly, so it decides the choice, alongside WER on the **worst** subgroup.

@@ -204,7 +204,7 @@ If Azure is unavailable, the app falls back to browser speech recognition, and t
 
 For an in-country, self-hosted option we adapted an existing open Gulf-Arabic Whisper model to Emirati speech with a small LoRA adapter. On a held-out Emirati test set (103 clips, topics never seen in training), word error rate fell from 49.5% to 41.2% (−8.3 points, 95% CI −16.9 to −1.2, p = 0.011). Task-word recall did not improve on its 19 words, so the production recogniser is chosen on task-word recall and worst-subgroup error from consented recordings. Method and results are in `asr/README.md` and `docs/asr/BENCHMARK_RESULTS.md`.
 
-The fine-tuned model is wired into the app as a third engine. It is merged and converted to CTranslate2 int8 (`asr/export_model.py`) and served by the API on a CPU container (`/api/asr/transcribe`). It is off unless `WHISPER_MODEL` is set; the engine order is self-hosted Whisper (if preferred), Azure, browser, typed. Audio is transcribed in memory and not kept.
+The fine-tuned model is wired into the app as a third engine. It is merged and converted to CTranslate2 int8 (`asr/export_model.py`) and served by the API on a CPU container (`/api/asr/transcribe`). It is off unless `WHISPER_MODEL` is set; the engine order is self-hosted Whisper (if preferred), Azure, browser, typed. Audio is transcribed in memory and not kept. The exported model keeps its accuracy (38.0% WER on the held-out Emirati clips; 41.2% in the GPU benchmark) and runs at 0.20 s of CPU time per second of audio, so a 10-second answer takes about 2 s on an ordinary 4-core in-country server.
 
 ## 10. Security and privacy
 
