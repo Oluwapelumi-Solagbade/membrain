@@ -30,7 +30,8 @@ app = FastAPI(title="MemBrain API", version=C.ENGINE_VERSION,
               description="Voice-first longitudinal brain-health check-in. Identifies risk and change; never diagnoses.")
 # Only listed origins may call the API from a browser (GitHub Pages demo, local dev, the App Service itself).
 ALLOWED_ORIGINS = [o.strip() for o in os.getenv(
-    "ALLOWED_ORIGINS", "https://oluwapelumi-solagbade.github.io,http://localhost:8000,http://127.0.0.1:8000").split(",") if o.strip()]
+    "ALLOWED_ORIGINS", "https://oluwapelumi-solagbade.github.io,http://localhost:8000,http://127.0.0.1:8000,"
+    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3100,http://127.0.0.1:3100").split(",") if o.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, allow_methods=["*"], allow_headers=["*"])
 
 from api.speech import router as speech_router  # noqa: E402
@@ -432,10 +433,83 @@ def participant_genomics(pid: str):
     return {"shown": True, "apoe": gc["apoe"], "limits": gc["limits"]}
 
 
+# ------------------------------------------------------------- Clinician workspace (site/)
+# One call returns what the dashboard needs for every case, so the queue, cohort and reports pages
+# read the same state the actions write to.
+from membrain.dossier import concern_summary  # noqa: E402
+from membrain.prevention import risk_context  # noqa: E402
+
+
+def _task_for(p: dict, latest: dict | None) -> dict | None:
+    return DB["tasks"].get(f"{p['id']}:{latest['session_id']}") if latest else None
+
+
+def _case(p: dict, full: bool = False) -> dict:
+    ev = evaluate(p, p["sessions"]) if p["sessions"] else {"latest": None, "history": []}
+    ctx = p.get("context") or {}
+    out = {"participant": p, "history": ev["history"], "latest": ev["latest"], "task": _task_for(p, ev["latest"]),
+           "concern": concern_summary(p), "risk_context": risk_context(ctx) if ctx else None,
+           "prevention": prevention_plan(ctx, p.get("language") or "en") if ctx else None}
+    if full:
+        out["dossier"] = build_dossier(p, ev)
+    return out
+
+
+@app.get("/cases")
+def list_cases(r: str = Depends(role)):
+    need(r, "clinician", "coordinator")
+    return [_case(p) for p in DB["participants"].values()]
+
+
+@app.get("/cases/{pid}")
+def get_case(pid: str, r: str = Depends(role)):
+    need(r, "clinician", "coordinator")
+    p = DB["participants"].get(pid)
+    if not p:
+        raise HTTPException(404)
+    audit(r, "view_case", pid)
+    return _case(p, full=True)
+
+
+class ConcernIn(BaseModel):
+    """A concern confirmed by whoever raised it in the chat. Only the confirmed facts are stored."""
+    reporter: str = Field(pattern="^(self|family|household_helper|primary_care|coordinator)$")
+    lang: str = Field(pattern="^(ar|en)$")
+    narrative: str = Field(min_length=3, max_length=4000)
+    domains: list[str] = Field(default_factory=list)
+    onset: str | None = None
+    timeline: list[list[str]] = Field(default_factory=list)   # [activity, who took over]
+    red_flags: list[str] = Field(default_factory=list)
+    confounders: list[str] = Field(default_factory=list)
+    date: str
+
+
+@app.post("/concerns")
+def raise_concern(body: ConcernIn):
+    """Anyone can raise a concern. It becomes a pseudonymous record with an intake session, triaged by the engine;
+    a significant concern opens a clinician task straight away. No identifiers are taken here."""
+    pid = "MB-C" + uuid.uuid4().hex[:4].upper()
+    acts = sorted({a for a, _ in body.timeline})
+    p = {"id": pid, "display_name": {"en": "New concern", "ar": "قلق جديد"}, "age": None, "education": None, "sex": "U",
+         "dialect": None, "language": body.lang, "languages": [body.lang], "entry_route": body.reporter, "context": {},
+         "consent": {}, "referrals": [], "enrolled": False,
+         "intake": {"reporter": body.reporter, "at": body.date,
+                    "confirmed": {"narrative": body.narrative, "domains": body.domains, "onset": body.onset,
+                                  "timeline": body.timeline, "red_flags": body.red_flags, "confounders": body.confounders}},
+         "sessions": [{"session_id": f"{pid}-intake", "date": body.date, "type": "intake", "channel": "app",
+                       "concern": body.narrative, "onset": body.onset, "reporter": body.reporter,
+                       "activities_taken_over": acts, "red_flags": body.red_flags}]}
+    DB["participants"][pid] = p
+    _sync_tasks(p, evaluate(p, p["sessions"]))
+    audit("public", "concern_raised", pid, {"reporter": body.reporter, "red_flags": body.red_flags, "activities": acts})
+    return _case(p)
+
+
 # ------------------------------------------------------------- web app (keep LAST: the mount catches every unmatched path)
-# Serve the built single-page app at "/" so one in-country App Service hosts
-# both the API and the demo (same origin: microphone + speech work over HTTPS).
-_DIST = pathlib.Path(__file__).resolve().parents[1] / "web" / "dist"
-if _DIST.exists():
+# Serve the built site at "/" so one in-country App Service hosts both the API and the front end (same origin:
+# microphone and speech work over HTTPS). The new site (site/out) wins; it carries the old prototype at /prototype/.
+_ROOT = pathlib.Path(__file__).resolve().parents[1]
+_DIST = next((d for d in (_ROOT / "site" / "out", _ROOT / "web" / "dist") if (d / "index.html").exists()), None)
+if _DIST:
     from fastapi.staticfiles import StaticFiles
     app.mount("/", StaticFiles(directory=str(_DIST), html=True), name="web")

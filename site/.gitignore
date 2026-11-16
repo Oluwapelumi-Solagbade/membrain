@@ -1,0 +1,9 @@
+/node_modules
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+.DS_Store
+# generated from ../web by scripts/sync-data.mjs
+/lib/generated/
+/public/prototype/

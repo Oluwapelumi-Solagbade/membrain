@@ -1,0 +1,58 @@
+// The concern that started the journey, attributed to whoever reported it, plus what is still missing.
+// A port of membrain/dossier.py concern_summary (also mirrored in web/app.js); keep the three in step.
+import intakeData from "../generated/intake-data.json";
+import engineData from "../generated/engine-data.json";
+import type { ConcernSummary, Participant } from "./types";
+
+const IL = intakeData as unknown as { ACTIVITIES: Record<string, string>; WHO: Record<string, string>; ONSET: Record<string, string>; DOMAINS: Record<string, string>; CONFOUNDERS: Record<string, string> };
+const RED_FLAGS = (engineData.config as unknown as { RED_FLAGS: Record<string, string> }).RED_FLAGS;
+
+export const ENTRY_LABEL: Record<string, string> = {
+  family: "Family member",
+  self: "The person themselves",
+  household_helper: "Household helper",
+  primary_care: "Healthcare professional",
+  coordinator: "Programme coordinator",
+  programme: "Programme screening",
+};
+
+type InformantRow = { activity: string; who_took_over?: string; when?: string; why?: string };
+
+export function concernSummary(p: Participant): ConcernSummary {
+  const sessions = p.sessions || [];
+  const ikS = (sessions.find((s) => s.type === "intake") ?? {}) as Record<string, unknown>;
+  const ik = p.intake ?? {};
+  const c = ik.confirmed ?? ({} as NonNullable<NonNullable<Participant["intake"]>["confirmed"]>);
+  const route = (ik.reporter ?? (ikS.reporter as string | undefined) ?? p.entry_route) as string | undefined;
+  const raisedBy = (route && ENTRY_LABEL[route]) || route || "Not recorded";
+  let text: string | null = c.narrative || (ikS.concern as string | undefined) || null;
+  if (text === "routine programme screening") text = null;
+  const onset = c.onset ?? (ikS.onset as string | undefined) ?? null;
+  const inf = p.informant ?? null;
+  const who = (c.timeline ?? []).length
+    ? (c.timeline ?? []).map(([a, w]) => `${IL.ACTIVITIES[a] ?? a}: now ${IL.WHO[w] ?? w}`)
+    : ((inf?.timeline ?? []) as InformantRow[]).map(
+        (t) => `${t.activity}: now ${t.who_took_over || "someone else"}` + (t.when ? ` (${t.when})` : "") + (t.why ? `; reason given: ${t.why}` : ""),
+      );
+  const missing: string[] = [];
+  if (!text) missing.push(!route || route === "programme" ? "No specific concern (routine programme screening)" : "The concern in the reporter's own words");
+  if (!onset || onset === "none") missing.push("When the change started");
+  if (!inf) missing.push("An informant account (family member or household helper)");
+  if (!sessions.some((s) => s.iqcode != null) && (p as { pending_iqcode?: number | null }).pending_iqcode == null) missing.push("Informant questionnaire (IQCODE-16)");
+  if (!sessions.some((s) => s.type !== "intake" && s.raw != null)) missing.push("A scored check-in");
+  const ctx = (p.context ?? {}) as Record<string, unknown>;
+  if (ctx.sbp == null && ctx.hba1c == null) missing.push("Blood pressure and HbA1c");
+  return {
+    raised_by: raisedBy,
+    date: (ik.at ?? (ikS.date as string | undefined) ?? "").slice(0, 10) || null,
+    in_their_words: text,
+    onset: onset ? IL.ONSET[onset] ?? null : null,
+    what_changed: (c.domains ?? []).map((d) => IL.DOMAINS[d] ?? d),
+    who_now_does_what: who,
+    red_flags_reported: ((ikS.red_flags as string[] | undefined) ?? []).map((f) => RED_FLAGS[f] ?? f),
+    confounders_reported: (c.confounders ?? []).map((f) => IL.CONFOUNDERS[f] ?? f),
+    informant: inf ? { type: inf.type, relation: inf.relation } : null,
+    attribution: `Reported by: ${raisedBy}. This is their account, not a clinical finding, until a clinician confirms it.`,
+    missing,
+  };
+}

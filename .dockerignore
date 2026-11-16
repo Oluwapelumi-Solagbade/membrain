@@ -8,3 +8,6 @@ __pycache__
 data/raw/
 .env
 *.env
+site/node_modules
+site/.next
+site/out

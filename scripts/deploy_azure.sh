@@ -9,6 +9,10 @@ RG="${RG:-membrain-rg}"
 LOC="${LOC:-uaenorth}"
 SKU="${SKU:-B1}"                           # B1 is the smallest always-on Linux plan; F1 (free) if your subscription allows it in UAE North
 
+# Build the front end first: the API serves site/out at "/" (with the earlier prototype at /prototype/).
+echo "Building the site (site/out)…"
+(cd site && npm ci --no-audit --no-fund && NEXT_PUBLIC_SITE_URL="https://$APP.azurewebsites.net" npm run build)
+
 echo "Deploying $APP to $LOC (resource group $RG, plan $SKU)…"
 az group create --name "$RG" --location "$LOC" --output none
 az webapp up --name "$APP" --resource-group "$RG" --location "$LOC" --sku "$SKU" --runtime "PYTHON:3.12" --output none

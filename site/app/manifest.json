@@ -1,0 +1,10 @@
+{
+  "name": "MemBrain",
+  "short_name": "MemBrain",
+  "description": "From the first worry about memory to the right clinician. Gulf Arabic and English.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f3f2c",
+  "icons": [{ "src": "/icon.png", "sizes": "512x512", "type": "image/png" }]
+}

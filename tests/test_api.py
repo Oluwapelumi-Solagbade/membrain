@@ -77,3 +77,32 @@ def test_consent_withdrawal_purges_voice_features():
     c.patch(f"/participants/{pid}/consent", headers=CL, json={"voice_features": False})
     from api.main import DB
     assert all(s.get("voice_features") is None for s in DB["participants"][pid]["sessions"])
+
+
+def test_cases_carry_evaluation_task_and_concern():
+    cases = c.get("/cases", headers=CL).json()
+    by = {x["participant"]["id"]: x for x in cases}
+    assert by["MB-1322"]["latest"]["level"] == "URGENT"
+    assert by["MB-1322"]["task"]["status"] in ("open", "in_progress", "closed")
+    assert "missing" in by["MB-1322"]["concern"]
+    assert c.get("/cases", headers={"X-Role": "participant"}).status_code == 403
+    full = c.get("/cases/MB-1187", headers=CL).json()
+    assert full["dossier"] and full["latest"]["level"] == "CLINICIAN_REVIEW"
+
+
+def test_concern_from_chat_opens_review_task():
+    body = {"reporter": "family", "lang": "en", "narrative": "Dad keeps asking the same questions. My brother drives him and pays his bills.",
+            "domains": ["memory"], "onset": "years", "timeline": [["driving", "brother"], ["money", "brother"]],
+            "red_flags": [], "confounders": [], "date": "2026-11-14"}
+    case = c.post("/concerns", json=body).json()
+    pid = case["participant"]["id"]
+    assert case["latest"]["level"] == "CLINICIAN_REVIEW"
+    assert any(t["participant_id"] == pid for t in c.get("/queue", headers=CL).json())
+    assert any(a["action"] == "concern_raised" and a["target"] == pid for a in c.get("/audit", headers=CL).json())
+    assert c.get(f"/cases/{pid}", headers=CL).json()["concern"]["in_their_words"].startswith("Dad keeps")
+
+
+def test_concern_with_red_flag_is_urgent_and_bad_reporter_rejected():
+    body = {"reporter": "family", "lang": "ar", "narrative": "أبوي طاح أمس وضرب راسه", "red_flags": ["recent_fall_head_injury"], "date": "2026-11-14"}
+    assert c.post("/concerns", json=body).json()["latest"]["level"] == "URGENT"
+    assert c.post("/concerns", json=body | {"reporter": "stranger"}).status_code == 422
