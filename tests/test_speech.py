@@ -114,3 +114,73 @@ def test_asr_config_does_not_claim_uae_unless_told(monkeypatch):
     assert c.get("/api/asr/config").json()["in_uae"] is False
     monkeypatch.setenv("SERVER_IN_UAE", "1")
     assert c.get("/api/asr/config").json()["in_uae"] is True
+
+
+class _SlowModel:
+    """Stands in for Whisper: like faster-whisper, it does its work while the segments are read."""
+    def __init__(self, seconds):
+        self.seconds = seconds
+
+    def transcribe(self, pcm, **kw):
+        import time
+        from types import SimpleNamespace
+
+        def segs():
+            time.sleep(self.seconds)
+            yield SimpleNamespace(text=" مرحبا ")
+        return segs(), SimpleNamespace(language="ar", duration=1.0)
+
+
+def test_a_slow_transcription_does_not_hold_up_other_requests(monkeypatch):
+    """Recognition runs in a worker thread: while one answer is transcribed, the server still answers everyone else
+    (before, one recording froze the whole demo server, health checks included, and the host restarted it)."""
+    import asyncio
+    import time
+    import numpy as np
+    import api.asr_local as A
+    monkeypatch.setenv("WHISPER_MODEL", "fake"); monkeypatch.delenv("AZURE_SPEECH_KEY", raising=False)
+    monkeypatch.setattr(A, "decode", lambda data: np.zeros(16000, dtype=np.float32))
+    monkeypatch.setitem(A._MODEL, "m", _SlowModel(1.0))
+
+    async def go():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as ac:
+            t0 = time.perf_counter()
+            rec = asyncio.create_task(ac.post("/api/asr/transcribe", files={"audio": ("a.webm", b"x", "audio/webm")}, data={"lang": "ar"}))
+            await asyncio.sleep(0.1)
+            h = await ac.get("/health")
+            health_s = time.perf_counter() - t0
+            r = await rec
+            return h, health_s, r
+
+    h, health_s, r = asyncio.run(go())
+    assert h.status_code == 200 and health_s < 0.6
+    assert r.status_code == 200 and r.json()["text"] == "مرحبا"
+
+
+def test_a_failed_model_load_is_retried_instead_of_breaking_speech_until_restart(monkeypatch):
+    import sys
+    from types import SimpleNamespace
+    import api.asr_local as A
+    monkeypatch.setenv("WHISPER_MODEL", "fake")
+    monkeypatch.setitem(A._MODEL, "m", None); monkeypatch.setitem(A._MODEL, "err", None)
+    calls = {"n": 0}
+
+    def flaky(*a, **k):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise OSError("download interrupted")
+        return _SlowModel(0)
+
+    monkeypatch.setitem(sys.modules, "faster_whisper", SimpleNamespace(WhisperModel=flaky))
+    monkeypatch.setattr(A, "RETRY_AFTER_S", 0.2)
+    import pytest
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as e:
+        A._model()
+    assert e.value.status_code == 503 and A.state() == "error"
+    with pytest.raises(HTTPException):
+        A._model()                      # inside the cool-down: no hammering the model hub
+    assert calls["n"] == 1
+    import time
+    time.sleep(0.25)
+    assert isinstance(A._model(), _SlowModel) and A.state() == "ready" and calls["n"] == 2

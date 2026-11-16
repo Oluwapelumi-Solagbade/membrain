@@ -607,10 +607,10 @@ async def transcribe(voice: dict, lang: str) -> str | None:
         return None
     audio = r.content
     if whisper:
-        from api.asr_local import _model, decode
-        pcm = await asyncio.to_thread(decode, audio)
-        segs, _ = await asyncio.to_thread(_model().transcribe, pcm, language=lang, task="transcribe", beam_size=1, vad_filter=True)
-        return " ".join(s.text.strip() for s in segs).strip() or None
+        from api.asr_local import decode, whisper_text
+        # All of it in a worker thread: Whisper does its work while the segments are read, and loading can take a while.
+        text = await asyncio.to_thread(lambda: whisper_text(decode(audio), lang)[0])
+        return text or None
     region = os.getenv("AZURE_SPEECH_REGION", "uaenorth")
     locale = "ar-AE" if lang == "ar" else "en-GB"
     r = await _client().post(

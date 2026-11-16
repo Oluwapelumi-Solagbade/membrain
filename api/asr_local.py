@@ -11,6 +11,7 @@ Audio is decoded and transcribed in memory; it is never written to disk or kept.
 """
 from __future__ import annotations
 
+import asyncio
 import io
 import os
 import threading
@@ -19,7 +20,7 @@ import time
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 router = APIRouter(prefix="/api/asr", tags=["speech"])
-_MODEL = {"m": None, "err": None}
+_MODEL: dict = {"m": None, "err": None, "err_at": 0.0}
 _LOCK = threading.Lock()
 MAX_BYTES = 6 * 1024 * 1024        # about 3 minutes of compressed speech
 MAX_SECONDS = 180
@@ -42,20 +43,77 @@ def decode(data: bytes):
     return np.concatenate(chunks).astype(np.float32) / 32768.0
 
 
-def _model():
-    if _MODEL["m"] is None and _MODEL["err"] is None:
-        with _LOCK:
-            if _MODEL["m"] is None and _MODEL["err"] is None:
-                try:
-                    from faster_whisper import WhisperModel
-                    _MODEL["m"] = WhisperModel(os.environ["WHISPER_MODEL"], device=os.getenv("WHISPER_DEVICE", "cpu"),
-                                               compute_type=os.getenv("WHISPER_COMPUTE", "int8"),
-                                               cpu_threads=int(os.getenv("WHISPER_THREADS", "4")))
-                except Exception as e:   # missing package, bad path, no access
-                    _MODEL["err"] = f"{type(e).__name__}: {e}"[:300]
+RETRY_AFTER_S = float(os.getenv("WHISPER_RETRY_S", "30"))     # a failed load is retried after this, not never
+LOAD_WAIT_S = float(os.getenv("WHISPER_LOAD_WAIT_S", "25"))   # how long a request waits for a model still loading
+BUSY_WAIT_S = float(os.getenv("WHISPER_BUSY_WAIT_S", "90"))   # how long a request queues behind others
+# Transcriptions run one at a time by default: on a small CPU host, two at once each take twice as long and both may time out.
+_RUN = threading.BoundedSemaphore(max(1, int(os.getenv("WHISPER_CONCURRENCY", "1"))))
+
+
+def _cooling() -> bool:
+    return _MODEL["err"] is not None and time.monotonic() - _MODEL["err_at"] < RETRY_AFTER_S
+
+
+def _unavailable() -> HTTPException:
+    return HTTPException(503, "Self-hosted speech model unavailable: " + (_MODEL["err"] or "not configured"),
+                         headers={"Retry-After": str(int(RETRY_AFTER_S))})
+
+
+def _model(wait: float | None = None):
+    """The loaded Whisper model. Blocking: call it from a worker thread, never on the server's event loop.
+    Waits up to `wait` seconds (default LOAD_WAIT_S; -1 = as long as it takes) for a load already under way.
+    A failed load (network blip, missing token) is retried after RETRY_AFTER_S instead of breaking dictation until restart."""
+    if _MODEL["m"] is not None:
+        return _MODEL["m"]
+    if _cooling():
+        raise _unavailable()
+    if not _LOCK.acquire(timeout=LOAD_WAIT_S if wait is None else wait):
+        raise HTTPException(503, "The speech model is still starting. Please try again in a minute.", headers={"Retry-After": "30"})
+    try:
+        if _MODEL["m"] is None and not _cooling():
+            try:
+                from faster_whisper import WhisperModel
+                _MODEL["m"] = WhisperModel(os.environ["WHISPER_MODEL"], device=os.getenv("WHISPER_DEVICE", "cpu"),
+                                           compute_type=os.getenv("WHISPER_COMPUTE", "int8"),
+                                           cpu_threads=int(os.getenv("WHISPER_THREADS", "4")))
+                _MODEL["err"] = None
+            except Exception as e:   # missing package, bad path, no access, download interrupted
+                _MODEL["err"], _MODEL["err_at"] = f"{type(e).__name__}: {e}"[:300], time.monotonic()
+    finally:
+        _LOCK.release()
     if _MODEL["m"] is None:
-        raise HTTPException(503, "Self-hosted speech model unavailable: " + (_MODEL["err"] or "not configured"))
+        raise _unavailable()
     return _MODEL["m"]
+
+
+def state() -> str:
+    """'ready', 'loading', 'error' (retrying soon) or 'idle' (not loaded yet)."""
+    if _MODEL["m"] is not None:
+        return "ready"
+    if _LOCK.locked():
+        return "loading"
+    return "error" if _MODEL["err"] else "idle"
+
+
+def whisper_text(pcm, lang: str) -> tuple[str, object, int]:
+    """Transcribe 16 kHz mono audio with our Whisper model. Blocking (the model decodes as its segments are read),
+    so run it in a worker thread. Returns (text, info, latency_ms)."""
+    m = _model()
+    if not _RUN.acquire(timeout=BUSY_WAIT_S):
+        raise HTTPException(503, "Speech recognition is busy. Please try again in a moment.", headers={"Retry-After": "10"})
+    try:
+        t = time.perf_counter()
+        segs, info = m.transcribe(pcm, language="ar" if lang == "ar" else "en", task="transcribe",
+                                  beam_size=int(os.getenv("WHISPER_BEAM", "1")), vad_filter=True, condition_on_previous_text=False,
+                                  max_new_tokens=int(os.getenv("WHISPER_MAX_NEW_TOKENS", "200")))
+        text = " ".join(s.text.strip() for s in segs).strip()
+        return text, info, round((time.perf_counter() - t) * 1000)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Speech model error: {type(e).__name__}")
+    finally:
+        _RUN.release()
 
 
 AZURE_MAX_SECONDS = 60
@@ -76,7 +134,7 @@ def preload():
     if os.getenv("WHISPER_MODEL") and os.getenv("ASR_PRELOAD", "1") != "0":
         def _go():
             try:
-                _model()
+                _model(wait=-1)
             except HTTPException:
                 pass   # reported on the first request; Azure or typing still work meanwhile
         threading.Thread(target=_go, daemon=True).start()
@@ -92,7 +150,8 @@ def asr_config():
     label = {"membrain-whisper-gulf": os.getenv("WHISPER_LABEL", "MemBrain Gulf Whisper" + where),
              "azure-uaenorth": f"Azure AI Speech, {os.getenv('AZURE_SPEECH_REGION', 'uaenorth')} (in-country)"}.get(eng, "MemBrain Gulf Whisper" + where)
     return {"enabled": eng is not None, "prefer": eng == "membrain-whisper-gulf" and os.getenv("ASR_PREFER_LOCAL") == "1",
-            "engine": eng, "label": label, "in_uae": in_uae}
+            "engine": eng, "label": label, "in_uae": in_uae,
+            "state": state() if eng == "membrain-whisper-gulf" else ("ready" if eng else "off")}
 
 
 def _wav(pcm) -> bytes:
@@ -127,33 +186,30 @@ def _azure(pcm, lang: str) -> dict:
 
 @router.post("/transcribe")
 async def transcribe(audio: UploadFile = File(...), lang: str = Form("ar")):
-    eng = _engine()
-    if not eng:
+    if not _engine():
         raise HTTPException(503, "No server speech engine configured")
     data = await audio.read()
     if not data or len(data) > MAX_BYTES:
         raise HTTPException(413 if data else 400, "Audio missing or too long")
+    # Decoding and recognition take seconds of CPU: do them in a worker thread so the server keeps answering everyone else
+    # (page loads, other people's recordings, the host's health check) meanwhile.
+    return await asyncio.to_thread(_transcribe, data, lang)
+
+
+def _transcribe(data: bytes, lang: str) -> dict:
+    eng = _engine()
     try:
         pcm = decode(data)
     except Exception as e:
         raise HTTPException(422, f"Could not decode audio: {type(e).__name__}")
     if len(pcm) > MAX_SECONDS * 16000:
         raise HTTPException(413, "Audio too long")
-    if eng == "membrain-whisper-gulf" and _MODEL["m"] is None and _MODEL["err"] is None and os.getenv("AZURE_SPEECH_KEY") \
-            and _LOCK.locked():
-        eng = "azure-uaenorth"   # our model is still loading: answer with Azure (also in the UAE) this once
+    if eng == "membrain-whisper-gulf" and _MODEL["m"] is None and os.getenv("AZURE_SPEECH_KEY") and (_LOCK.locked() or _cooling()):
+        eng = "azure-uaenorth"   # our model is loading or briefly unavailable: answer with Azure (also in the UAE) this once
     if eng == "azure-uaenorth":
         if len(pcm) > AZURE_MAX_SECONDS * 16000:
             raise HTTPException(413, f"Please keep each recording under {AZURE_MAX_SECONDS} seconds")
         return _azure(pcm, lang)
-    m = _model()
-    t = time.perf_counter()
-    try:
-        segs, info = m.transcribe(pcm, language="ar" if lang == "ar" else "en", task="transcribe",
-                                  beam_size=int(os.getenv("WHISPER_BEAM", "1")), vad_filter=True, condition_on_previous_text=False,
-                                  max_new_tokens=int(os.getenv("WHISPER_MAX_NEW_TOKENS", "200")))
-        segs = list(segs)
-    except Exception as e:
-        raise HTTPException(500, f"Speech model error: {type(e).__name__}")
-    return {"text": " ".join(s.text.strip() for s in segs).strip(), "engine": "membrain-whisper-gulf", "language": info.language,
-            "duration_s": round(info.duration, 1), "latency_ms": round((time.perf_counter() - t) * 1000)}
+    text, info, ms = whisper_text(pcm, lang)
+    return {"text": text, "engine": "membrain-whisper-gulf", "language": info.language,
+            "duration_s": round(info.duration, 1), "latency_ms": ms}
