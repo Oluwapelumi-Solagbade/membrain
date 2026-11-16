@@ -95,3 +95,12 @@ def test_recorded_answers_fall_back_to_azure_uae_north(monkeypatch):
     assert seen["url"].startswith("https://uaenorth.stt.speech.microsoft.com/") and "language=ar-AE" in seen["url"]
     assert seen["rate"] == 16000 and 1.8 * 16000 < seen["frames"] < 2.2 * 16000
     assert seen["headers"]["Ocp-Apim-Subscription-Key"] == "test-key"
+
+
+def test_preload_is_a_no_op_without_a_model(monkeypatch):
+    import threading
+    import api.asr_local as A
+    monkeypatch.delenv("WHISPER_MODEL", raising=False)
+    n = threading.active_count()
+    A.preload()
+    assert threading.active_count() == n

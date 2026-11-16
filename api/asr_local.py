@@ -69,6 +69,18 @@ def _engine() -> str | None:
     return None
 
 
+def preload():
+    """Fetch and load the Whisper model in the background at server start, so the first recorded answer does not
+    wait for the download (about 250 MB). Off with ASR_PRELOAD=0."""
+    if os.getenv("WHISPER_MODEL") and os.getenv("ASR_PRELOAD", "1") != "0":
+        def _go():
+            try:
+                _model()
+            except HTTPException:
+                pass   # reported on the first request; Azure or typing still work meanwhile
+        threading.Thread(target=_go, daemon=True).start()
+
+
 @router.get("/config")
 def asr_config():
     eng = _engine()
@@ -122,6 +134,9 @@ async def transcribe(audio: UploadFile = File(...), lang: str = Form("ar")):
         raise HTTPException(422, f"Could not decode audio: {type(e).__name__}")
     if len(pcm) > MAX_SECONDS * 16000:
         raise HTTPException(413, "Audio too long")
+    if eng == "membrain-whisper-gulf" and _MODEL["m"] is None and _MODEL["err"] is None and os.getenv("AZURE_SPEECH_KEY") \
+            and _LOCK.locked():
+        eng = "azure-uaenorth"   # our model is still loading: answer with Azure (also in the UAE) this once
     if eng == "azure-uaenorth":
         if len(pcm) > AZURE_MAX_SECONDS * 16000:
             raise HTTPException(413, f"Please keep each recording under {AZURE_MAX_SECONDS} seconds")

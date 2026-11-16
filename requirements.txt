@@ -10,3 +10,4 @@ pytest>=8
 fhir.resources>=7
 python-multipart>=0.0.9
 av>=12            # decodes recorded answers (WebM/Ogg/MP4) in memory for /api/asr/transcribe
+faster-whisper>=1.1    # MemBrain Gulf Whisper on the API server (used only when WHISPER_MODEL is set)
