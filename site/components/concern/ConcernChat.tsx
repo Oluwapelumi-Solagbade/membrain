@@ -150,13 +150,16 @@ export function ConcernChat() {
   // the answer and sends it there instead of using the browser's own recognition (Google's servers in Chrome).
   const [onServer, setOnServer] = useState(false);
   const [serverAsr, setServerAsr] = useState<string | null>(null);   // API base when server speech is available
+  const [inUae, setInUae] = useState(false);   // the server itself says whether it runs in the UAE; default: don't claim it
   useEffect(() => {
     getBackend()
       .then(async (b) => {
         setOnServer(b.mode === "server");
-        if (b.mode !== "server" || typeof window === "undefined" || !("MediaRecorder" in window)) return;
+        if (b.mode !== "server") return;
         const r = await fetch((b.base ?? "") + "/api/asr/config");
-        const j = (await r.json()) as { enabled?: boolean };
+        const j = (await r.json()) as { enabled?: boolean; in_uae?: boolean };
+        setInUae(j.in_uae === true);
+        if (typeof window === "undefined" || !("MediaRecorder" in window)) return;
         if (j.enabled) setServerAsr(b.base ?? "");
       })
       .catch(() => setOnServer(false));
@@ -620,7 +623,7 @@ export function ConcernChat() {
           </button>
         </form>
         <p className="mt-2 flex items-center gap-1.5 px-1 text-[12px] text-muted">
-          <Lock size={12} className="shrink-0" /> <span>{onServer ? t.disclaimerServer : t.disclaimer}{serverAsr !== null ? " " + t.voiceNoteServer : canDictate ? " " + t.voiceNote : ""}</span>
+          <Lock size={12} className="shrink-0" /> <span>{onServer ? (inUae ? t.disclaimerServer : t.disclaimerServerAbroad) : t.disclaimer}{serverAsr !== null ? " " + (inUae ? t.voiceNoteServer : t.voiceNoteServerAbroad) : canDictate ? " " + t.voiceNote : ""}</span>
         </p>
       </div>
     );
@@ -691,7 +694,7 @@ export function ConcernChat() {
         <aside className="hidden w-[280px] shrink-0 py-8 lg:block">
           <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-leaf">{t.asideTitle}</p>
           <ol className="mt-4 space-y-4">
-            {(onServer ? [...t.aside.slice(0, 4), t.privacyServer] : t.aside).map((a, i) => (
+            {(onServer ? [...t.aside.slice(0, 4), inUae ? t.privacyServer : t.privacyServerAbroad] : t.aside).map((a, i) => (
               <li key={a} className="flex gap-3 text-[14.5px] leading-snug text-body">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white font-mono text-[12px] text-deep shadow-sm">{i + 1}</span>
                 {a}

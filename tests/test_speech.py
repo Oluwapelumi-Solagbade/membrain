@@ -104,3 +104,13 @@ def test_preload_is_a_no_op_without_a_model(monkeypatch):
     n = threading.active_count()
     A.preload()
     assert threading.active_count() == n
+
+
+def test_asr_config_does_not_claim_uae_unless_told(monkeypatch):
+    from fastapi.testclient import TestClient
+    from api.main import app
+    c = TestClient(app)
+    monkeypatch.delenv("SERVER_IN_UAE", raising=False)
+    assert c.get("/api/asr/config").json()["in_uae"] is False
+    monkeypatch.setenv("SERVER_IN_UAE", "1")
+    assert c.get("/api/asr/config").json()["in_uae"] is True

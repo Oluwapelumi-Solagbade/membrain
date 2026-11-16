@@ -1,4 +1,5 @@
-"""Server-side speech recognition for recorded answers ("record, then transcribe"), always in-country.
+"""Server-side speech recognition for recorded answers ("record, then transcribe"), on MemBrain's own server
+(in the UAE in production; SERVER_IN_UAE says whether this server is).
 
 Engines, in order:
   1. MemBrain's Gulf Arabic Whisper (LoRA fine-tune, merged and converted to CTranslate2 int8 by
@@ -84,10 +85,14 @@ def preload():
 @router.get("/config")
 def asr_config():
     eng = _engine()
-    label = {"membrain-whisper-gulf": os.getenv("WHISPER_LABEL", "MemBrain Gulf Whisper (in-country)"),
-             "azure-uaenorth": f"Azure AI Speech, {os.getenv('AZURE_SPEECH_REGION', 'uaenorth')} (in-country)"}.get(eng, "MemBrain Gulf Whisper (in-country)")
+    # Only say "in the UAE" when the operator confirms this server runs there (SERVER_IN_UAE=1, e.g. Azure UAE North).
+    # A demo host elsewhere (Hugging Face Spaces) leaves it off, and the site then words its privacy notes honestly.
+    in_uae = os.getenv("SERVER_IN_UAE", "0") == "1"
+    where = " (in-country)" if in_uae else ""
+    label = {"membrain-whisper-gulf": os.getenv("WHISPER_LABEL", "MemBrain Gulf Whisper" + where),
+             "azure-uaenorth": f"Azure AI Speech, {os.getenv('AZURE_SPEECH_REGION', 'uaenorth')} (in-country)"}.get(eng, "MemBrain Gulf Whisper" + where)
     return {"enabled": eng is not None, "prefer": eng == "membrain-whisper-gulf" and os.getenv("ASR_PREFER_LOCAL") == "1",
-            "engine": eng, "label": label}
+            "engine": eng, "label": label, "in_uae": in_uae}
 
 
 def _wav(pcm) -> bytes:
