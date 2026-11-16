@@ -139,3 +139,15 @@ def test_significant_reported_concern_goes_to_review_without_baseline():
 def test_draft_names_the_reporter():
     c = {"narrative": "I forget names.", "domains": ["memory"], "reporter": "self"}
     assert I.draft_referral(c)[0]["text"].startswith("The participant reports")
+
+
+def test_reasoning_blocks_are_removed_before_reading_or_checking():
+    t = "Mum forgets appointments."
+    raw = '<unused94>thought\nThe user wants... memory, dementia likely.<unused95>{"domains": [{"key": "memory", "evidence": "forgets appointments"}]}'
+    r = I.ground_llm_output(raw, t, "en")
+    assert I.summary_keys(r)["domains"] == ["memory"] and r["grounding"]["thinking"]
+    cut = I.ground_llm_output("<unused94>thought\nThe user wants me to extract", t, "en")   # ran out before answering
+    assert cut["grounding"]["thinking"] and cut["grounding"]["parse_error"] and not cut["fields"]
+    v = I.verify_referral("<unused94>thought\nprobably dementia<unused95>A family member reports changes in memory. No diagnosis has been made.",
+                          {"narrative": t, "domains": ["memory"]})
+    assert v["grounded"] and v["n"] == 2

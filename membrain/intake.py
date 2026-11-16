@@ -426,11 +426,24 @@ def llm_messages(text: str, lang: str, few_shot: bool = True) -> list[dict]:
     return msgs
 
 
+def strip_thinking(raw: str) -> tuple[str, bool]:
+    """MedGemma 1.5 / Gemma-3 style models may write a reasoning block first: '<unused94>thought ... <unused95>answer'.
+    Return the answer part, and whether a reasoning block was present. An unclosed block means the answer never came."""
+    raw = raw or ""
+    if "<unused95>" in raw:
+        return raw.split("<unused95>", 1)[1].strip(), True
+    s = raw.lstrip()
+    if s.startswith("<unused94>") or s.startswith("thought\n"):
+        return "", True
+    return raw, False
+
+
 def ground_llm_output(raw: str, text: str, lang: str, engine: str = "medgemma") -> dict:
     """Parse model JSON, keep only allowed keys whose evidence is found in the narrative. Returns the common
     output format plus counts of dropped (unsupported) items."""
     norm, idx = normalise(text)
-    stats = {"items": 0, "unsupported": 0, "invalid_key": 0, "parse_error": False, "translated_evidence": 0}
+    raw, thought = strip_thinking(raw)
+    stats = {"items": 0, "unsupported": 0, "invalid_key": 0, "parse_error": False, "translated_evidence": 0, "thinking": thought}
     ungrounded = {"domains": set(), "red_flags": set(), "confounders": set(), "onset": None, "timeline": set()}
     arabic_text = _detect_lang(text) == "ar"
     try:
@@ -671,6 +684,8 @@ def verify_sentence(sent: str, c: dict) -> dict:
 
 
 def verify_referral(text_or_sentences, c: dict) -> dict:
+    if isinstance(text_or_sentences, str):
+        text_or_sentences = strip_thinking(text_or_sentences)[0]   # never check (or show) a model's reasoning block
     sents = text_or_sentences if isinstance(text_or_sentences, list) else split_sentences(text_or_sentences)
     sents = [s["text"] if isinstance(s, dict) else s for s in sents]
     res = [verify_sentence(s, c) for s in sents]
