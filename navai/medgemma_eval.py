@@ -19,11 +19,15 @@ from membrain import intake as I
 from navai.evaluate import ROOT, GATES, errors, load, run_rules, score
 
 
-def load_model(mid: str):
+def load_model(mid: str, dtype: str = "bfloat16"):
     import torch
     from transformers import AutoModelForImageTextToText, AutoProcessor
     proc = AutoProcessor.from_pretrained(mid)
-    model = AutoModelForImageTextToText.from_pretrained(mid, torch_dtype=torch.bfloat16, device_map="cuda")
+    # bfloat16 on recent GPUs (Ampere and newer); float16 on older ones such as Kaggle/Colab T4
+    try:
+        model = AutoModelForImageTextToText.from_pretrained(mid, dtype=getattr(torch, dtype), device_map="cuda")
+    except TypeError:   # transformers older than 4.56 call it torch_dtype
+        model = AutoModelForImageTextToText.from_pretrained(mid, torch_dtype=getattr(torch, dtype), device_map="cuda")
     model.eval()
 
     def chat(messages, max_new_tokens=700):
@@ -51,8 +55,9 @@ def main(argv=None):
     ap.add_argument("--out", default=str(ROOT / "docs" / "navai"))
     ap.add_argument("--tag", default="medgemma", help="output name: docs/navai/RESULTS_<tag>.json and .md")
     ap.add_argument("--no-few-shot", action="store_true", help="v1 behaviour: no worked examples")
+    ap.add_argument("--dtype", default="bfloat16", choices=["bfloat16", "float16"], help="float16 for T4 GPUs (Kaggle, Colab)")
     a = ap.parse_args(argv)
-    chat = load_model(a.model)
+    chat = load_model(a.model, a.dtype)
     chat([{"role": "user", "content": "Say OK."}], max_new_tokens=4)  # warm-up, not timed
     report = {"model": a.model, "tag": a.tag, "prompt": "v1 zero-shot" if a.no_few_shot else "v2 rules + 3 worked examples",
               "intake_version": I.INTAKE_VERSION, "date": time.strftime("%Y-%m-%d"), "sets": {}}
