@@ -145,13 +145,20 @@
     try {
       const ctl = new AbortController(); setTimeout(() => ctl.abort(), 3000);
       const cfg = await (await fetch(API + "/api/speech/config", { signal: ctl.signal })).json();
-      if (!cfg.enabled) return;
+      if (cfg.enabled) {
       await new Promise((res, rej) => { if (window.SpeechSDK) return res(); const sc = document.createElement("script"); sc.src = SDK_URL; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc); });
-      SPEECH.mode = "azure"; SPEECH.region = cfg.region; SPEECH.locales = cfg.locales;
+      SPEECH.mode = "azure"; SPEECH.region = cfg.region; SPEECH.locales = cfg.locales; }
     } catch (e) { SPEECH.note = "Azure Speech not reachable; using fallback"; }
+    // MemBrain's own Gulf Whisper (self-hosted, in-country): default if the server prefers it, or with ?asr=local
+    try {
+      const ctl = new AbortController(); setTimeout(() => ctl.abort(), 3000);
+      const a = await (await fetch(API + "/api/asr/config", { signal: ctl.signal })).json();
+      const ask = new URLSearchParams(location.search).get("asr");
+      if (a.enabled && ask !== "azure" && (a.prefer || ask === "local") && window.MediaRecorder) { SPEECH.mode = "local"; SPEECH.localLabel = a.label; }
+    } catch (e) {}
     if (S.view === "participant" && S.pt) render();
   }
-  const speechLabel = () => SPEECH.mode === "azure" ? `Azure AI Speech, ${SPEECH.region} (in-country)` : SPEECH.mode === "browser" ? "Browser speech recognition (not dialect-tuned)" : "Typed or sample answers";
+  const speechLabel = () => SPEECH.mode === "local" ? `${SPEECH.localLabel || "MemBrain Gulf Whisper"} (self-hosted, in-country)` : SPEECH.mode === "azure" ? `Azure AI Speech, ${SPEECH.region} (in-country)` : SPEECH.mode === "browser" ? "Browser speech recognition (not dialect-tuned)" : "Typed or sample answers";
   async function azureToken() {
     const r = await fetch(API + "/api/speech/token"); if (!r.ok) throw new Error("token " + r.status); return r.json();
   }
@@ -183,6 +190,14 @@
       this.active = true;
       if (opts.transcribe === false) return true;
       const emit = (interim) => { this.text = (this.finalText + " " + (interim || "")).trim(); onText && onText(this.text); };
+      if (SPEECH.mode === "local") {   // record now, transcribe on our server when the person finishes
+        try {
+          const mime = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"].find((m) => MediaRecorder.isTypeSupported(m)) || "";
+          this.mr = new MediaRecorder(this.stream, mime ? { mimeType: mime } : {}); this.chunks = []; this.lang = lang; this.onText = onText;
+          this.mr.ondataavailable = (e) => e.data && e.data.size && this.chunks.push(e.data); this.mr.start(1000);
+          this.engine = "local"; onText && onText(lang === "ar" ? "… (يُكتب النص بعد ما تخلص)" : "… (text appears when you finish)"); return true;
+        } catch (e) { SPEECH.note = "Self-hosted speech recognition failed to start; using browser recognition"; this.mr = null; }
+      }
       if (SPEECH.mode === "azure") {
         try {
           const { token, region } = await azureToken(); const sdk = window.SpeechSDK;
@@ -255,6 +270,18 @@
       if (this.pushStream) { try { this.pushStream.close(); } catch (e) {} this.pushStream = null; }
       if (this.proc) { try { this.proc.disconnect(); } catch (e) {} this.proc = null; }
       if (this.az) { const az = this.az; this.az = null; try { await new Promise((res) => az.stopContinuousRecognitionAsync(res, res)); az.close(); } catch (e) {} }
+      if (this.mr) {   // self-hosted Whisper: send the recording once, in memory, and use the returned text
+        const mr = this.mr; this.mr = null;
+        try {
+          await new Promise((res) => { mr.onstop = res; mr.stop(); });
+          const fd = new FormData(); fd.append("audio", new Blob(this.chunks, { type: mr.mimeType || "audio/webm" }), "answer.webm"); fd.append("lang", this.lang || "ar");
+          const ctl = new AbortController(); setTimeout(() => ctl.abort(), 20000);
+          const r = await fetch(API + "/api/asr/transcribe", { method: "POST", body: fd, signal: ctl.signal });
+          if (!r.ok) throw new Error("asr " + r.status);
+          const j = await r.json(); this.text = j.text || ""; this.asrLatency = j.latency_ms; this.onText && this.onText(this.text);
+        } catch (e) { this.text = ""; this.engine = "local-failed"; SPEECH.note = "Self-hosted speech recognition did not answer; type the answer or use a sample"; }
+        this.chunks = [];
+      }
       try { this.stream.getTracks().forEach((t) => t.stop()); this.ctx.close(); } catch (e) {}
       const dur = (performance.now() - this.t0) / 1000; const fr = this.frames;
       const floor = noiseDb ?? (fr.length ? [...fr].sort((a, b) => a - b)[Math.floor(fr.length * 0.1)] : -60);

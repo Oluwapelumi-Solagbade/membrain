@@ -62,6 +62,21 @@ Paired bootstrap, 2,000 resamples of clips:
 - One dialect (Emirati) and 103 clips. Per-dialect, per-age and per-education error rates come in Phase 1.
 - Azure AI Speech (UAE North) is not yet in this table.
 
+## Serving the model in MemBrain (self-hosted, in-country)
+
+1. **Export** on the cluster (CPU, a few minutes). This merges the LoRA adapter into the base and converts to CTranslate2 int8:
+   `condor_submit asr/export.submit` → `runs/membrain-whisper-gulf-ct2/`.
+   To upload it to a **private** Hugging Face repo for the server, use `HF_PUSH_REPO=<you>/membrain-whisper-gulf-ct2 condor_submit asr/export.submit` (needs a token with write access).
+2. **Serve** from the MemBrain API on an ordinary CPU container in UAE North:
+   - build the image with `--build-arg WITH_WHISPER=1`;
+   - set `WHISPER_MODEL` (a folder, or the private repo id plus `HF_TOKEN` as a secret);
+   - optionally set `ASR_PREFER_LOCAL=1` to make it the app's default engine. Otherwise Azure stays the default and testers add `?asr=local` to the app address.
+3. **How it works in the app:** the browser records the answer; when the person taps "finished", it sends the recording once to `/api/asr/transcribe`. The server transcribes it in memory and returns the text. Nothing is written to disk or kept.
+   - Every session records which engine produced its text: `local`, `azure` or `browser`.
+   - If the server does not answer, the person can type, or a sample answer is used.
+
+Tested without downloads (`python tests/asr_serve_smoke.py`): a tiny random Whisper with a LoRA adapter, exported, served, and called with browser-style WebM/Opus audio. Also tested in Chrome with a simulated microphone: 5 of 5 recordings transcribed. Speed on the real model (whisper-small, int8, 4 CPU threads) is printed by the export job for three held-out clips.
+
 ## How to read the result
 - **Keyword recall** is the share of MemBrain task words the recogniser catches. It drives scores directly, so it decides the choice, alongside WER on the **worst** subgroup.
 - The held-out Emirati set has 103 clips from a few shows, so differences of a couple of WER points are within noise. That is why every comparison carries a paired-bootstrap confidence interval.

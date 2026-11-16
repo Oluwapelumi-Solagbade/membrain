@@ -46,3 +46,13 @@ def test_rate_limit(monkeypatch):
     sp._hits.clear(); sp._cache["token"] = (__import__("time").time(), "t")
     codes = [c.get("/api/speech/token").status_code for _ in range(3)]
     assert codes == [200, 200, 429]
+
+
+def test_self_hosted_asr_is_off_unless_configured(monkeypatch):
+    from fastapi.testclient import TestClient
+    from api.main import app
+    monkeypatch.delenv("WHISPER_MODEL", raising=False)
+    c = TestClient(app)
+    assert c.get("/api/asr/config").json() == {"enabled": False, "prefer": False, "engine": None, "label": "MemBrain Gulf Whisper (in-country)"}
+    r = c.post("/api/asr/transcribe", files={"audio": ("a.webm", b"x", "audio/webm")}, data={"lang": "ar"})
+    assert r.status_code == 503

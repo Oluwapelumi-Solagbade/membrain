@@ -39,6 +39,9 @@ app.include_router(speech_router)
 from api.navai import router as navai_router  # noqa: E402
 
 app.include_router(navai_router)
+from api.asr_local import router as asr_router  # noqa: E402
+
+app.include_router(asr_router)
 
 DB: dict = {"participants": {}, "tasks": {}, "audit": []}
 # Identity vault: direct identifiers live here ONLY, keyed by pseudonym.
