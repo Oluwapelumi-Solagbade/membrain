@@ -176,6 +176,8 @@ export function ConcernChat() {
   const [reading, setReading] = useState(false);
   const recRef = useRef<Recognition | null>(null);
   const mrRef = useRef<{ mr: MediaRecorder; stream: MediaStream; chunks: Blob[] } | null>(null);
+  const [micNote, setMicNote] = useState<string | null>(null);   // why dictation produced nothing, shown under the box
+  const vadRef = useRef<{ ctx: AudioContext; timer: number } | null>(null);
   const [transcribing, setTranscribing] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -325,14 +327,17 @@ export function ConcernChat() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
     } catch {
+      setMicNote(t.micBlocked);
       return;
     }
+    setMicNote(null);
     const mime = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"].find((m) => MediaRecorder.isTypeSupported(m));
     const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
     const chunks: Blob[] = [];
     const before = draft ? draft.trimEnd() + " " : "";
     mr.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
     mr.onstop = async () => {
+      stopVad();
       stream.getTracks().forEach((tr) => tr.stop());
       mrRef.current = null;
       setListening(false);
@@ -344,10 +349,13 @@ export function ConcernChat() {
         const res = await fetch(base + "/api/asr/transcribe", { method: "POST", body: fd });
         if (res.ok) {
           const j = (await res.json()) as { text?: string };
-          if (j.text) setDraft(before + j.text);
+          if (j.text && j.text.trim()) setDraft(before + j.text.trim());
+          else setMicNote(t.micNothing);
+        } else {
+          setMicNote(t.micFailed);
         }
       } catch {
-        /* typing still works */
+        setMicNote(t.micFailed);   // typing still works
       } finally {
         setTranscribing(false);
         inputRef.current?.focus();
@@ -356,6 +364,41 @@ export function ConcernChat() {
     mr.start(1000);
     mrRef.current = { mr, stream, chunks };
     setListening(true);
+    startVad(stream);
+  }
+
+  // Stop by itself: about 1.8 s of quiet after speech, 8 s if nothing is said at all, and 60 s at most.
+  function startVad(stream: MediaStream) {
+    try {
+      const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new AC();
+      const an = ctx.createAnalyser();
+      an.fftSize = 1024;
+      ctx.createMediaStreamSource(stream).connect(an);
+      const buf = new Float32Array(an.fftSize);
+      const t0 = performance.now();
+      let heard = false;
+      let lastLoud = t0;
+      const timer = window.setInterval(() => {
+        an.getFloatTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+        const rms = Math.sqrt(sum / buf.length);
+        const now = performance.now();
+        if (rms > 0.02) { heard = true; lastLoud = now; }
+        if ((heard && now - lastLoud > 1800) || (!heard && now - t0 > 8000) || now - t0 > 60000) stopListening();
+      }, 100);
+      vadRef.current = { ctx, timer };
+    } catch {
+      /* no auto-stop: the square still stops it */
+    }
+  }
+
+  function stopVad() {
+    if (!vadRef.current) return;
+    window.clearInterval(vadRef.current.timer);
+    void vadRef.current.ctx.close().catch(() => undefined);
+    vadRef.current = null;
   }
 
   const toggleMic = () => {
@@ -608,7 +651,7 @@ export function ConcernChat() {
           <textarea
             ref={inputRef}
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => { setDraft(e.target.value); if (micNote) setMicNote(null); }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
@@ -624,6 +667,9 @@ export function ConcernChat() {
             <ArrowUp size={20} />
           </button>
         </form>
+        {micNote && (
+          <p role="status" className="mt-2 px-1 text-[13px] font-medium text-lv-review">{micNote}</p>
+        )}
         <p className="mt-2 flex items-center gap-1.5 px-1 text-[12px] text-muted">
           <Lock size={12} className="shrink-0" /> <span>{onServer ? (inUae ? t.disclaimerServer : t.disclaimerServerAbroad) : t.disclaimer}{serverAsr !== null ? " " + (inUae ? t.voiceNoteServer : t.voiceNoteServerAbroad) : canDictate ? " " + t.voiceNote : ""}</span>
         </p>
