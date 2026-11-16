@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { asset } from "@/lib/asset";
 
 // The MemBrain logo, from the supplied artwork (public/brand/, generated at 1557 px wide so it stays sharp
 // on high-density screens). Original colours on light backgrounds; the white version on dark ones.
@@ -10,7 +11,7 @@ export function LogoMark({ className = "h-8 w-8", inverted = false, round = fals
   return (
     <span aria-hidden className={`inline-flex shrink-0 items-center justify-center ${round ? "rounded-full" : "rounded-[28%]"} ${inverted ? "bg-white" : "bg-deep"} ${className}`}>
       <Image
-        src={inverted ? "/brand/membrain-mark.png" : "/brand/membrain-mark-white.png"}
+        src={inverted ? asset("/brand/membrain-mark.png") : asset("/brand/membrain-mark-white.png")}
         alt=""
         width={MARK.w}
         height={MARK.h}
@@ -25,7 +26,7 @@ export function Logo({ inverted = false, className = "", size = "md", priority =
   const h = size === "lg" ? "h-[34px]" : size === "md" ? "h-7" : "h-6";
   return (
     <Image
-      src={inverted ? "/brand/membrain-logo-white.png" : "/brand/membrain-logo.png"}
+      src={inverted ? asset("/brand/membrain-logo-white.png") : asset("/brand/membrain-logo.png")}
       alt="MemBrain"
       width={LOGO.w}
       height={LOGO.h}
@@ -37,5 +38,5 @@ export function Logo({ inverted = false, className = "", size = "md", priority =
 
 /** The mark alone, in its original colours, for light backgrounds (app headers). */
 export function Mark({ className = "h-8 w-auto" }: { className?: string }) {
-  return <Image src="/brand/membrain-mark.png" alt="" aria-hidden width={MARK.w} height={MARK.h} className={className} />;
+  return <Image src={asset("/brand/membrain-mark.png")} alt="" aria-hidden width={MARK.w} height={MARK.h} className={className} />;
 }

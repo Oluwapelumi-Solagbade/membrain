@@ -1,9 +1,12 @@
-"""Self-hosted speech recognition: MemBrain's Gulf Arabic Whisper (LoRA fine-tune, merged and converted to
-CTranslate2 int8 by asr/export_model.py), served in-country next to the API.
+"""Server-side speech recognition for recorded answers ("record, then transcribe"), always in-country.
 
-Off unless WHISPER_MODEL is set to a local folder or a Hugging Face repo id (a private repo needs HF_TOKEN).
-ASR_PREFER_LOCAL=1 makes the app use it by default; otherwise Azure stays the default and the local model can be
-chosen with ?asr=local. Audio is transcribed in memory and never written to disk or kept.
+Engines, in order:
+  1. MemBrain's Gulf Arabic Whisper (LoRA fine-tune, merged and converted to CTranslate2 int8 by
+     asr/export_model.py), if WHISPER_MODEL is set to a folder or a Hugging Face repo id (private repo: HF_TOKEN).
+  2. Azure AI Speech, short-audio REST API, in AZURE_SPEECH_REGION (uaenorth), if AZURE_SPEECH_KEY is set.
+     Answers up to 60 seconds.
+ASR_PREFER_LOCAL=1 makes the earlier prototype use this endpoint by default (it otherwise streams to Azure itself).
+Audio is decoded and transcribed in memory; it is never written to disk or kept.
 """
 from __future__ import annotations
 
@@ -54,28 +57,77 @@ def _model():
     return _MODEL["m"]
 
 
+AZURE_MAX_SECONDS = 60
+AZURE_LOCALE = {"ar": "ar-AE", "en": "en-GB"}
+
+
+def _engine() -> str | None:
+    if os.getenv("WHISPER_MODEL"):
+        return "membrain-whisper-gulf"
+    if os.getenv("AZURE_SPEECH_KEY"):
+        return "azure-uaenorth"
+    return None
+
+
 @router.get("/config")
 def asr_config():
-    on = bool(os.getenv("WHISPER_MODEL"))
-    return {"enabled": on, "prefer": on and os.getenv("ASR_PREFER_LOCAL") == "1",
-            "engine": "membrain-whisper-gulf" if on else None, "label": os.getenv("WHISPER_LABEL", "MemBrain Gulf Whisper (in-country)")}
+    eng = _engine()
+    label = {"membrain-whisper-gulf": os.getenv("WHISPER_LABEL", "MemBrain Gulf Whisper (in-country)"),
+             "azure-uaenorth": f"Azure AI Speech, {os.getenv('AZURE_SPEECH_REGION', 'uaenorth')} (in-country)"}.get(eng, "MemBrain Gulf Whisper (in-country)")
+    return {"enabled": eng is not None, "prefer": eng == "membrain-whisper-gulf" and os.getenv("ASR_PREFER_LOCAL") == "1",
+            "engine": eng, "label": label}
+
+
+def _wav(pcm) -> bytes:
+    import wave
+
+    import numpy as np
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
+        w.writeframes((np.clip(pcm, -1, 1) * 32767).astype("<i2").tobytes())
+    return buf.getvalue()
+
+
+def _azure(pcm, lang: str) -> dict:
+    import httpx
+    region = os.getenv("AZURE_SPEECH_REGION", "uaenorth")
+    url = (f"https://{region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1"
+           f"?language={AZURE_LOCALE.get(lang, 'ar-AE')}&format=simple")
+    t = time.perf_counter()
+    try:
+        r = httpx.post(url, content=_wav(pcm), timeout=30.0, headers={
+            "Ocp-Apim-Subscription-Key": os.environ["AZURE_SPEECH_KEY"], "Accept": "application/json",
+            "Content-Type": "audio/wav; codecs=audio/pcm; samplerate=16000"})
+        r.raise_for_status()
+        j = r.json()
+    except Exception as e:
+        raise HTTPException(502, f"Speech service error: {type(e).__name__}")
+    return {"text": (j.get("DisplayText") or "").strip(), "engine": "azure-uaenorth", "language": AZURE_LOCALE.get(lang, "ar-AE"),
+            "duration_s": round(len(pcm) / 16000, 1), "latency_ms": round((time.perf_counter() - t) * 1000),
+            "status": j.get("RecognitionStatus")}
 
 
 @router.post("/transcribe")
 async def transcribe(audio: UploadFile = File(...), lang: str = Form("ar")):
-    if not os.getenv("WHISPER_MODEL"):
-        raise HTTPException(503, "Self-hosted speech model not configured")
+    eng = _engine()
+    if not eng:
+        raise HTTPException(503, "No server speech engine configured")
     data = await audio.read()
     if not data or len(data) > MAX_BYTES:
         raise HTTPException(413 if data else 400, "Audio missing or too long")
-    m = _model()
-    t = time.perf_counter()
     try:
         pcm = decode(data)
     except Exception as e:
         raise HTTPException(422, f"Could not decode audio: {type(e).__name__}")
     if len(pcm) > MAX_SECONDS * 16000:
         raise HTTPException(413, "Audio too long")
+    if eng == "azure-uaenorth":
+        if len(pcm) > AZURE_MAX_SECONDS * 16000:
+            raise HTTPException(413, f"Please keep each recording under {AZURE_MAX_SECONDS} seconds")
+        return _azure(pcm, lang)
+    m = _model()
+    t = time.perf_counter()
     try:
         segs, info = m.transcribe(pcm, language="ar" if lang == "ar" else "en", task="transcribe",
                                   beam_size=int(os.getenv("WHISPER_BEAM", "1")), vad_filter=True, condition_on_previous_text=False,

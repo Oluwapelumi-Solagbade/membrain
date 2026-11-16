@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "./Logo";
+import { asset } from "@/lib/asset";
 
 export function SiteFooter() {
   return (
@@ -9,7 +10,7 @@ export function SiteFooter() {
         <nav aria-label="Footer" className="flex flex-wrap gap-x-6 gap-y-2">
           <Link href="/concern/" className="hover:text-white">Raise a concern</Link>
           <Link href="/clinician/" className="hover:text-white">Clinician view</Link>
-          <a href="/prototype/" className="hover:text-white">Full prototype</a>
+          <a href={asset("/prototype/")} className="hover:text-white">Full prototype</a>
           <Link href="/#evidence" className="hover:text-white">Evidence</Link>
         </nav>
         <p className="max-w-[340px] text-xs leading-relaxed">

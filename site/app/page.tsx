@@ -23,6 +23,7 @@ import { ChatChannels } from "@/components/landing/ChatChannels";
 import { DemoSection } from "@/components/landing/DemoSection";
 import { QueuePreview } from "@/components/landing/QueuePreview";
 import { btn, Eyebrow, SectionHeading } from "@/components/ui";
+import { asset } from "@/lib/asset";
 
 const pillars = [
   { title: "Concern to action", text: "Structured and guided", icon: ClipboardList },
@@ -112,7 +113,7 @@ export default function HomePage() {
               the card can be placed in the photo's coordinates at any width. */}
           <div aria-hidden className="absolute inset-y-0 right-0 hidden w-[56vw] max-w-[900px] overflow-hidden [container-type:size] xl:block">
             <div className="absolute right-0 top-0 aspect-[844/774] w-[max(100cqw,109.05cqh)]">
-              <Image src="/images/hero-family.webp" alt="" fill priority sizes="900px" className="object-cover" />
+              <Image src={asset("/images/hero-family.webp")} alt="" fill priority sizes="900px" className="object-cover" />
             </div>
             <div className="absolute inset-y-0 left-0 w-[24%] bg-gradient-to-r from-[#f9f9f8] via-[#f9f9f8]/60 to-transparent" />
           </div>
@@ -142,7 +143,7 @@ export default function HomePage() {
                 <Link href="/concern/" className="inline-flex items-center gap-2.5 rounded-xl bg-deep px-7 py-4 text-[17px] font-medium text-white shadow-sm transition-colors hover:bg-deep-hover">
                   I&apos;ve noticed a change <ArrowRight size={19} />
                 </Link>
-                <a href="/prototype/#participant" className="inline-flex items-center rounded-xl border border-line bg-white px-7 py-4 text-[17px] font-medium text-ink shadow-sm transition-colors hover:bg-mist">
+                <a href={asset("/prototype/#participant")} className="inline-flex items-center rounded-xl border border-line bg-white px-7 py-4 text-[17px] font-medium text-ink shadow-sm transition-colors hover:bg-mist">
                   Check my own brain health
                 </a>
               </div>
@@ -162,7 +163,7 @@ export default function HomePage() {
             {/* Phones and tablets: the photo above, the card overlapping it. */}
             <div className="mt-12 xl:hidden">
               <div className="relative overflow-hidden rounded-[22px]">
-                <Image src="/images/hero-family-top.webp" alt="An older Emirati man and his daughter looking at a tablet together" width={724} height={378} sizes="(max-width: 1280px) 100vw" className="h-auto w-full" />
+                <Image src={asset("/images/hero-family-top.webp")} alt="An older Emirati man and his daughter looking at a tablet together" width={724} height={378} sizes="(max-width: 1280px) 100vw" className="h-auto w-full" />
               </div>
               <div className="relative mx-2 -mt-10 sm:mx-10 sm:-mt-16">
                 <HeroCard />

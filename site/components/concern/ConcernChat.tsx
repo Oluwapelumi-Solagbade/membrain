@@ -9,8 +9,8 @@ import { Narrative } from "../Narrative";
 import { config, getEngine, getIntake, LEVEL_TONE, REPORTER_LABEL, type Evaluation, type IntakeResult, type Lang, type Reporter } from "@/lib/mb";
 import { ACTIVITY, CONFOUNDER, DOMAIN, ONSET, RED_FLAG, WHO, label } from "@/lib/labels";
 import { getBackend } from "@/lib/workspace/backend";
-import { localBackend } from "@/lib/workspace/local";
 import { COPY, EXAMPLES, REPORTERS, type Copy } from "./copy";
+import { asset } from "@/lib/asset";
 
 type Step = "who" | "describe" | "thinking" | "review" | "outcome";
 
@@ -146,9 +146,20 @@ export function ConcernChat() {
   const t = COPY[lang];
   const [step, setStep] = useState<Step>("who");
   // On the MemBrain server what the person confirms is sent to the API, so the privacy wording must say so.
+  // If the server also offers speech recognition (our Gulf Whisper, or Azure Speech in UAE North), dictation records
+  // the answer and sends it there instead of using the browser's own recognition (Google's servers in Chrome).
   const [onServer, setOnServer] = useState(false);
+  const [serverAsr, setServerAsr] = useState<string | null>(null);   // API base when server speech is available
   useEffect(() => {
-    getBackend().then((b) => setOnServer(b !== localBackend)).catch(() => setOnServer(false));
+    getBackend()
+      .then(async (b) => {
+        setOnServer(b.mode === "server");
+        if (b.mode !== "server" || typeof window === "undefined" || !("MediaRecorder" in window)) return;
+        const r = await fetch((b.base ?? "") + "/api/asr/config");
+        const j = (await r.json()) as { enabled?: boolean };
+        if (j.enabled) setServerAsr(b.base ?? "");
+      })
+      .catch(() => setOnServer(false));
   }, []);
   const [reporter, setReporter] = useState<Reporter | null>(null);
   const [draft, setDraft] = useState("");
@@ -161,9 +172,12 @@ export function ConcernChat() {
   const [listening, setListening] = useState(false);
   const [reading, setReading] = useState(false);
   const recRef = useRef<Recognition | null>(null);
+  const mrRef = useRef<{ mr: MediaRecorder; stream: MediaStream; chunks: Blob[] } | null>(null);
+  const [transcribing, setTranscribing] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const canDictate = useMemo(() => getRecognition() !== null, []);
+  const browserDictation = useMemo(() => getRecognition() !== null, []);
+  const canDictate = serverAsr !== null || browserDictation;
 
   const narrative = messages.join("\n");
   const narrativeLang: Lang = narrative ? getIntake().detectLang(narrative) : lang;
@@ -178,6 +192,7 @@ export function ConcernChat() {
 
   useEffect(() => () => {
     recRef.current?.stop();
+    try { mrRef.current?.mr.stop(); mrRef.current?.stream.getTracks().forEach((tr) => tr.stop()); } catch { /* not recording */ }
     try { speechSynthesis.cancel(); } catch { /* not available */ }
   }, []);
 
@@ -292,11 +307,58 @@ export function ConcernChat() {
   function stopListening() {
     recRef.current?.stop();
     recRef.current = null;
+    if (mrRef.current) {
+      const { mr } = mrRef.current;
+      try { mr.stop(); } catch { /* already stopped */ }
+    }
     setListening(false);
+  }
+
+  // Record, then send once to the MemBrain server; the text is added to the draft. Nothing is stored.
+  async function startServerDictation(base: string) {
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+    } catch {
+      return;
+    }
+    const mime = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"].find((m) => MediaRecorder.isTypeSupported(m));
+    const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    const chunks: Blob[] = [];
+    const before = draft ? draft.trimEnd() + " " : "";
+    mr.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+    mr.onstop = async () => {
+      stream.getTracks().forEach((tr) => tr.stop());
+      mrRef.current = null;
+      setListening(false);
+      setTranscribing(true);
+      try {
+        const fd = new FormData();
+        fd.append("audio", new Blob(chunks, { type: mr.mimeType || "audio/webm" }), "answer.webm");
+        fd.append("lang", lang);
+        const res = await fetch(base + "/api/asr/transcribe", { method: "POST", body: fd });
+        if (res.ok) {
+          const j = (await res.json()) as { text?: string };
+          if (j.text) setDraft(before + j.text);
+        }
+      } catch {
+        /* typing still works */
+      } finally {
+        setTranscribing(false);
+        inputRef.current?.focus();
+      }
+    };
+    mr.start(1000);
+    mrRef.current = { mr, stream, chunks };
+    setListening(true);
   }
 
   const toggleMic = () => {
     if (listening) return stopListening();
+    if (serverAsr !== null) {
+      void startServerDictation(serverAsr);
+      return;
+    }
     const Ctor = getRecognition();
     if (!Ctor) return;
     const rec = new Ctor();
@@ -549,16 +611,16 @@ export function ConcernChat() {
               }
             }}
             rows={Math.min(5, Math.max(1, draft.split("\n").length + Math.floor(draft.length / 48)))}
-            placeholder={listening ? t.listening : t.placeholder}
+            placeholder={transcribing ? t.transcribing : listening ? t.listening : t.placeholder}
             dir="auto"
             className="max-h-40 min-h-11 flex-1 resize-none bg-transparent px-2 py-2.5 text-[16px] leading-[1.45] outline-none placeholder:text-muted"
           />
-          <button type="submit" aria-label={t.send} disabled={draft.trim().length < 3} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-deep text-white transition-colors hover:bg-deep-hover disabled:bg-mist-strong disabled:text-muted">
+          <button type="submit" aria-label={t.send} disabled={draft.trim().length < 3 || transcribing} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-deep text-white transition-colors hover:bg-deep-hover disabled:bg-mist-strong disabled:text-muted">
             <ArrowUp size={20} />
           </button>
         </form>
         <p className="mt-2 flex items-center gap-1.5 px-1 text-[12px] text-muted">
-          <Lock size={12} className="shrink-0" /> <span>{onServer ? t.disclaimerServer : t.disclaimer}{canDictate ? " " + t.voiceNote : ""}</span>
+          <Lock size={12} className="shrink-0" /> <span>{onServer ? t.disclaimerServer : t.disclaimer}{serverAsr !== null ? " " + t.voiceNoteServer : canDictate ? " " + t.voiceNote : ""}</span>
         </p>
       </div>
     );
@@ -583,7 +645,7 @@ export function ConcernChat() {
           <Stethoscope size={18} /> {t.clinician}
         </Link>
         {outcome?.level !== "URGENT" && (
-          <a href="/prototype/#participant" className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-line bg-white px-4 py-3.5 text-[15px] font-medium hover:bg-mist">
+          <a href={asset("/prototype/#participant")} className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-line bg-white px-4 py-3.5 text-[15px] font-medium hover:bg-mist">
             {t.checkin}
           </a>
         )}
