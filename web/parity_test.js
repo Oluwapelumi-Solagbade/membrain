@@ -9,6 +9,10 @@ for (const c of cases) {
   if (JSON.stringify(got) !== JSON.stringify(c.expected_levels)) { fail++; console.log("MISMATCH", c.participant.id, got, c.expected_levels); }
   if (c.expected_reasons && JSON.stringify(hist.map((h) => h.reasons)) !== JSON.stringify(c.expected_reasons)) {
     fail++; console.log("REASON MISMATCH", c.participant.id, JSON.stringify(hist.map((h) => h.reasons)), "\n want", JSON.stringify(c.expected_reasons)); }
+  if (c.expected_extra) {   // follow-up concerns and the family questionnaire: what changed, and whether the level was carried
+    const got = hist.map((h, i) => Object.fromEntries(Object.keys(c.expected_extra[i]).map((k) => [k, h[k]])));
+    if (JSON.stringify(got) !== JSON.stringify(c.expected_extra)) { fail++; console.log("EXTRA MISMATCH", c.participant.id, JSON.stringify(got), "\n want", JSON.stringify(c.expected_extra)); }
+  }
 }
 // scoring parity spot check
 const r = E.scoreTranscripts({ memory_immediate: "جَمَل، الشباك، برتقال وقهوة والقمر", fluency: "كلب قطة جمل حصان الحصان أسد دب" }, "A", "ar");

@@ -43,17 +43,50 @@ export type Evaluation = {
   composite_z?: number;
   next_action?: string;
   held_for_clinician?: boolean;
+  /** Reports only (engine 0.5.0): what a concern adds to everything reported before it. */
+  concern_change?: ConcernChange;
+  /** The family questionnaire's result, for clinicians only. */
+  informant?: InformantResult;
+  /** A report with nothing new keeps the previous level; it never opens a second review. */
+  carried?: boolean;
+  intake?: boolean;
+  informant_report?: boolean;
+};
+
+export type ConcernChange = {
+  first: boolean;
+  since: string | null;
+  reporter: Reporter | null;
+  domains: string[];
+  activities: string[];
+  new_domains: string[];
+  new_activities: string[];
+  new_red_flags: string[];
+};
+
+export type InformantResult = {
+  instrument: "FAQ";
+  score: number | null;
+  max: number;
+  cutoff: number;
+  previous: number | null;
+  previous_date: string | null;
+  change: number | null;
+  at_or_above_cutoff: boolean;
 };
 
 export type Session = {
   session_id: string;
   date: string;
-  type?: "intake";
+  type?: "intake" | "informant";
   channel?: string;
   concern?: string;
   reporter?: Reporter;
   activities_taken_over?: string[];
-  reported_concern?: { reporter: Reporter; domains: string[]; activities_taken_over: string[] };
+  reported_concern?: { reporter: Reporter; domains: string[]; activities_taken_over: string[]; timeline?: [string, string][]; confounders?: string[] };
+  faq?: number;
+  faq_items?: Record<string, number>;
+  respondent?: string;
   red_flags?: string[];
   [key: string]: unknown;
 };

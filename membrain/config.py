@@ -6,7 +6,7 @@ illustrative and must be replaced with locally derived estimates.
 Changing any value requires a new ENGINE_VERSION (change control).
 """
 
-ENGINE_VERSION = "0.4.0"
+ENGINE_VERSION = "0.5.0"
 NORMS_VERSION = "synthetic-2026.11"  # [PLACEHOLDER] until Phase 2 local norms
 
 # --- Cognitive domains in the voice-first battery -------------------------
@@ -82,6 +82,18 @@ GAD2_CUTOFF = 3      # GAD-2 >= 3: positive anxiety screen
 SLEEP_HOURS_LOW = 5.5
 IQCODE_CUTOFF = 3.34  # Arabic IQCODE-16 reported best cutoff (> 3.34)
 IQCODE_RISE = 0.30    # rise vs previous informant report = new functional loss
+
+# --- Family questionnaire, repeated at intervals (engine 0.5.0) -------------
+# Functional Activities Questionnaire (Pfeffer 1982): a family member rates 10 everyday activities as they are NOW,
+# 0 (normal) to 3 (dependent), so it can be repeated (IQCODE asks about change over ten years, so it is collected
+# once). Wording adapted for the UAE; the Arabic version is not yet validated. A screening result, never a diagnosis.
+FAQ_ITEMS = ["bills", "papers", "shopping", "hobby", "hot_drink", "meal", "current_events", "follow_media",
+             "remembering", "travel"]
+FAQ_MAX = 30
+FAQ_CUTOFF = 9   # 9 or more: impaired daily function (published cutoff); prompts a professional clinical evaluation
+FAQ_RISE = 3     # PROVISIONAL: a rise this large since the family's last answer, ending at or above the cutoff,
+                 # is new functional loss (about one activity gone from managing alone to needing someone)
+FAQ_INTERVAL_WEEKS = 12   # asked again at each follow-up
 
 # --- Audio quality gate ----------------------------------------------------
 AUDIO_MIN_SNR_DB = 15.0

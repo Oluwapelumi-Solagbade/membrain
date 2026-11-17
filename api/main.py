@@ -109,7 +109,8 @@ def new_participant() -> str:
 
 def _sync_tasks(p: dict, ev: dict):
     latest = ev["latest"]
-    if latest and latest["level"] in ("CLINICIAN_REVIEW", "URGENT"):
+    # A report that only carries the previous level forward (nothing new) does not open a second task.
+    if latest and latest["level"] in ("CLINICIAN_REVIEW", "URGENT") and not latest.get("carried"):
         key = f"{p['id']}:{latest['session_id']}"
         if key not in DB["tasks"]:
             DB["tasks"][key] = {"id": key, "participant_id": p["id"], "level": latest["level"], "status": "open",
@@ -596,7 +597,7 @@ class ConcernIn(BaseModel):
     red_flags: list[str] = Field(default_factory=list, max_length=len(C.RED_FLAGS))
     confounders: list[str] = Field(default_factory=list, max_length=len(_IK.CONFOUNDERS))
     date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
-    channel: str = Field("app", pattern="^(app|telegram)$")   # where it was raised; channels are never pooled
+    channel: str = Field("app", pattern="^(app|telegram|phone)$")   # where it was raised; channels are never pooled
 
     @field_validator("domains")
     @classmethod
@@ -691,6 +692,107 @@ def create_concern(body: ConcernIn) -> dict:
     claim = secrets.token_urlsafe(18)
     CLAIMS[pid] = hashlib.sha256(claim.encode()).hexdigest()
     return _case(p) | {"claim_token": claim}
+
+
+REPORTS_PER_PERSON = 60   # demo memory cap on follow-up concerns and questionnaires per record
+
+
+def _reports(p: dict, kind: str) -> int:
+    n = sum(1 for x in p["sessions"] if x.get("type") == kind)
+    if sum(1 for x in p["sessions"] if x.get("type") in ("intake", "informant")) >= REPORTS_PER_PERSON:
+        raise HTTPException(429, "This record has reached the demo's limit of reports")
+    return n
+
+
+def add_follow_up(p: dict, body: ConcernIn, actor: str) -> dict:
+    """A later concern about someone already known: a new dated report on the same record, in the same five parts,
+    so the engine can say what is new since it was first reported (membrain/triage.py). Shared with the Telegram bot."""
+    n = _reports(p, "intake")
+    sid = f"{p['id']}-intake" + (f"-{n + 1}" if n else "")
+    acts = sorted({a for a, _ in body.timeline})
+    p["sessions"].append({"session_id": sid, "date": body.date, "type": "intake", "channel": body.channel,
+                          "concern": body.narrative, "onset": body.onset, "red_flags": body.red_flags,
+                          "reported_concern": {"reporter": body.reporter, "domains": body.domains, "activities_taken_over": acts,
+                                               "timeline": body.timeline, "confounders": body.confounders}})
+    if not p.get("intake"):   # the first concern on a record that started with a check-in
+        p["intake"] = {"reporter": body.reporter, "at": body.date,
+                       "confirmed": {"narrative": body.narrative, "domains": body.domains, "onset": body.onset,
+                                     "timeline": body.timeline, "red_flags": body.red_flags, "confounders": body.confounders}}
+    ev = evaluate(p, p["sessions"])
+    _sync_tasks(p, ev)
+    audit(actor, "concern_follow_up", p["id"], {"reporter": body.reporter, "channel": body.channel, "red_flags": body.red_flags,
+                                               "activities": acts, "level": ev["latest"]["level"]})
+    return _case(p)
+
+
+@app.post("/participants/{pid}/concerns")
+def follow_up_concern(pid: str, body: ConcernIn, who: Principal = Depends(principal)):
+    """Report a change again about someone already known (the person, their family, or a clinician after a call)."""
+    own(who, pid)
+    p = DB["participants"].get(pid)
+    if not p:
+        raise HTTPException(404)
+    return add_follow_up(p, body, who.actor)
+
+
+FAQ_SCORES = {0, 1, 2, 3}
+INFORMANT_MESSAGE = {
+    "en": "Thank you. Your answers are now with the clinic team, together with everything reported before. If they show "
+          "that everyday activities have become harder, the clinic will contact you about a full assessment by a doctor. "
+          "This questionnaire is a screening step: it cannot diagnose any condition, including dementia or Alzheimer's disease.",
+    "ar": "شكرًا لك. أصبحت إجاباتك الآن لدى فريق العيادة مع كل ما أُبلغ عنه سابقًا. إذا أظهرت أن الأنشطة اليومية أصبحت أصعب، "
+          "فستتواصل معك العيادة بشأن تقييم كامل يجريه طبيب. هذا الاستبيان خطوة فحص أولي، ولا يمكنه تشخيص أي حالة، بما في ذلك الخرف أو مرض ألزهايمر.",
+}
+
+
+class InformantIn(BaseModel):
+    """The family questionnaire (Functional Activities Questionnaire, membrain/config.py FAQ_ITEMS): each everyday
+    activity rated as it is now, 0 manages normally ... 3 someone else does it now."""
+    date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    lang: str = Field("ar", pattern="^(ar|en)$")
+    respondent: str = Field(pattern="^(spouse|child|sibling|other_family|helper|friend|self)$")
+    answers: dict[str, int]
+    channel: str = Field("app", pattern="^(app|telegram|phone)$")
+
+    @field_validator("answers")
+    @classmethod
+    def _answers(cls, v):
+        if set(v) != set(C.FAQ_ITEMS):
+            raise ValueError("answer every activity in the questionnaire")
+        if any(x not in FAQ_SCORES for x in v.values()):
+            raise ValueError("each answer must be 0, 1, 2 or 3")
+        return {k: v[k] for k in C.FAQ_ITEMS}
+
+    @field_validator("date")
+    @classmethod
+    def _date(cls, v):
+        from datetime import date as _d
+        _d.fromisoformat(v)
+        return v
+
+
+@app.post("/participants/{pid}/informant")
+def informant_questionnaire(pid: str, body: InformantIn, who: Principal = Depends(principal)):
+    """A family member's answers to the questionnaire, repeated at follow-ups. The family hears a message, never a
+    score; the clinician sees the score, its change since last time, and that it is a screening result."""
+    own(who, pid)
+    p = DB["participants"].get(pid)
+    if not p:
+        raise HTTPException(404)
+    n = _reports(p, "informant")
+    total = sum(body.answers.values())
+    s = {"session_id": f"{pid}-faq-{n + 1}", "date": body.date, "type": "informant", "channel": body.channel,
+         "faq": total, "faq_items": body.answers, "respondent": body.respondent, "lang": body.lang}
+    p["sessions"].append(s)
+    ev = evaluate(p, p["sessions"])
+    _sync_tasks(p, ev)
+    audit(who.actor, "informant_questionnaire", pid, {"session_id": s["session_id"], "respondent": body.respondent,
+                                                     "level": ev["latest"]["level"]})
+    out = {"session_id": s["session_id"], "message": INFORMANT_MESSAGE[body.lang],
+           "held_for_clinician": bool(ev["latest"].get("held_for_clinician"))}
+    if who.role in ("clinician", "coordinator"):   # the family's own account gets the message only, never the score
+        out["case"] = _case(p)
+    return out
 
 
 # ------------------------------------------------------------- web app (keep LAST: the mount catches every unmatched path)

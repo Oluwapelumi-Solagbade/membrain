@@ -92,6 +92,11 @@ T = {
                               "spoken in your own dialect. A clinician sees your summary alongside it.",
         "reasonActs": lambda n: "An everyday activity is now done by someone else" if n == 1 else f"{n} everyday activities are now done by someone else",
         "reasonPro": "The concern comes from a doctor or nurse",
+        "sameQ": lambda ref: f"Is this about the same person as your earlier report (<code>{ref}</code>)?",
+        "sameYes": "Yes, the same person", "sameNo": "No, someone else",
+        "reasonNew": lambda n: "Something new since the earlier report" if n == 1 else f"{n} new things since the earlier report",
+        "addedTo": lambda ref: f"Added to your earlier report <code>{ref}</code>. The clinic team sees both together, with the dates.",
+        "nothingNew": "Nothing new needs a separate review: the clinic team sees this with the earlier report.",
         "reference": "Reference",
         "stored": "What you confirmed is kept under this reference, with no name, phone number or Telegram account attached. "
                   "MemBrain does not diagnose. In an emergency, call 998.",
@@ -147,6 +152,11 @@ T = {
         "routineOutcomeBody": "لا شيء فيما ذكرته يحتاج إلى رعاية عاجلة أو مراجعة مبكرة. الخطوة التالية فحص مدته ست دقائق، ويطّلع الطبيب على ملخّصك معه.",
         "reasonActs": lambda n: "أصبح شخص آخر يقوم بنشاط يومي عنه" if n == 1 else f"أصبح شخص آخر يقوم بـ{ar_digits(n)} من الأنشطة اليومية",
         "reasonPro": "جاء القلق من طبيب أو ممرض",
+        "sameQ": lambda ref: f"هل هذا عن الشخص نفسه الذي أبلغت عنه سابقًا (<code>{ref}</code>)؟",
+        "sameYes": "نعم، الشخص نفسه", "sameNo": "لا، شخص آخر",
+        "reasonNew": lambda n: "تغيّر جديد منذ البلاغ السابق" if n == 1 else f"{ar_digits(n)} تغيّرات جديدة منذ البلاغ السابق",
+        "addedTo": lambda ref: f"أُضيف هذا إلى بلاغك السابق <code>{ref}</code>. يطّلع فريق العيادة على البلاغين معًا مع تاريخ كلٍّ منهما.",
+        "nothingNew": "لا يوجد ما يستدعي مراجعة مستقلة: سيطّلع فريق العيادة على هذا مع البلاغ السابق.",
         "reference": "الرقم المرجعي",
         "stored": "ما أكّدته محفوظ تحت هذا الرقم، دون اسم أو رقم هاتف أو حساب تيليجرام. MemBrain لا يشخّص. في حالات الطوارئ، اتصل على ٩٩٨.",
         "restart": "أبلغ عن تغيّر آخر",
@@ -211,6 +221,7 @@ class Chat:
     ok: dict[str, bool] = field(default_factory=dict)
     review_msg: int | None = None     # the read-back message, so a new message can freeze its buttons
     last_case: str | None = None
+    same: bool = False                # this report is a follow-up about last_case
 
 
 Api = Callable[[str, dict], Awaitable[dict]]
@@ -234,6 +245,14 @@ def _default_save(body: dict) -> dict:
     return create_concern(ConcernIn(**body))
 
 
+def _default_follow_up(pid: str, body: dict) -> dict:
+    from api.main import DB, ConcernIn, add_follow_up
+    p = DB["participants"].get(pid)
+    if not p:
+        raise KeyError(pid)
+    return add_follow_up(p, ConcernIn(**body), "telegram")
+
+
 def _default_task_status(pid: str) -> str | None:
     from api.main import DB
     for t in DB["tasks"].values():
@@ -246,8 +265,10 @@ class Bot:
     """The conversation. Transport-free: `api(method, params)` calls Telegram, so tests pass a fake."""
 
     def __init__(self, api: Api, transcribe: Transcribe | None = None, save: Callable[[dict], dict] = _default_save,
-                 task_status: Callable[[str], str | None] = _default_task_status, today: Callable[[], str] = _today):
+                 task_status: Callable[[str], str | None] = _default_task_status, today: Callable[[], str] = _today,
+                 follow_up: Callable[[str, dict], dict] = _default_follow_up):
         self.api, self.transcribe, self.save, self.task_status, self.today = api, transcribe, save, task_status, today
+        self.follow_up = follow_up
         self.chats: dict[int, Chat] = {}
         self._locks: dict[int, asyncio.Lock] = {}
 
@@ -403,6 +424,19 @@ class Bot:
             c.step = "describe"
             await self._send(chat_id, T[c.lang]["askMore"])
         elif data in ("ok", "retry") and c.step == "review" and mid == c.review_msg:
+            if c.last_case and data == "ok":     # this chat reported before: the same person, or someone else?
+                await self._freeze_review(chat_id, c)
+                c.step = "same?"
+                t = T[c.lang]
+                await self._send(chat_id, t["sameQ"](c.last_case), [[{"text": t["sameYes"], "callback_data": "same:y"}],
+                                                                   [{"text": t["sameNo"], "callback_data": "same:n"}]])
+            else:
+                await self._confirm(chat_id, c)
+        elif data in ("same:y", "same:n", "retry") and c.step == "same?":
+            with contextlib.suppress(TelegramError):
+                await self.api("editMessageReplyMarkup", {"chat_id": chat_id, "message_id": mid, "reply_markup": {"inline_keyboard": []}})
+            if data != "retry":
+                c.same = data == "same:y"
             await self._confirm(chat_id, c)
         p = {"callback_query_id": cq["id"]}
         if notice:
@@ -515,19 +549,32 @@ class Bot:
 
     async def _confirm(self, chat_id: int, c: Chat) -> None:
         body = self.concern_body(c)
+        follow = bool(c.same and c.last_case)
         try:
-            case = await asyncio.to_thread(self.save, body)
+            case = await asyncio.to_thread(self.follow_up, c.last_case, body) if follow else await asyncio.to_thread(self.save, body)
         except Exception as e:
             log.exception("concern not saved: %s", type(e).__name__)
             await self._send(chat_id, T[c.lang]["saveFailed"], [[{"text": T[c.lang]["retry"], "callback_data": "retry"}]])
             return
         await self._freeze_review(chat_id, c)
-        c.step, c.last_case = "done", case["participant"]["id"]
-        await self._send(chat_id, self._outcome_text(c, body, case), [[{"text": T[c.lang]["restart"], "callback_data": "new"}]])
+        c.step, c.last_case, c.same = "done", case["participant"]["id"], False
+        await self._send(chat_id, self._outcome_text(c, body, case, follow), [[{"text": T[c.lang]["restart"], "callback_data": "new"}]])
 
-    def _outcome_text(self, c: Chat, body: dict, case: dict) -> str:
-        t, level = T[c.lang], (case.get("latest") or {}).get("level")
+    def _outcome_text(self, c: Chat, body: dict, case: dict, follow: bool = False) -> str:
+        latest = case.get("latest") or {}
+        t, level = T[c.lang], latest.get("level")
         days = C.REVIEW_TARGET_DAYS
+        if follow and level != "URGENT":     # what this report adds to the earlier one
+            ch = latest.get("concern_change") or {}
+            n_new = len([d for d in ch.get("new_domains", []) if d in C.CONCERN_COGNITIVE_DOMAINS]) + len(ch.get("new_activities", []))
+            out = [t["addedTo"](case["participant"]["id"])]
+            if level == "CLINICIAN_REVIEW" and not latest.get("carried"):
+                out += [f"🩺 <b>{t['reviewOutcome'](days['CLINICIAN_REVIEW'])}</b>", t["reviewOutcomeBody"], f"• {t['reasonNew'](n_new)}",
+                        t["reviewOutcomeAfter"]]
+            else:
+                out.append(t["nothingNew"])
+            out += ["", f"<i>{t['stored']}</i>"]
+            return "\n".join(out)
         if level == "URGENT":
             out = [f"🚨 <b>{t['urgentOutcome']}</b>", t["urgentOutcomeBody"](days["URGENT"])]
         elif level == "CLINICIAN_REVIEW":

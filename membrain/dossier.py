@@ -47,9 +47,9 @@ def concern_summary(p: dict) -> dict:
         missing.append("When the change started")
     if not inf:
         missing.append("An informant account (family member or household helper)")
-    if not any(s.get("iqcode") is not None for s in sessions) and p.get("pending_iqcode") is None:
-        missing.append("Informant questionnaire (IQCODE-16)")
-    if not any(s.get("type") != "intake" and s.get("raw") is not None for s in sessions):
+    if not any(s.get("iqcode") is not None or s.get("faq") is not None for s in sessions) and p.get("pending_iqcode") is None:
+        missing.append("Family questionnaire (FAQ or IQCODE-16)")
+    if not any(s.get("type") not in ("intake", "informant") and s.get("raw") is not None for s in sessions):
         missing.append("A scored check-in")
     ctx = p.get("context") or {}
     if ctx.get("sbp") is None and ctx.get("hba1c") is None:

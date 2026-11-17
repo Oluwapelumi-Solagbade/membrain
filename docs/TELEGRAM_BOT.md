@@ -22,6 +22,7 @@ Code: [`api/telegram.py`](../api/telegram.py). Tests: [`tests/test_telegram.py`]
    - the spoken check-in as the next step.
 
    They also get a reference number.
+6. **Reporting again.** If the same chat reports again later, the bot asks whether it is about the same person as the earlier reference. If yes, it is added to that record as a dated follow-up (`POST /participants/{id}/concerns` does the same on the website). The triage engine compares it with everything reported before: a newly reported memory or thinking change, or an activity newly taken over by someone else, goes to clinician review; nothing new keeps the earlier level and does not open a second review.
 
 Commands: `/new` (start again), `/language` (Arabic or English), `/status` (whether a clinician has picked up the last concern), `/help`. The bot only talks in private chats and ignores groups.
 

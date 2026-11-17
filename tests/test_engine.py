@@ -163,7 +163,7 @@ def test_dossier_carries_the_attributed_concern_and_what_is_missing():
     assert concern_summary(q)["raised_by"] == "Healthcare professional" and concern_summary(q)["what_changed"] == ["Memory"]
     assert c["what_changed"] == ["Memory"] and c["who_now_does_what"] == ["Managing money / bills: now wife"]
     assert "not a clinical finding" in c["attribution"]
-    assert {"An informant account (family member or household helper)", "Informant questionnaire (IQCODE-16)",
+    assert {"An informant account (family member or household helper)", "Family questionnaire (FAQ or IQCODE-16)",
             "A scored check-in", "Blood pressure and HbA1c"} <= set(c["missing"])
     assert "When the change started" not in c["missing"]
 

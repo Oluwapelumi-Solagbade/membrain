@@ -143,6 +143,9 @@ function Section({ title, children, tone }: { title: string; children: ReactNode
 export function ConcernChat() {
   const params = useSearchParams();
   const [lang, setLang] = useState<Lang>(params.get("lang") === "ar" ? "ar" : "en");
+  // ?for=<record>: a follow-up about someone already known, added to their record (signed in as them, or as staff).
+  const forPid = params.get("for");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const t = COPY[lang];
   const [step, setStep] = useState<Step>("who");
   // On the MemBrain server what the person confirms is sent to the API, so the privacy wording must say so.
@@ -256,7 +259,8 @@ export function ConcernChat() {
     const flags = result.fields.filter((f) => f.kind === "red_flag").map((f) => f.key);
     const session = {
       session_id: "concern-intake",
-      date: "2026-11-14",
+      // A new concern sits on the demo's fixed day; a follow-up takes today's date so it always comes after the earlier report.
+      date: forPid ? new Date().toISOString().slice(0, 10) : "2026-11-14",
       type: "intake" as const,
       channel: "app",
       concern: narrative,
@@ -281,6 +285,22 @@ export function ConcernChat() {
       confounders: result.fields.filter((f) => f.kind === "confounder" && ok[`confounder:${f.key}`]).map((f) => f.key),
       date: session.date,
     };
+    if (forPid) {
+      setSaveError(null);
+      setStep("thinking");
+      const added = getBackend().then((b) => b.followUpConcern(forPid, body));
+      Promise.all([added, new Promise((r) => window.setTimeout(r, 900))])
+        .then(([c]) => {
+          setCaseId(c.participant.id);
+          setOutcome(c.latest);
+          setStep("outcome");
+        })
+        .catch((e: Error) => {
+          setSaveError(/sign in/i.test(e.message) ? t.followSignIn : t.followFailed);
+          setStep("review");
+        });
+      return;
+    }
     const saved = getBackend()
       .then((b) => b.raiseConcern(body))
       .then((c) => {
@@ -540,8 +560,20 @@ export function ConcernChat() {
     if (thinking && acts.length >= config.CONCERN_REVIEW_MIN_ACTIVITIES) reasons.push(t.reasonActs(acts.length));
     if (thinking && reporter === "professional") reasons.push(t.reasonPro);
     const tone = LEVEL_TONE[outcome.level];
-    const head =
-      outcome.level === "URGENT" ? t.urgentOutcome : outcome.level === "CLINICIAN_REVIEW" ? t.reviewOutcome(days("CLINICIAN_REVIEW")) : t.routineOutcome;
+    // A follow-up (?for=): say what it adds to the earlier report, from the engine's own comparison.
+    const ch = outcome.concern_change;
+    const follow = !!forPid && outcome.level !== "URGENT" && !!ch && !ch.first;   // the record's first concern reads as a new one
+    const spread = follow && outcome.level === "CLINICIAN_REVIEW" && !outcome.carried;
+    const sep = lang === "ar" ? "، " : ", ";
+    const newItems = ch
+      ? [
+          ...(ch.new_domains.length ? [t.newArea(ch.new_domains.map((d) => label(DOMAIN, d, lang, d)).join(sep))] : []),
+          ...(ch.new_activities.length ? [t.newAct(ch.new_activities.map((a) => label(ACTIVITY, a, lang, a)).join(sep))] : []),
+        ]
+      : [];
+    const head = follow
+      ? spread ? t.followSpread(days("CLINICIAN_REVIEW")) : t.followAdded
+      : outcome.level === "URGENT" ? t.urgentOutcome : outcome.level === "CLINICIAN_REVIEW" ? t.reviewOutcome(days("CLINICIAN_REVIEW")) : t.routineOutcome;
     const dChanged = result.fields.filter((f) => f.kind === "domain" && ok[`domain:${f.key}`]).map((f) => label(DOMAIN, f.key, lang, f.label));
     const dWho = result.timeline.filter((_, i) => ok[`tl:${i}`]).map((x) => `${label(ACTIVITY, x.activity, lang, x.activity_label)}: ${label(WHO, x.who_took_over, lang, x.who_label)}`);
     const rows: [string, string][] = [
@@ -568,7 +600,26 @@ export function ConcernChat() {
             </a>
           </>
         )}
-        {outcome.level === "CLINICIAN_REVIEW" && (
+        {follow && (
+          <>
+            {newItems.length > 0 && ch?.since && (
+              <>
+                <p className="font-medium">{t.newSince(ch.since)}</p>
+                <ul className="mt-2 space-y-1">
+                  {newItems.map((r) => (
+                    <li key={r} className="flex gap-2">
+                      <span className={`mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full ${spread ? "bg-lv-review" : "bg-leaf"}`} />
+                      {r}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {!spread && <p className={newItems.length ? "mt-2 text-body" : ""}>{t.followNothingNew}</p>}
+            {spread && <p className="mt-2 text-body">{t.reviewOutcomeAfter}</p>}
+          </>
+        )}
+        {!follow && outcome.level === "CLINICIAN_REVIEW" && (
           <>
             <p>{t.reviewOutcomeBody}</p>
             <ul className="mt-2 space-y-1">
@@ -582,7 +633,7 @@ export function ConcernChat() {
             <p className="mt-2 text-body">{t.reviewOutcomeAfter}</p>
           </>
         )}
-        {outcome.level === "BASELINE" && <p>{t.routineOutcomeBody}</p>}
+        {!follow && outcome.level === "BASELINE" && <p>{t.routineOutcomeBody}</p>}
 
         <div className="mt-4 rounded-xl border border-line">
           <p className="flex items-center gap-2 border-b border-line px-3.5 py-2.5 text-[13px] font-semibold">
@@ -678,6 +729,16 @@ export function ConcernChat() {
   } else if (step === "review") {
     composer = (
       <div className="flex flex-wrap gap-2">
+        {saveError && (
+          <p role="alert" className="w-full rounded-xl bg-lv-urgent-soft px-4 py-3 text-[14.5px] text-lv-urgent">
+            {saveError}{" "}
+            {saveError === t.followSignIn && (
+              <Link href={`/signin/?next=${encodeURIComponent(`/concern/?for=${forPid}&lang=${lang}`)}`} className="font-semibold underline">
+                {lang === "ar" ? "تسجيل الدخول" : "Sign in"}
+              </Link>
+            )}
+          </p>
+        )}
         <button type="button" onClick={confirm} className="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-deep px-5 py-3.5 text-[15px] font-medium text-white hover:bg-deep-hover sm:flex-none">
           <Check size={18} /> {t.right}
         </button>
@@ -760,6 +821,11 @@ export function ConcernChat() {
         <main className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto px-3 pt-6 sm:px-6 lg:px-0" aria-live="polite">
             <div className="mx-auto max-w-[680px] space-y-3 pb-6">
+              {forPid && (
+                <div className="mx-auto mb-3 flex max-w-[640px] items-start gap-2.5 rounded-2xl border border-leaf/25 bg-mist px-4 py-3 text-[14.5px] leading-snug text-deep">
+                  <RotateCcw size={16} className="mt-0.5 shrink-0" /> {t.followBanner(forPid)}
+                </div>
+              )}
               <BotRow avatar={false}>{t.intro1}</BotRow>
               <BotRow>{t.intro2}</BotRow>
               {reporter && (

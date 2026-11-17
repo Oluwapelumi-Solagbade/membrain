@@ -9,6 +9,11 @@ Levels (ascending urgency):
   URGENT            large/rapid decline, new informant-reported functional
                     loss, or a safety concern
 
+Reports (no test, never scored): a concern ("intake"), raised again later as a follow-up, and the family
+questionnaire ("informant"). A follow-up concern is compared with everything reported before it: newly reported
+memory/thinking areas or activities newly taken over by someone else go to clinician review. A report with nothing
+new keeps the case at its previous level ("carried"); a carried level never opens a second review task.
+
 Safety rules:
   * No alert from a single unconfirmed signal.
   * The engine never writes a diagnosis; it creates a review Task.
@@ -39,6 +44,17 @@ def _d(s: str) -> date:
 
 def _max(a: str, b: str) -> str:
     return a if LEVELS.index(a) >= LEVELS.index(b) else b
+
+
+REPORTS = ("intake", "informant")
+
+
+def _new(items: list, seen: list) -> list:
+    out = []
+    for x in items:
+        if x not in seen and x not in out:
+            out.append(x)
+    return out
 
 
 def audio_gate(audio: dict | None) -> list[str]:
@@ -89,13 +105,15 @@ def evaluate_history(participant: dict, sessions: list[dict]) -> list[dict]:
     channel_idx: dict[str, int] = {}
     last_post_baseline: dict[str, dict] = {}
     prev_iq = None
+    prev_faq, prev_faq_date = None, None
+    seen = {"first": None, "domains": [], "activities": [], "red_flags": []}   # everything reported so far
     hist_days, hist_z = [], []
     t0 = _d(sessions[0]["date"]) if sessions else None
 
     for s in sessions:
         ch = s.get("channel", "app")
         idx = channel_idx.get(ch, 0)
-        if s.get("type") != "intake":
+        if s.get("type") not in REPORTS:
             channel_idx[ch] = idx + 1
         ev = {"session_id": s.get("session_id"), "date": s["date"][:10], "channel": ch, "form": s.get("form"),
               "session_index": idx, "level": "BASELINE", "reasons": [], "drivers": [], "confounders": [],
@@ -108,6 +126,13 @@ def evaluate_history(participant: dict, sessions: list[dict]) -> list[dict]:
         iq_before = prev_iq
         if iq is not None:
             prev_iq = iq
+        fq = s.get("faq")
+        faq_flag = fq is not None and fq >= C.FAQ_CUTOFF
+        faq_new_loss = faq_flag and prev_faq is not None and fq - prev_faq >= C.FAQ_RISE
+        faq_before, faq_before_date = prev_faq, prev_faq_date
+        if fq is not None:
+            prev_faq, prev_faq_date = fq, s["date"][:10]
+        functional_flag = functional_flag or faq_flag
         flags = [f for f in (s.get("red_flags") or []) if f in C.RED_FLAGS]
         if flags:
             ev["level"] = "URGENT"
@@ -125,31 +150,95 @@ def evaluate_history(participant: dict, sessions: list[dict]) -> list[dict]:
             ev["reasons"].append(f"New functional loss reported by informant (IQCODE {iq_before:.2f} -> {iq:.2f}, above cutoff {C.IQCODE_CUTOFF})")
             ev["drivers"].append({"input": "Informant questionnaire (IQCODE-16)", "value": iq, "threshold": C.IQCODE_CUTOFF})
             ev["pathways"].append("memory_clinic")
+        if faq_new_loss:
+            ev["level"] = "URGENT"
+            ev["reasons"].append(f"New functional loss reported by family (FAQ {faq_before} -> {fq} of {C.FAQ_MAX} since "
+                                 f"{faq_before_date}, at or above cutoff {C.FAQ_CUTOFF}); needs a professional clinical evaluation")
+            ev["drivers"].append({"input": "Family questionnaire (FAQ)", "value": fq, "threshold": C.FAQ_CUTOFF,
+                                  "change": fq - faq_before})
+            ev["pathways"].append("memory_clinic")
 
-        # intake record (concern + red-flag screen before any testing)
-        if s.get("type") == "intake":
+        # reports: a concern (the first one, or a follow-up) and the family questionnaire; never scored
+        if s.get("type") in REPORTS:
+            prev_ev = evals[-1] if evals else None
             ev["valid"] = False
-            ev["intake"] = True
-            rc = s.get("reported_concern") or {}
-            cog = [d for d in rc.get("domains") or [] if d in C.CONCERN_COGNITIVE_DOMAINS]
-            n_act = len(rc.get("activities_taken_over") or [])
-            who = C.REPORTER_LABEL.get(rc.get("reporter"), "the reporter")
-            if ev["level"] == "BASELINE" and cog and (n_act >= C.CONCERN_REVIEW_MIN_ACTIVITIES or rc.get("reporter") == "professional"):
-                ev["level"] = "CLINICIAN_REVIEW"
-                why = (f"{n_act} everyday activit{'y' if n_act == 1 else 'ies'} now done by someone else" if n_act
-                       else "concern raised by a healthcare professional")
-                ev["reasons"].append(f"Significant reported concern ({', '.join(C.CONCERN_DOMAIN_LABEL[d] for d in cog)}; {why}); clinician review "
-                                     f"without waiting for a baseline. Reported by {who}, not clinically verified")
-                ev["drivers"].append({"input": "Reported loss of everyday independence", "value": n_act,
-                                      "threshold": C.CONCERN_REVIEW_MIN_ACTIVITIES})
-                ev["pathways"].append("primary_care")
-                ev["next_action"] = "clinician_review_task"
-                evals.append(ev)
-                continue
-            if ev["level"] == "BASELINE":
-                ev["reasons"].append("Intake recorded: " + (s.get("concern") or "concern documented") +
-                                     "; no red flags. First check-in to follow")
-            ev["next_action"] = "first_session" if ev["level"] == "BASELINE" else "urgent_review_task"
+            own = ev["level"]          # BASELINE, or URGENT from the signals above
+            why_review = None
+            if s.get("type") == "intake":
+                ev["intake"] = True
+                rc = s.get("reported_concern") or {}
+                doms, acts = list(rc.get("domains") or []), list(rc.get("activities_taken_over") or [])
+                first = seen["first"] is None
+                new_doms = [] if first else _new(doms, seen["domains"])
+                new_acts = [] if first else _new(acts, seen["activities"])
+                new_flags = [] if first else _new(ev.get("red_flags") or [], seen["red_flags"])
+                ev["concern_change"] = {"first": first, "since": seen["first"], "reporter": rc.get("reporter"),
+                                        "domains": doms, "activities": acts, "new_domains": new_doms,
+                                        "new_activities": new_acts, "new_red_flags": new_flags}
+                who = C.REPORTER_LABEL.get(rc.get("reporter"), "the reporter")
+                if first:
+                    cog = [d for d in doms if d in C.CONCERN_COGNITIVE_DOMAINS]
+                    n_act = len(acts)
+                    if own == "BASELINE" and cog and (n_act >= C.CONCERN_REVIEW_MIN_ACTIVITIES or rc.get("reporter") == "professional"):
+                        own = "CLINICIAN_REVIEW"
+                        why = (f"{n_act} everyday activit{'y' if n_act == 1 else 'ies'} now done by someone else" if n_act
+                               else "concern raised by a healthcare professional")
+                        ev["reasons"].append(f"Significant reported concern ({', '.join(C.CONCERN_DOMAIN_LABEL[d] for d in cog)}; {why}); "
+                                             f"clinician review without waiting for a baseline. Reported by {who}, not clinically verified")
+                        ev["drivers"].append({"input": "Reported loss of everyday independence", "value": n_act,
+                                              "threshold": C.CONCERN_REVIEW_MIN_ACTIVITIES})
+                        ev["pathways"].append("primary_care")
+                        why_review = "clinician_review_task"
+                    elif own == "BASELINE":
+                        ev["reasons"].append(("Intake recorded: " if not evals else "Concern recorded: ") + (s.get("concern") or "concern documented") +
+                                             "; no red flags." + (" First check-in to follow" if not evals else ""))
+                else:
+                    cog_all = [d for d in seen["domains"] + doms if d in C.CONCERN_COGNITIVE_DOMAINS]
+                    cog_new = [d for d in new_doms if d in C.CONCERN_COGNITIVE_DOMAINS]
+                    if own == "BASELINE" and cog_all and (cog_new or new_acts):
+                        own = "CLINICIAN_REVIEW"
+                        parts = (["newly reported: " + ", ".join(C.CONCERN_DOMAIN_LABEL[d] for d in cog_new)] if cog_new else []) + \
+                            ([f"{len(new_acts)} more everyday activit{'y' if len(new_acts) == 1 else 'ies'} now done by someone else"] if new_acts else [])
+                        ev["reasons"].append(f"Concern has spread since it was first reported on {seen['first']} ({'; '.join(parts)}); "
+                                             f"clinician review. Reported by {who}, not clinically verified")
+                        ev["drivers"].append({"input": "Change in the reported concern since first reported",
+                                              "value": len(cog_new) + len(new_acts), "threshold": 1})
+                        ev["pathways"].append("primary_care")
+                        why_review = "review_task"
+                    elif own == "BASELINE":
+                        ev["reasons"].append("Follow-up concern recorded; no new memory or thinking change and no new activities "
+                                             f"taken over since it was first reported on {seen['first']}")
+                seen["domains"] += new_doms if not first else _new(doms, [])
+                seen["activities"] += new_acts if not first else _new(acts, [])
+                seen["red_flags"] += new_flags if not first else _new(ev.get("red_flags") or [], [])
+                seen["first"] = seen["first"] or s["date"][:10]
+            else:
+                ev["informant_report"] = True
+                ev["informant"] = {"instrument": "FAQ", "score": fq, "max": C.FAQ_MAX, "cutoff": C.FAQ_CUTOFF,
+                                   "previous": faq_before, "previous_date": faq_before_date,
+                                   "change": None if fq is None or faq_before is None else fq - faq_before,
+                                   "at_or_above_cutoff": faq_flag}
+                if own == "BASELINE" and faq_flag and (faq_before is None or faq_before < C.FAQ_CUTOFF):
+                    own = "CLINICIAN_REVIEW"
+                    ev["reasons"].append(f"Family questionnaire at or above cutoff (FAQ {fq} of {C.FAQ_MAX}, cutoff {C.FAQ_CUTOFF}); "
+                                         "needs a professional clinical evaluation. A screening result, not a diagnosis")
+                    ev["drivers"].append({"input": "Family questionnaire (FAQ)", "value": fq, "threshold": C.FAQ_CUTOFF})
+                    ev["pathways"].append("primary_care")
+                    why_review = "review_task"
+                elif own == "BASELINE" and fq is not None:
+                    ev["reasons"].append(f"Family questionnaire recorded (FAQ {fq} of {C.FAQ_MAX}"
+                                         + (f"; {faq_before} on {faq_before_date}" if faq_before is not None else "")
+                                         + ("; still at or above cutoff, no new loss)" if faq_flag else f"; below cutoff {C.FAQ_CUTOFF})"))
+            base = prev_ev["level"] if prev_ev else "BASELINE"
+            ev["carried"] = LEVELS.index(own) < LEVELS.index(base)
+            ev["level"] = _max(own, base)
+            if ev["carried"]:
+                ev["reasons"].append(f"Level unchanged from the previous result ({base}, {prev_ev['date']})")
+                ev["next_action"] = prev_ev.get("next_action")
+            elif own == "URGENT":
+                ev["next_action"] = "urgent_review_task"
+            else:
+                ev["next_action"] = why_review or ("first_session" if not prev_ev else prev_ev.get("next_action"))
             evals.append(ev)
             continue
 

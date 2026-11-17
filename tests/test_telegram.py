@@ -211,3 +211,40 @@ def _fresh():
     from api.main import _seed
     _seed()
     yield
+
+
+def test_a_second_report_from_the_same_chat_can_be_added_to_the_first():
+    bot, tg = make_bot()
+    run(bot, text("/start"))
+    run(bot, press("who:family", 101))
+    run(bot, text("My mother keeps forgetting names for some months now."))
+    run(bot, press("ok", review_id(bot)))
+    pid = bot.chats[CHAT].last_case
+    # later: more has changed; the bot asks whether it is the same person
+    run(bot, text("/new"))
+    run(bot, press("who:family", 1))
+    run(bot, text("Now she cannot find her words and my sister gives her the medicines."))
+    run(bot, press("ok", review_id(bot)))
+    assert "same person as your earlier report" in tg.last()["text"] and pid in tg.last()["text"]
+    run(bot, press("same:y", 1))
+    out = tg.last()["text"]
+    assert "Added to your earlier report" in out and "A clinician will review this within 21 days" in out
+    p = DB["participants"][pid]
+    intakes = [s for s in p["sessions"] if s["type"] == "intake"]
+    assert len(intakes) == 2 and intakes[1]["channel"] == "telegram"
+    assert bot.chats[CHAT].last_case == pid
+
+
+def test_someone_else_starts_a_new_record():
+    bot, tg = make_bot()
+    run(bot, text("/start"))
+    run(bot, press("who:family", 101))
+    run(bot, text("My father forgets appointments."))
+    run(bot, press("ok", review_id(bot)))
+    first = bot.chats[CHAT].last_case
+    run(bot, text("/new"))
+    run(bot, press("who:family", 1))
+    run(bot, text("My aunt forgets her keys."))
+    run(bot, press("ok", review_id(bot)))
+    run(bot, press("same:n", 1))
+    assert bot.chats[CHAT].last_case != first and "Added to" not in tg.last()["text"]

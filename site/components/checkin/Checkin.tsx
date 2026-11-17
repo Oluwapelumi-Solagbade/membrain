@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, ChevronDown, HeartHandshake, Keyboard, Leaf, Volume1, Loader2, Phone, Play, RotateCcw, Settings2, Stethoscope, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, ClipboardCheck, HeartHandshake, MessageSquarePlus, Keyboard, Leaf, Volume1, Loader2, Phone, Play, RotateCcw, Settings2, Stethoscope, Users } from "lucide-react";
 import { Mark } from "../Logo";
 import { LevelPill } from "../ui";
 import engineData from "@/lib/generated/engine-data.json";
@@ -1000,6 +1000,26 @@ function Done({ t, lang, name, result, after, form, speechLabel, speaking, onRep
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {p && (
+        <div>
+          <h2 className="font-serif text-[22px] font-semibold leading-tight">{t.alsoTitle}</h2>
+          <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+            {[
+              { href: `/concern/?for=${encodeURIComponent(p.id)}&lang=${lang}`, icon: MessageSquarePlus, title: t.alsoChange, body: t.alsoChangeBody },
+              { href: `/informant/?id=${encodeURIComponent(p.id)}&lang=${lang}`, icon: ClipboardCheck, title: t.alsoFamily, body: t.alsoFamilyBody },
+            ].map(({ href, icon: I, title, body }) => (
+              <Link key={href} href={href} className="group flex gap-3.5 rounded-2xl border border-line bg-white p-4 transition-colors hover:border-leaf/50 hover:bg-[#fbfcfb]">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-mist text-deep"><I size={18} /></span>
+                <span>
+                  <span className="block text-[16.5px] font-semibold text-ink">{title}</span>
+                  <span className="mt-0.5 block text-[14.5px] leading-snug text-body">{body}</span>
+                </span>
+              </Link>
+            ))}
+          </div>
         </div>
       )}
 

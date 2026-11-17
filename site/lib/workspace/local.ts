@@ -5,13 +5,15 @@ import personasJson from "../generated/personas.json";
 import programmeData from "../generated/programme-data.json";
 import { config, getEngine, type Level, type Persona, type Session } from "../mb";
 import { concernSummary } from "./concern";
+import { FAQ_ITEMS, INFORMANT_MESSAGE } from "./informant";
 import { nav } from "./navigator";
-import type { AuditEntry, Backend, Case, CheckinResult, ConcernIn, Participant, ProfileIn, Referral, ReferralIn, ReferralState, SessionIn, Task, TaskAction } from "./types";
+import type { AuditEntry, Backend, Case, CheckinResult, ConcernIn, InformantDone, InformantIn, Participant, ProfileIn, Referral, ReferralIn, ReferralState, SessionIn, Task, TaskAction } from "./types";
 
 const KEY = "membrain.workspace.v2";
 // Who raised the concern -> the navigator's entry route (as api/main.py and web/app.js do).
 const ENTRY_ROUTE: Record<string, string> = { self: "self", family: "family", helper: "household_helper", professional: "primary_care", coordinator: "programme" };
 const HELD: Level[] = ["CLINICIAN_REVIEW", "URGENT"];
+const REPORTS_PER_PERSON = 60; // as api/main.py
 
 type State = {
   concerns: Participant[];
@@ -84,9 +86,10 @@ function buildCase(p: Participant, s: State): Case {
       actions: [],
     };
   };
-  const held = ev.history.filter((e) => HELD.includes(e.level)).map(taskOf);
+  // A report that only carries the previous level forward (nothing new) does not open a second task.
+  const held = ev.history.filter((e) => HELD.includes(e.level) && !e.carried).map(taskOf);
   let task: Task | null = [...held].reverse().find((t) => t.status !== "closed") ?? null;
-  if (!task && latest && HELD.includes(latest.level)) task = taskOf(latest);
+  if (!task && latest && HELD.includes(latest.level) && !latest.carried) task = taskOf(latest);
   if (!task && held.length) task = held[held.length - 1]; // the last one, closed: the case shows it was handled
   const lang = p.language ?? "en";
   return {
@@ -196,6 +199,45 @@ export const localBackend: Backend = {
     audit(s, "public", "concern_raised", pid, { reporter: body.reporter, red_flags: body.red_flags, activities: acts });
     commit(s);
     return buildCase(p, s);
+  },
+
+  async followUpConcern(pid: string, body: ConcernIn) {
+    const s = clone(state());
+    const p = participants(s).find((x) => x.id === pid);
+    if (!p) throw new Error("Participant not found");
+    if (p.sessions.filter((x) => x.type === "intake" || x.type === "informant").length >= REPORTS_PER_PERSON) throw new Error("This record has reached the demo's limit of reports");
+    const n = p.sessions.filter((x) => x.type === "intake").length;
+    const acts = [...new Set(body.timeline.map(([a]) => a))].sort();
+    (s.sessions[pid] ??= []).push({
+      session_id: `${pid}-intake` + (n ? `-${n + 1}` : ""), date: body.date, type: "intake", channel: body.channel ?? "app",
+      concern: body.narrative, onset: body.onset, red_flags: body.red_flags,
+      reported_concern: { reporter: body.reporter, domains: body.domains, activities_taken_over: acts, timeline: body.timeline, confounders: body.confounders },
+    });
+    const after = participants(s).find((x) => x.id === pid)!;
+    const c = buildCase(after, s);
+    audit(s, "participant", "concern_follow_up", pid, { reporter: body.reporter, red_flags: body.red_flags, activities: acts, level: c.latest?.level });
+    commit(s);
+    return c;
+  },
+
+  async submitInformant(pid: string, body: InformantIn): Promise<InformantDone> {
+    const s = clone(state());
+    const p = participants(s).find((x) => x.id === pid);
+    if (!p) throw new Error("Participant not found");
+    const keys = Object.keys(body.answers);
+    if (keys.length !== FAQ_ITEMS.length || !FAQ_ITEMS.every((k) => k in body.answers)) throw new Error("Please answer every activity in the questionnaire");
+    if (!Object.values(body.answers).every((v) => [0, 1, 2, 3].includes(v))) throw new Error("Each answer must be 0, 1, 2 or 3");
+    if (p.sessions.filter((x) => x.type === "intake" || x.type === "informant").length >= REPORTS_PER_PERSON) throw new Error("This record has reached the demo's limit of reports");
+    const n = p.sessions.filter((x) => x.type === "informant").length;
+    const answers = Object.fromEntries(FAQ_ITEMS.map((k) => [k, body.answers[k]]));
+    const total = FAQ_ITEMS.reduce((a, k) => a + body.answers[k], 0);
+    const session_id = `${pid}-faq-${n + 1}`;
+    (s.sessions[pid] ??= []).push({ session_id, date: body.date, type: "informant", channel: body.channel ?? "app", faq: total, faq_items: answers, respondent: body.respondent, lang: body.lang });
+    const after = participants(s).find((x) => x.id === pid)!;
+    const latest = getEngine().evaluate(after as unknown as Persona, after.sessions).latest;
+    audit(s, "participant", "informant_questionnaire", pid, { session_id, respondent: body.respondent, level: latest?.level });
+    commit(s);
+    return { session_id, message: INFORMANT_MESSAGE[body.lang], held_for_clinician: Boolean(latest?.held_for_clinician) };
   },
 
   async setProfile(pid: string, body: ProfileIn) {

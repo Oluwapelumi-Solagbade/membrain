@@ -7,6 +7,8 @@
   function makeEngine(D) {
     const C = D.config;
     const LEVELS = ["BASELINE", "STABLE", "CHECK_AGAIN", "CLINICIAN_REVIEW", "URGENT"];
+    const REPORTS = ["intake", "informant"];
+    const fresh = (items, seen) => items.filter((x, i) => !seen.includes(x) && items.indexOf(x) === i);
     const DOMAINS = Object.keys(C.DOMAINS);
     const r3 = (x) => Math.round(x * 1000) / 1000;
     const r2 = (x) => Math.round(x * 100) / 100;
@@ -145,15 +147,23 @@
       const sessions = [...sessionsIn].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
       const evals = []; const baseline = {}; const chIdx = {}; const lastPost = {};
       let prevIq = null; const hd = [], hz = [];
+      let prevFaq = null, prevFaqDate = null;
+      const seen = { first: null, domains: [], activities: [], red_flags: [] }; // everything reported so far
       const t0 = sessions.length ? sessions[0].date : null;
       for (const s of sessions) {
-        const ch = s.channel || "app"; const idx = chIdx[ch] || 0; if (s.type !== "intake") chIdx[ch] = idx + 1;
+        const ch = s.channel || "app"; const idx = chIdx[ch] || 0; if (!REPORTS.includes(s.type)) chIdx[ch] = idx + 1;
         const ev = { session_id: s.session_id, date: s.date.slice(0, 10), channel: ch, form: s.form, session_index: idx,
                      level: "BASELINE", reasons: [], drivers: [], confounders: [], pathways: [], valid: true, engine_version: C.ENGINE_VERSION };
         const iq = s.iqcode;
         const fflag = iq != null && iq > C.IQCODE_CUTOFF;
         const newLoss = fflag && prevIq != null && iq - prevIq >= C.IQCODE_RISE;
         const iqBefore = prevIq; if (iq != null) prevIq = iq;
+        const fq = s.faq;
+        const faqFlag = fq != null && fq >= C.FAQ_CUTOFF;
+        const faqNewLoss = faqFlag && prevFaq != null && fq - prevFaq >= C.FAQ_RISE;
+        const faqBefore = prevFaq, faqBeforeDate = prevFaqDate;
+        if (fq != null) { prevFaq = fq; prevFaqDate = s.date.slice(0, 10); }
+        const functionalFlag = fflag || faqFlag;
         const flags = (s.red_flags || []).filter((f) => C.RED_FLAGS[f]);
         if (flags.length) {
           ev.level = "URGENT";
@@ -168,19 +178,76 @@
           ev.drivers.push({ input: "Informant questionnaire (IQCODE-16)", value: iq, threshold: C.IQCODE_CUTOFF });
           ev.pathways.push("memory_clinic");
         }
-        if (s.type === "intake") {
-          ev.valid = false; ev.intake = true;
-          const rc = s.reported_concern || {}; const cog = (rc.domains || []).filter((d) => C.CONCERN_COGNITIVE_DOMAINS.includes(d));
-          const nAct = (rc.activities_taken_over || []).length; const who = C.REPORTER_LABEL[rc.reporter] || "the reporter";
-          if (ev.level === "BASELINE" && cog.length && (nAct >= C.CONCERN_REVIEW_MIN_ACTIVITIES || rc.reporter === "professional")) {
-            ev.level = "CLINICIAN_REVIEW";
-            const why = nAct ? `${nAct} everyday activit${nAct === 1 ? "y" : "ies"} now done by someone else` : "concern raised by a healthcare professional";
-            ev.reasons.push(`Significant reported concern (${cog.map((d) => C.CONCERN_DOMAIN_LABEL[d]).join(", ")}; ${why}); clinician review without waiting for a baseline. Reported by ${who}, not clinically verified`);
-            ev.drivers.push({ input: "Reported loss of everyday independence", value: nAct, threshold: C.CONCERN_REVIEW_MIN_ACTIVITIES });
-            ev.pathways.push("primary_care"); ev.next_action = "clinician_review_task"; evals.push(ev); continue;
+        if (faqNewLoss) {
+          ev.level = "URGENT";
+          ev.reasons.push(`New functional loss reported by family (FAQ ${faqBefore} -> ${fq} of ${C.FAQ_MAX} since ${faqBeforeDate}, at or above cutoff ${C.FAQ_CUTOFF}); needs a professional clinical evaluation`);
+          ev.drivers.push({ input: "Family questionnaire (FAQ)", value: fq, threshold: C.FAQ_CUTOFF, change: fq - faqBefore });
+          ev.pathways.push("memory_clinic");
+        }
+        // reports: a concern (the first one, or a follow-up) and the family questionnaire; never scored (triage.py)
+        if (REPORTS.includes(s.type)) {
+          const prevEv = evals.length ? evals[evals.length - 1] : null;
+          ev.valid = false;
+          let own = ev.level; let whyReview = null;
+          if (s.type === "intake") {
+            ev.intake = true;
+            const rc = s.reported_concern || {};
+            const doms = [...(rc.domains || [])], acts = [...(rc.activities_taken_over || [])];
+            const first = seen.first == null;
+            const newDoms = first ? [] : fresh(doms, seen.domains), newActs = first ? [] : fresh(acts, seen.activities);
+            const newFlags = first ? [] : fresh(ev.red_flags || [], seen.red_flags);
+            ev.concern_change = { first, since: seen.first, reporter: rc.reporter ?? null, domains: doms, activities: acts,
+                                  new_domains: newDoms, new_activities: newActs, new_red_flags: newFlags };
+            const who = C.REPORTER_LABEL[rc.reporter] || "the reporter";
+            if (first) {
+              const cog = doms.filter((d) => C.CONCERN_COGNITIVE_DOMAINS.includes(d)); const nAct = acts.length;
+              if (own === "BASELINE" && cog.length && (nAct >= C.CONCERN_REVIEW_MIN_ACTIVITIES || rc.reporter === "professional")) {
+                own = "CLINICIAN_REVIEW";
+                const why = nAct ? `${nAct} everyday activit${nAct === 1 ? "y" : "ies"} now done by someone else` : "concern raised by a healthcare professional";
+                ev.reasons.push(`Significant reported concern (${cog.map((d) => C.CONCERN_DOMAIN_LABEL[d]).join(", ")}; ${why}); clinician review without waiting for a baseline. Reported by ${who}, not clinically verified`);
+                ev.drivers.push({ input: "Reported loss of everyday independence", value: nAct, threshold: C.CONCERN_REVIEW_MIN_ACTIVITIES });
+                ev.pathways.push("primary_care"); whyReview = "clinician_review_task";
+              } else if (own === "BASELINE") {
+                ev.reasons.push((evals.length ? "Concern recorded: " : "Intake recorded: ") + (s.concern || "concern documented") + "; no red flags." + (evals.length ? "" : " First check-in to follow"));
+              }
+            } else {
+              const cogAll = [...seen.domains, ...doms].filter((d) => C.CONCERN_COGNITIVE_DOMAINS.includes(d));
+              const cogNew = newDoms.filter((d) => C.CONCERN_COGNITIVE_DOMAINS.includes(d));
+              if (own === "BASELINE" && cogAll.length && (cogNew.length || newActs.length)) {
+                own = "CLINICIAN_REVIEW";
+                const parts = [...(cogNew.length ? ["newly reported: " + cogNew.map((d) => C.CONCERN_DOMAIN_LABEL[d]).join(", ")] : []),
+                               ...(newActs.length ? [`${newActs.length} more everyday activit${newActs.length === 1 ? "y" : "ies"} now done by someone else`] : [])];
+                ev.reasons.push(`Concern has spread since it was first reported on ${seen.first} (${parts.join("; ")}); clinician review. Reported by ${who}, not clinically verified`);
+                ev.drivers.push({ input: "Change in the reported concern since first reported", value: cogNew.length + newActs.length, threshold: 1 });
+                ev.pathways.push("primary_care"); whyReview = "review_task";
+              } else if (own === "BASELINE") {
+                ev.reasons.push(`Follow-up concern recorded; no new memory or thinking change and no new activities taken over since it was first reported on ${seen.first}`);
+              }
+            }
+            seen.domains.push(...(first ? fresh(doms, []) : newDoms));
+            seen.activities.push(...(first ? fresh(acts, []) : newActs));
+            seen.red_flags.push(...(first ? fresh(ev.red_flags || [], []) : newFlags));
+            seen.first = seen.first || s.date.slice(0, 10);
+          } else {
+            ev.informant_report = true;
+            ev.informant = { instrument: "FAQ", score: fq ?? null, max: C.FAQ_MAX, cutoff: C.FAQ_CUTOFF, previous: faqBefore, previous_date: faqBeforeDate,
+                             change: fq == null || faqBefore == null ? null : fq - faqBefore, at_or_above_cutoff: faqFlag };
+            if (own === "BASELINE" && faqFlag && (faqBefore == null || faqBefore < C.FAQ_CUTOFF)) {
+              own = "CLINICIAN_REVIEW";
+              ev.reasons.push(`Family questionnaire at or above cutoff (FAQ ${fq} of ${C.FAQ_MAX}, cutoff ${C.FAQ_CUTOFF}); needs a professional clinical evaluation. A screening result, not a diagnosis`);
+              ev.drivers.push({ input: "Family questionnaire (FAQ)", value: fq, threshold: C.FAQ_CUTOFF });
+              ev.pathways.push("primary_care"); whyReview = "review_task";
+            } else if (own === "BASELINE" && fq != null) {
+              ev.reasons.push(`Family questionnaire recorded (FAQ ${fq} of ${C.FAQ_MAX}` + (faqBefore != null ? `; ${faqBefore} on ${faqBeforeDate}` : "") +
+                              (faqFlag ? "; still at or above cutoff, no new loss)" : `; below cutoff ${C.FAQ_CUTOFF})`));
+            }
           }
-          if (ev.level === "BASELINE") ev.reasons.push("Intake recorded: " + (s.concern || "concern documented") + "; no red flags. First check-in to follow");
-          ev.next_action = ev.level === "BASELINE" ? "first_session" : "urgent_review_task";
+          const base = prevEv ? prevEv.level : "BASELINE";
+          ev.carried = LEVELS.indexOf(own) < LEVELS.indexOf(base);
+          ev.level = lvMax(own, base);
+          if (ev.carried) { ev.reasons.push(`Level unchanged from the previous result (${base}, ${prevEv.date})`); ev.next_action = prevEv.next_action; }
+          else if (own === "URGENT") ev.next_action = "urgent_review_task";
+          else ev.next_action = whyReview || (prevEv ? prevEv.next_action : "first_session");
           evals.push(ev); continue;
         }
         const gate = audioGate(s.audio);
@@ -214,7 +281,7 @@
               ev.pathways.push("memory_clinic");
             }
           }
-          if (fflag && ev.level === "BASELINE") { ev.reasons.push("Informant questionnaire above cutoff; clinician to be informed"); ev.level = "CLINICIAN_REVIEW"; ev.pathways.push("primary_care"); }
+          if (functionalFlag && ev.level === "BASELINE") { ev.reasons.push("Informant questionnaire above cutoff; clinician to be informed"); ev.level = "CLINICIAN_REVIEW"; ev.pathways.push("primary_care"); }
           ev.next_action = "baseline_next";
           if (ev.level === "BASELINE" && cc.has("mood")) ev.reasons.push("Mood screen positive: support information shown, mental-health pathway offered");
           evals.push(ev); continue;
@@ -244,7 +311,7 @@
           if (conf.length) ev.reasons.push("Confounders present and shown to clinician, but size of change requires prompt review");
         } else if (decline && prevDecline && !cc.has("assisted")) {
           ev.level = lvMax(ev.level, "CLINICIAN_REVIEW"); ev.reasons.push("Decline confirmed on repeat with an alternate form"); ev.pathways.push("memory_clinic");
-        } else if (decline && fflag && !(cc.has("mood") || cc.has("illness_medication") || cc.has("sensory"))) {
+        } else if (decline && functionalFlag && !(cc.has("mood") || cc.has("illness_medication") || cc.has("sensory"))) {
           ev.level = lvMax(ev.level, "CLINICIAN_REVIEW"); ev.reasons.push("Decline plus an independent informant-reported functional signal"); ev.pathways.push("memory_clinic");
         } else if (decline) {
           ev.level = lvMax(ev.level, "CHECK_AGAIN");
@@ -252,7 +319,7 @@
                                       : "One result beyond the reliable-change range; repeat with an alternate form to confirm");
         } else {
           ev.reasons.push(conf.length ? "Within reliable-change range; context factors noted: " + conf.map((c) => c.code).join(", ") : "Within reliable-change range of personal baseline");
-          if (fflag) { ev.level = lvMax(ev.level, "CHECK_AGAIN"); ev.reasons.push("Informant questionnaire above cutoff without measured decline; repeat and inform clinician"); }
+          if (functionalFlag) { ev.level = lvMax(ev.level, "CHECK_AGAIN"); ev.reasons.push("Informant questionnaire above cutoff without measured decline; repeat and inform clinician"); }
         }
         if (cc.has("mood") && (ev.level === "STABLE" || ev.level === "CHECK_AGAIN")) ev.reasons.push("Mood screen positive: support information shown, mental-health pathway offered");
         ev.next_action = { STABLE: "routine", CHECK_AGAIN: "repeat_2_4_weeks", CLINICIAN_REVIEW: "review_task", URGENT: "urgent_review_task" }[ev.level];

@@ -1,0 +1,81 @@
+import type { Lang } from "@/lib/mb";
+
+const arNum = (n: number) => String(n).replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
+
+// The family questionnaire's words, in English and Modern Standard Arabic (needs native-speaker review before a pilot).
+export const QCOPY = {
+  en: {
+    title: "Family questionnaire",
+    about: (name: string) => (name ? `About ${name}` : "About the person you care for"),
+    loading: "Loading…",
+    eyebrow: "About 3 minutes · 10 questions",
+    intro: (name: string) => `How is ${name || "the person"} managing everyday life now?`,
+    introBody: (weeks: number) =>
+      `Ten short questions about everyday activities as they are today. Answer from what you have seen yourself. We ask again about every ${weeks} weeks, so the clinic can see whether anything is changing.`,
+    notDiagnosis: "This is a screening questionnaire, not a diagnosis.",
+    notDiagnosisBody:
+      "It cannot tell whether someone has dementia, Alzheimer's disease or any other condition. If the answers suggest everyday activities have become harder, the next step is a full assessment by a doctor, such as a family doctor, geriatrician or neurologist.",
+    whoYou: "Who is answering?",
+    question: (name: string) => `Thinking of the last four weeks, how does ${name || "the person"} manage this?`,
+    never: "Never did this?",
+    neverHide: "Hide",
+    of: (i: number, n: number) => `${i} of ${n}`,
+    start: "Start",
+    next: "Next",
+    back: "Back",
+    send: "Send answers",
+    sending: "Sending…",
+    exit: "Close",
+    thanks: "Thank you",
+    nextTime: (weeks: number) => `We will ask again in about ${weeks} weeks.`,
+    done: "Done",
+    report: "Describe a change in your own words",
+    failed: "Your answers could not be sent. Please check your connection and try again.",
+    notYours: "This record could not be found.",
+    aside: [
+      "Answer from what you have seen, not from what you expect.",
+      "There are no right or wrong answers.",
+      "The clinic sees your answers next to earlier ones, with dates.",
+      "Nothing here is a diagnosis.",
+    ],
+    asideTitle: "Before you start",
+    emergency: "In an emergency, call 998.",
+  },
+  ar: {
+    title: "استبيان الأسرة",
+    about: (name: string) => (name ? `عن ${name}` : "عن الشخص الذي ترعاه"),
+    loading: "جارٍ التحميل…",
+    eyebrow: `نحو ${arNum(3)} دقائق، ${arNum(10)} أسئلة`,
+    intro: (name: string) => `كيف يتدبّر ${name || "الشخص"} أمور حياته اليومية الآن؟`,
+    introBody: (weeks: number) =>
+      `عشرة أسئلة قصيرة عن الأنشطة اليومية كما هي اليوم. أجب بناءً على ما رأيته بنفسك. سنسألك مرة أخرى كل ${arNum(weeks)} أسبوعًا تقريبًا، كي ترى العيادة إن كان شيء يتغيّر.`,
+    notDiagnosis: "هذا استبيان فحص أولي، وليس تشخيصًا.",
+    notDiagnosisBody:
+      "لا يمكنه أن يحدّد إن كان الشخص مصابًا بالخرف أو مرض ألزهايمر أو أي حالة أخرى. إذا أشارت الإجابات إلى أن الأنشطة اليومية أصبحت أصعب، فالخطوة التالية تقييم كامل يجريه طبيب، مثل طبيب الأسرة أو طبيب الشيخوخة أو طبيب الأعصاب.",
+    whoYou: "من يجيب عن الأسئلة؟",
+    question: (name: string) => `خلال الأسابيع الأربعة الماضية، كيف يتدبّر ${name || "الشخص"} هذا الأمر؟`,
+    never: "لم يكن يقوم بهذا أصلًا؟",
+    neverHide: "إخفاء",
+    of: (i: number, n: number) => `${arNum(i)} من ${arNum(n)}`,
+    start: "ابدأ",
+    next: "التالي",
+    back: "السابق",
+    send: "إرسال الإجابات",
+    sending: "جارٍ الإرسال…",
+    exit: "إغلاق",
+    thanks: "شكرًا لك",
+    nextTime: (weeks: number) => `سنسألك مرة أخرى بعد نحو ${arNum(weeks)} أسبوعًا.`,
+    done: "تم",
+    report: "صِف تغيّرًا بكلماتك",
+    failed: "تعذّر إرسال إجاباتك. تحقّق من الاتصال وحاول مرة أخرى.",
+    notYours: "تعذّر العثور على هذا السجل.",
+    aside: [
+      "أجب بناءً على ما رأيته، لا على ما تتوقّعه.",
+      "لا توجد إجابات صحيحة أو خاطئة.",
+      "ترى العيادة إجاباتك بجانب الإجابات السابقة مع تواريخها.",
+      "لا شيء هنا يُعدّ تشخيصًا.",
+    ],
+    asideTitle: "قبل أن تبدأ",
+    emergency: "في حالات الطوارئ، اتصل على ٩٩٨.",
+  },
+} satisfies Record<Lang, unknown>;

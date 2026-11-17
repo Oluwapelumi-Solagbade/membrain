@@ -29,6 +29,7 @@ import { TaskActions } from "../TaskActions";
 import { useWorkspace } from "../WorkspaceProvider";
 import { fhirBundle } from "./fhir";
 import { ReferralForm } from "./ReferralForm";
+import { ReportsOverTime } from "./Reports";
 import { EDUCATION_LABEL, type Evaluation } from "@/lib/mb";
 import { dueOf, fmtDate, fmtTime, isIntakeOnly, levelOf } from "@/lib/workspace/derive";
 import { NAV } from "@/lib/workspace/navigator";
@@ -229,7 +230,9 @@ function CaseBody({ c }: { c: Case }) {
               <ul className="mt-1.5 space-y-1 text-[15.5px] leading-snug">
                 {(c.task && c.task.status !== "closed" && c.task.id !== `${p.id}:${ev.session_id}`
                   ? // An earlier review is still open: its reasons lead, and the later check-in follows (it does not close it).
-                    [...c.task.reasons, `Still open from ${fmtDate(c.task.created)}; a later check-in does not close it. Latest check-in: ${ev.reasons[0] ?? ev.level}`]
+                    [...c.task.reasons, ev.intake || ev.informant_report
+                      ? `Still open from ${fmtDate(c.task.created)}; a later report does not close it. Latest report: ${ev.reasons[0] ?? ev.level}`
+                      : `Still open from ${fmtDate(c.task.created)}; a later check-in does not close it. Latest check-in: ${ev.reasons[0] ?? ev.level}`]
                   : ev.reasons
                 ).map((r) => (
                   <li key={r} className="flex gap-2.5">
@@ -317,20 +320,21 @@ function CaseBody({ c }: { c: Case }) {
               <tbody>
                 {scoredHistory.map((h) => {
                   const notScored = h.reasons.find((r) => r.startsWith("Session not scored"));
-                  const isIntake = (h as unknown as { intake?: boolean }).intake;
+                  const isIntake = h.intake;
+                  const isFaq = h.informant_report;
                   const comp = zOf(h)?.composite;
                   const form = (h as unknown as { form?: string }).form;
                   return (
                     <tr key={h.session_id}>
                       <td className="border-b border-[#f0f0ec] px-3.5 py-2.5 font-mono text-[13.5px]">{h.date}</td>
-                      <td className="border-b border-[#f0f0ec] px-3.5 py-2.5">{isIntake ? "Intake" : (h as unknown as { channel?: string }).channel ?? "app"}</td>
+                      <td className="border-b border-[#f0f0ec] px-3.5 py-2.5">{isIntake ? (h.concern_change?.first === false ? "Follow-up concern" : "Intake") : isFaq ? "Family questionnaire" : (h as unknown as { channel?: string }).channel ?? "app"}</td>
                       <td className="border-b border-[#f0f0ec] px-3.5 py-2.5">{form ?? "–"}</td>
                       <td className="border-b border-[#f0f0ec] px-3.5 py-2.5">
                         <LevelPill level={h.level} size="sm" />
                       </td>
                       <td className="border-b border-[#f0f0ec] px-3.5 py-2.5 text-right font-mono tabular-nums">{comp != null ? fmtNum(comp) : "–"}</td>
                       <td className="border-b border-[#f0f0ec] px-3.5 py-2.5 text-[13.5px]">
-                        {isIntake ? <span className="text-muted">Concern only</span> : notScored ? <span className="text-lv-check">{notScored.replace("Session not scored: ", "Not scored: ")}</span> : h.valid ? <span className="text-lv-stable">Yes</span> : <span className="text-muted">No</span>}
+                        {isIntake ? <span className="text-muted">Concern only</span> : isFaq ? <span className="text-muted">FAQ {h.informant?.score}/{h.informant?.max}</span> : notScored ? <span className="text-lv-check">{notScored.replace("Session not scored: ", "Not scored: ")}</span> : h.valid ? <span className="text-lv-stable">Yes</span> : <span className="text-muted">No</span>}
                       </td>
                     </tr>
                   );
@@ -381,6 +385,8 @@ function CaseBody({ c }: { c: Case }) {
           </div>
         )}
       </Panel>
+
+      <ReportsOverTime c={c} />
 
       {/* Risk and prevention */}
       {(c.risk_context || c.prevention?.items?.length) && (

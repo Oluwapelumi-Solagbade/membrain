@@ -41,8 +41,9 @@ export function concernSummary(p: Participant): ConcernSummary {
   if (!text) missing.push(!route || route === "programme" ? "No specific concern (routine programme screening)" : "The concern in the reporter's own words");
   if (!onset || onset === "none") missing.push("When the change started");
   if (!inf) missing.push("An informant account (family member or household helper)");
-  if (!sessions.some((s) => s.iqcode != null) && (p as { pending_iqcode?: number | null }).pending_iqcode == null) missing.push("Informant questionnaire (IQCODE-16)");
-  if (!sessions.some((s) => s.type !== "intake" && s.raw != null)) missing.push("A scored check-in");
+  if (!sessions.some((s) => s.iqcode != null || (s as { faq?: number | null }).faq != null) && (p as { pending_iqcode?: number | null }).pending_iqcode == null)
+    missing.push("Family questionnaire (FAQ or IQCODE-16)");
+  if (!sessions.some((s) => s.type !== "intake" && s.type !== "informant" && s.raw != null)) missing.push("A scored check-in");
   const ctx = (p.context ?? {}) as Record<string, unknown>;
   if (ctx.sbp == null && ctx.hba1c == null) missing.push("Blood pressure and HbA1c");
   return {

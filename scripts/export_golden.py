@@ -36,11 +36,37 @@ extra = [
        "reported_concern": {"reporter": "professional", "domains": ["memory"], "activities_taken_over": []}}]),
     ({"id": "G-FV", "age": 72, "education": "tertiary", "language": "en", "dialect": "English"},
      [{"session_id": "s0", "date": "2026-11-02", "form": "A", "raw": _raw("tertiary", 72, -2.7, 0)}]),
+    # follow-up concerns (engine 0.5.0): spread -> review; nothing new -> level carried; a new red flag -> urgent
+    ({"id": "G-FU", "age": 74, "education": "primary", "language": "ar", "dialect": "Emirati"},
+     [{"session_id": "i0", "date": "2026-09-01", "type": "intake", "concern": "forgets names", "red_flags": [],
+       "reported_concern": {"reporter": "family", "domains": ["memory"], "activities_taken_over": []}},
+      {"session_id": "s0", "date": "2026-09-02", "form": "A", "raw": _raw("primary", 74, 0.0, 0)},
+      {"session_id": "s1", "date": "2026-09-16", "form": "B", "raw": _raw("primary", 74, 0.0, 1)},
+      {"session_id": "i1", "date": "2026-10-01", "type": "intake", "concern": "still forgets names", "red_flags": [],
+       "reported_concern": {"reporter": "family", "domains": ["memory"], "activities_taken_over": []}},
+      {"session_id": "i2", "date": "2026-11-01", "type": "intake", "concern": "now misses her medicines, daughter gives them", "red_flags": [],
+       "reported_concern": {"reporter": "family", "domains": ["memory", "language"], "activities_taken_over": ["medicines"]}},
+      {"session_id": "i3", "date": "2026-11-10", "type": "intake", "concern": "fell and hit her head", "red_flags": ["recent_fall_head_injury"],
+       "reported_concern": {"reporter": "family", "domains": ["memory"], "activities_taken_over": ["medicines"]}}]),
+    # family questionnaire (FAQ): below cutoff, first time at/above cutoff -> review, still above -> carried, big rise -> urgent
+    ({"id": "G-FQ", "age": 70, "education": "secondary", "language": "en", "dialect": "English"},
+     [{"session_id": "s0", "date": "2026-06-01", "form": "A", "raw": _raw("secondary", 70, 0.0, 0)},
+      {"session_id": "f0", "date": "2026-06-02", "type": "informant", "faq": 4},
+      {"session_id": "f1", "date": "2026-09-01", "type": "informant", "faq": 10},
+      {"session_id": "f2", "date": "2026-10-01", "type": "informant", "faq": 11},
+      {"session_id": "f3", "date": "2026-11-01", "type": "informant", "faq": 15}]),
+    # a concern raised only after check-ins
+    ({"id": "G-LC", "age": 66, "education": "tertiary", "language": "en", "dialect": "English"},
+     [{"session_id": "s0", "date": "2026-06-01", "form": "A", "raw": _raw("tertiary", 66, 0.0, 0)},
+      {"session_id": "i0", "date": "2026-06-20", "type": "intake", "concern": "sleeps badly", "red_flags": [],
+       "reported_concern": {"reporter": "self", "domains": ["sleep"], "activities_taken_over": []}}]),
 ]
+EXTRA_KEYS = ("concern_change", "informant", "carried", "next_action")
 for p, sess in extra:
     hist = evaluate(p, sess)["history"]   # crafted cases also pin the reason text, so wording stays identical across engines
     cases.append({"participant": p, "sessions": sess, "expected_levels": [h["level"] for h in hist],
-                  "expected_reasons": [h["reasons"] for h in hist]})
+                  "expected_reasons": [h["reasons"] for h in hist],
+                  "expected_extra": [{k: h[k] for k in EXTRA_KEYS if k in h} for h in hist]})
 out = pathlib.Path(__file__).resolve().parents[1] / "tests" / "golden_vectors.json"
 out.write_text(json.dumps(cases, ensure_ascii=False))
 print(f"wrote {len(cases)} cases -> {out}")

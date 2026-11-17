@@ -1,6 +1,7 @@
 // The clinician workspace's data, in the shape the FastAPI backend returns from GET /cases. The in-browser
 // backend builds exactly the same shape, so every page works the same in either mode.
 import type { Evaluation, Lang, Level, Persona, Reporter } from "../mb";
+export type { ConcernChange, InformantResult } from "../mb";
 
 export type ReferralState =
   | "recommended" | "sent" | "accepted" | "declined" | "appointment_offered" | "attended" | "missed"
@@ -92,7 +93,15 @@ export type ConcernIn = {
   red_flags: string[];
   confounders: string[];
   date: string;
+  channel?: "app" | "telegram" | "phone";
 };
+
+/** The family questionnaire (membrain/config.py FAQ_ITEMS): each everyday activity as it is now, 0 manages normally,
+ * 1 has difficulty but manages alone, 2 needs help, 3 someone else does it now. */
+export type Respondent = "spouse" | "child" | "sibling" | "other_family" | "helper" | "friend" | "self";
+export type InformantIn = { date: string; lang: Lang; respondent: Respondent; answers: Record<string, number>; channel?: "app" | "phone" };
+/** What the family sees: a message, never a score. Clinicians also get the updated case. */
+export type InformantDone = { session_id: string; message: string; held_for_clinician: boolean; case?: Case };
 
 /** A finished check-in, as the participant app sends it (api/main.py SessionIn). Transcripts are scored by the
  * engine: in Python on the server, or by the byte-identical JavaScript copy in the browser. */
@@ -138,6 +147,9 @@ export interface Backend {
   advance(rid: string, state: ReferralState, date: string, reason?: string): Promise<Referral>;
   audit(): Promise<AuditEntry[]>;
   raiseConcern(body: ConcernIn): Promise<Case>;
+  /** A later concern about someone already known: added to their record, dated, and compared with what came before. */
+  followUpConcern(pid: string, body: ConcernIn): Promise<Case>;
+  submitInformant(pid: string, body: InformantIn): Promise<InformantDone>;
   setProfile(pid: string, body: ProfileIn): Promise<Case>;
   submitSession(pid: string, body: SessionIn): Promise<CheckinResult>;
   reset(): Promise<void>;
