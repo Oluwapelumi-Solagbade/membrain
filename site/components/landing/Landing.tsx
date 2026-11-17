@@ -22,6 +22,7 @@ import { HeroCard } from "@/components/landing/HeroCard";
 import { ChatChannels } from "@/components/landing/ChatChannels";
 import { DemoSection } from "@/components/landing/DemoSection";
 import { QueuePreview } from "@/components/landing/QueuePreview";
+import { BaselineCompare } from "@/components/landing/BaselineCompare";
 import { btn, Eyebrow, SectionHeading } from "@/components/ui";
 import type { Lang } from "@/lib/mb";
 import { LANDING, type Hl } from "./copy";
@@ -223,6 +224,9 @@ export function Landing({ lang }: { lang: Lang }) {
             </div>
           </div>
         </section>
+
+        {/* One score can mislead: one-off cut-off vs personal baseline, computed by the engine */}
+        <BaselineCompare lang={lang} />
 
         {/* Evidence */}
         <section id="evidence" aria-labelledby="ev-title" className="scroll-mt-20 border-t border-line bg-mist py-14 lg:py-20">
