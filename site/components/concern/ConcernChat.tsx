@@ -140,6 +140,24 @@ function Section({ title, children, tone }: { title: string; children: ReactNode
 
 /* ── The chat ── */
 
+/* Physical and metabolic health factors in the person's words (blood pressure, sugar, cholesterol...). They are not
+ * changes in memory or thinking, so the extractor does not list them; but they matter for brain health (criterion 3),
+ * the clinician sees the words, and the person should hear that they were noted. Shown only, never scored. */
+const HEALTH: { label: Record<Lang, string>; en: RegExp; ar: RegExp }[] = [
+  { label: { en: "Blood pressure", ar: "ضغط الدم" }, en: /\b(blood pressure|bp|hypertension|hypertensive)\b/i, ar: /ضغط الدم|الضغط|ارتفاع الضغط/ },
+  { label: { en: "Blood sugar / diabetes", ar: "السكر / السكري" }, en: /\b(blood sugar|sugar level|diabet\w*|glucose|hba1c)\b/i, ar: /السكري|السكر|سكر الدم/ },
+  { label: { en: "Cholesterol", ar: "الكوليسترول" }, en: /\b(cholesterol|ldl)\b/i, ar: /الكوليسترول|الكولسترول|الدهون/ },
+  { label: { en: "Heart", ar: "القلب" }, en: /\b(heart|cardiac|chest pain|palpitation\w*)\b/i, ar: /القلب|ألم في الصدر|خفقان/ },
+  { label: { en: "Weight", ar: "الوزن" }, en: /\b(weight|obes\w*|overweight)\b/i, ar: /الوزن|السمنة/ },
+  { label: { en: "Smoking", ar: "التدخين" }, en: /\b(smok\w*|cigarette\w*|shisha)\b/i, ar: /التدخين|يدخن|تدخن|شيشة/ },
+];
+const HEALTH_URGENT = { en: /\b(drastic\w*|sudden\w*|very high|severe\w*|spike\w*|dangerous\w*)\b/i, ar: /فجأة|مفاجئ|مرتفع جدا|مرتفع جدًا|شديد|خطير/ };
+
+function healthFactors(text: string, lang: Lang): { found: string[]; urgent: boolean } {
+  const found = HEALTH.filter((h) => h.en.test(text) || h.ar.test(text)).map((h) => h.label[lang]);
+  return { found, urgent: found.length > 0 && (HEALTH_URGENT.en.test(text) || HEALTH_URGENT.ar.test(text)) };
+}
+
 export function ConcernChat() {
   const params = useSearchParams();
   const [lang, setLang] = useState<Lang>(params.get("lang") === "ar" ? "ar" : "en");
@@ -478,6 +496,7 @@ export function ConcernChat() {
   const domains = result?.fields.filter((f) => f.kind === "domain") ?? [];
   const confounders = result?.fields.filter((f) => f.kind === "confounder") ?? [];
   const nothingFound = result && !domains.length && !redFlags.length && !result.timeline.length && !result.onset;
+  const health = result ? healthFactors(narrative, lang) : { found: [] as string[], urgent: false };
 
   const factsCard = result && (
     <BotRow wide>
@@ -492,11 +511,21 @@ export function ConcernChat() {
           </a>
         </div>
       )}
-      <p>{nothingFound ? t.pickedNone : frozen ? t.pickedFrozen : t.picked}</p>
+      <p>{nothingFound ? (health.found.length ? t.pickedHealth : t.pickedNone) : frozen ? t.pickedFrozen : t.picked}</p>
       <div className="mt-3 rounded-xl bg-paper px-3.5 py-2.5">
         <p className="text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted">{t.yourWords}</p>
         <Narrative text={narrative} result={result} className="mt-1 text-ink" />
       </div>
+      {health.found.length > 0 && (
+        <div className="mt-3 rounded-xl border border-line bg-white px-3.5 py-2.5">
+          <p className="text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted">{t.health}</p>
+          <p className="mt-1 font-medium text-ink">{health.found.join(" · ")}</p>
+          <p className="mt-1 text-[13px] leading-snug text-body">{t.healthNote}</p>
+          {health.urgent && !redFlags.length && (
+            <p className="mt-2 rounded-lg bg-lv-urgent-soft px-3 py-2 text-[13.5px] font-medium leading-snug text-lv-urgent">{t.healthUrgent}</p>
+          )}
+        </div>
+      )}
       <div className="mt-3 space-y-2.5">
         {redFlags.length > 0 && (
           <Section title={t.urgent} tone="urgent">
