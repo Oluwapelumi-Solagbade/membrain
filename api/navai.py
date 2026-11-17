@@ -37,8 +37,17 @@ def _task_on(task: str) -> bool:
 
 
 def _llm(messages: list[dict], max_tokens: int = 700, task: str = "intake") -> str | None:
+    if not _task_on(task):
+        return None
+    from api import medgemma_local as ML
+    if ML.complete is not None:          # MedGemma loaded in this Space (deploy/hf-space/app.py, MEDGEMMA_IN_SPACE=1)
+        try:
+            return ML.complete(messages, max_tokens)
+        except Exception as e:           # GPU allowance used up, queue timeout...: the template answers instead
+            ML.status["error"] = f"last call: {type(e).__name__}"
+            return None
     url = os.getenv("MEDGEMMA_URL", "").rstrip("/")
-    if not url or not _task_on(task):
+    if not url:
         return None
     headers = {"Authorization": f"Bearer {os.getenv('MEDGEMMA_KEY', '')}"} if os.getenv("MEDGEMMA_KEY") else {}
     body = {"model": os.getenv("MEDGEMMA_MODEL", "google/medgemma-4b-it"), "messages": messages,
@@ -89,7 +98,9 @@ def draft(c: dict) -> dict:
         return {"engine": "template", "sentences": [s["text"] for s in I.draft_referral(c)], "removed": removed,
                 "checked": len(v["sentences"]), "fallback_reason": "Every sentence MedGemma wrote failed the fact check, so the rules template is shown",
                 "latency_ms": round((time.perf_counter() - t) * 1000)}
-    why = ("MedGemma is not set up on this server" if not os.getenv("MEDGEMMA_URL") or not _task_on("draft")
+    from api import medgemma_local as ML
+    set_up = (ML.complete is not None or os.getenv("MEDGEMMA_URL")) and _task_on("draft")
+    why = ("MedGemma is not set up on this server" if not set_up
            else "MedGemma did not answer in time (its free GPU may be busy or out of today's allowance)")
     return {"engine": "template", "sentences": [s["text"] for s in I.draft_referral(c)], "removed": [], "fallback_reason": why,
             "latency_ms": round((time.perf_counter() - t) * 1000)}
@@ -129,6 +140,13 @@ def referral_draft_for_case(pid: str, who: Principal = Depends(principal)):
     out = draft(conf)
     out["facts"] = {k: conf.get(k) for k in ("reporter", "domains", "onset", "timeline", "red_flags", "confounders", "checkin")}
     return out
+
+
+@router.get("/referral/engine")
+def referral_engine():
+    """Is MedGemma available for drafting here? (No patient data; for checking the deployment.)"""
+    from api import medgemma_local as ML
+    return {"local": ML.status, "remote": bool(os.getenv("MEDGEMMA_URL")), "tasks": os.getenv("MEDGEMMA_TASKS", "intake,draft")}
 
 
 @router.post("/referral/verify")

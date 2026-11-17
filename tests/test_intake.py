@@ -228,3 +228,32 @@ def test_standard_arabic_red_flags_and_what_is_not_one():
     hearing = keys("يعاني والدي من ضعف في السمع.", "ar")
     assert hearing["red_flags"] == [] and "hearing" in hearing["confounders"]   # weak hearing is not a stroke sign
     assert "memory" not in keys("لا توجد مشكلة في ذاكرته، لكنه حزين.", "ar")["domains"]
+
+
+def test_medgemma_loaded_in_the_space_is_used_for_drafting_only(monkeypatch):
+    import api.medgemma_local as ML
+    calls = []
+    monkeypatch.setattr(ML, "complete", lambda m, n=400: calls.append(n) or "A family member reports changes in memory. No diagnosis has been made.")
+    monkeypatch.setenv("MEDGEMMA_TASKS", "draft")
+    monkeypatch.delenv("MEDGEMMA_URL", raising=False)
+    c = TestClient(app)
+    assert c.post("/api/intake/extract", json={"text": "He forgets things.", "lang": "en"}).json()["engine"] == "rules" and not calls
+    d = c.post("/api/referral/draft", json={"confirmed": {"narrative": "x", "domains": ["memory"], "reporter": "family"}},
+               headers={"X-Role": "clinician"}).json()
+    assert calls and d["engine"] != "template" and d["sentences"][0].startswith("A family member")
+    # a GPU error (allowance used up) falls back to the template and says why
+    def boom(m, n=400):
+        raise RuntimeError("quota")
+    monkeypatch.setattr(ML, "complete", boom)
+    d = c.post("/api/referral/draft", json={"confirmed": {"narrative": "x", "domains": ["memory"]}}, headers={"X-Role": "clinician"}).json()
+    assert d["engine"] == "template" and "did not answer" in d["fallback_reason"]
+
+
+def test_a_failed_medgemma_load_never_stops_the_server(monkeypatch):
+    import builtins
+    import api.medgemma_local as ML
+    real = builtins.__import__
+    monkeypatch.setattr(builtins, "__import__", lambda n, *a, **k: (_ for _ in ()).throw(ImportError("no torch")) if n == "torch" else real(n, *a, **k))
+    monkeypatch.setattr(ML, "complete", None)
+    assert ML.load() is False and ML.status["error"].startswith("ImportError") and ML.complete is None
+    assert TestClient(app).get("/api/referral/engine").json()["local"]["loaded"] is False

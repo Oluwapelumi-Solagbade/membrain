@@ -54,6 +54,8 @@ jobs:
         run: |
           mkdir -p /tmp/space/site
           git archive HEAD api membrain web requirements.txt | tar -x -C /tmp/space
+          # extra packages only the Space needs (MedGemma drafting on ZeroGPU), kept out of the Docker/Azure image
+          cat deploy/hf-space/requirements-extra.txt >> /tmp/space/requirements.txt
           cp -r site/out /tmp/space/site/out
           cp deploy/hf-space/app.py deploy/hf-space/README.md /tmp/space/
 
