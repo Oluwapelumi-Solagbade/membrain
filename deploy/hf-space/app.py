@@ -22,6 +22,12 @@ os.environ.setdefault("SERVER_IN_UAE", "0")   # this demo host is not in the UAE
 # Live demo data is saved to this PRIVATE dataset (api/store.py) when the Space has a STORE_TOKEN secret
 # (fine-grained, write access to that dataset only). Without the secret, data stays in memory as before.
 os.environ.setdefault("STORE_REPO", "Vulcan-Spark/membrain-live-data")
+# MedGemma drafts referral letters from a separate Space (deploy/medgemma-space) when this Space has a MEDGEMMA_KEY
+# secret (the same value as that Space's). It is used for drafting only, never for intake, where it failed our tests.
+if os.getenv("MEDGEMMA_KEY"):
+    os.environ.setdefault("MEDGEMMA_URL", "https://vulcan-spark-membrain-medgemma.hf.space")
+    os.environ.setdefault("MEDGEMMA_MODEL", "MedGemma 4B")
+    os.environ.setdefault("MEDGEMMA_TASKS", "draft")
 
 import uvicorn
 

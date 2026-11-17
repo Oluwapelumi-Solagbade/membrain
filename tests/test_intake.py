@@ -109,19 +109,53 @@ def test_api_falls_back_to_rules_without_medgemma(monkeypatch):
     c = TestClient(app)
     r = c.post("/api/intake/extract", json={"text": "Since yesterday his speech is slurred.", "lang": "en"}).json()
     assert r["engine"] == "rules" and r["urgent"]
-    d = c.post("/api/referral/draft", json={"confirmed": {"narrative": "x", "domains": ["memory"]}}).json()
-    assert d["engine"] == "template" and d["sentences"][-1].endswith("No diagnosis has been made.")
+    assert c.post("/api/referral/draft", json={"confirmed": {"narrative": "x", "domains": ["memory"]}}).status_code in (401, 403)
+    d = c.post("/api/referral/draft", json={"confirmed": {"narrative": "x", "domains": ["memory"]}}, headers={"X-Role": "clinician"}).json()
+    assert d["engine"] == "template" and d["sentences"][-1].endswith("No diagnosis has been made.") and d["fallback_reason"]
 
 
 def test_api_uses_model_but_keeps_rule_red_flags(monkeypatch):
     import api.navai as N
-    monkeypatch.setattr(N, "_llm", lambda m, max_tokens=700: '{"domains": [{"key": "memory", "evidence": "forgets"}], "red_flags": []}')
+    monkeypatch.setattr(N, "_llm", lambda m, max_tokens=700, task="intake": '{"domains": [{"key": "memory", "evidence": "forgets"}], "red_flags": []}')
     r = TestClient(app).post("/api/intake/extract", json={"text": "He forgets things and fell yesterday.", "lang": "en"}).json()
     k = I.summary_keys(r)
     assert k["domains"] == ["memory"] and "recent_fall_head_injury" in k["red_flags"] and r["urgent"]
-    monkeypatch.setattr(N, "_llm", lambda m, max_tokens=300: "He forgets things. He has dementia. No diagnosis has been made.")
-    d = TestClient(app).post("/api/referral/draft", json={"confirmed": {"narrative": "He forgets things.", "domains": ["memory"]}}).json()
-    assert "He has dementia." not in d["sentences"] and len(d["removed"]) == 1
+    monkeypatch.setattr(N, "_llm", lambda m, max_tokens=300, task="draft": "He forgets things. He has dementia. No diagnosis has been made.")
+    d = TestClient(app).post("/api/referral/draft", json={"confirmed": {"narrative": "He forgets things.", "domains": ["memory"]}},
+                             headers={"X-Role": "clinician"}).json()
+    assert "He has dementia." not in d["sentences"] and len(d["removed"]) == 1 and d["removed"][0]["reasons"]
+
+
+def test_medgemma_is_used_only_for_the_tasks_allowed(monkeypatch):
+    import api.navai as N
+    monkeypatch.setenv("MEDGEMMA_URL", "http://127.0.0.1:9")   # nothing listens there
+    monkeypatch.setenv("MEDGEMMA_TASKS", "draft")
+    assert N._task_on("draft") and not N._task_on("intake")
+    calls = []
+    monkeypatch.setattr(N.httpx, "post", lambda *a, **k: calls.append(a) or (_ for _ in ()).throw(N.httpx.ConnectError("x")))
+    r = TestClient(app).post("/api/intake/extract", json={"text": "He forgets things.", "lang": "en"}).json()
+    assert r["engine"] == "rules" and not calls                  # intake never reaches MedGemma
+    d = TestClient(app).post("/api/referral/draft", json={"confirmed": {"narrative": "He forgets things.", "domains": ["memory"]}},
+                             headers={"X-Role": "clinician"}).json()
+    assert calls and d["engine"] == "template" and "did not answer" in d["fallback_reason"]
+
+
+def test_draft_for_a_case_uses_only_that_case(monkeypatch):
+    import api.navai as N
+    seen = {}
+    def fake(m, max_tokens=400, task="draft"):
+        seen["facts"] = m[-1]["content"]
+        return "A family member reports changes in memory. The patient clearly has Alzheimer's disease. No diagnosis has been made."
+    monkeypatch.setattr(N, "_llm", fake)
+    c = TestClient(app)
+    case = c.post("/concerns", json={"reporter": "family", "lang": "en", "narrative": "Mum forgets and my sister pays her bills now.",
+                                     "domains": ["memory"], "date": "2026-11-17", "timeline": [["money", "sister"]]}).json()
+    pid = case["participant"]["id"]
+    d = c.post(f"/api/referral/draft/{pid}", headers={"X-Role": "clinician"}).json()
+    assert d["engine"] != "template" and any("Alzheimer" in r["text"] for r in d["removed"])
+    assert not any("Alzheimer" in s for s in d["sentences"]) and d["facts"]["reporter"] == "family"
+    assert '"memory"' in seen["facts"] and "Mum" not in seen["facts"]          # facts only, never the free text or names
+    assert c.post("/api/referral/draft/NOPE", headers={"X-Role": "clinician"}).status_code == 404
 
 
 def test_service_not_accepting_referrals_is_shown_but_not_preselected():

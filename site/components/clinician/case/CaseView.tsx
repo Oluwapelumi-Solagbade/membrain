@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Download,
   FileClock,
+  FileText,
   HandHelping,
   HeartPulse,
   LineChart,
@@ -32,6 +33,7 @@ import { fhirBundle } from "./fhir";
 import { ReferralForm } from "./ReferralForm";
 import { ReportsOverTime } from "./Reports";
 import { Handover, handoverRows } from "./Handover";
+import { ReferralDraft } from "./ReferralDraft";
 import { EDUCATION_LABEL, type Evaluation } from "@/lib/mb";
 import { dueOf, fmtDate, fmtTime, isIntakeOnly, levelOf } from "@/lib/workspace/derive";
 import { NAV } from "@/lib/workspace/navigator";
@@ -415,6 +417,11 @@ function CaseBody({ c }: { c: Case }) {
           ) : null}
         </Panel>
       )}
+
+      {/* Referral letter: always available to a clinician, before or after a referral */}
+      <Panel title="Referral letter" icon={FileText} aside={<span className="text-[14px] text-body">Drafted by MedGemma, fact-checked by MemBrain</span>}>
+        <ReferralDraft pid={p.id} />
+      </Panel>
 
       {/* Referrals */}
       {p.referrals.length > 0 ? (
