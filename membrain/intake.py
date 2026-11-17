@@ -588,7 +588,8 @@ VOCAB = {
     "who:son": ["son$"], "who:daughter": ["daughter"], "who:wife": ["wife"], "who:husband": ["husband"], "who:brother": ["brother"],
     "who:sister": ["sister"], "who:driver": ["driver"], "who:helper": ["helper", "maid", "housekeeper"],
     "urgent": ["urgent", "red flag", "emergency"], "checkin": ["check-in", "checkin", "membrain"],
-    "rep:self": ["participant"], "rep:family": ["family member"], "rep:helper": ["household helper"],
+    "rep:self": ["participant", "patient report", "patient state", "patient describ", "patient complain", "patient say",
+                 "patient notice", "patient mention", "self-report"], "rep:family": ["family member"], "rep:helper": ["household helper"],
     "rep:professional": ["healthcare professional"], "rep:coordinator": ["programme coordinator"],
 }
 BLOCKED = ["dementia", "alzheimer", "mild cognitive impairment", "mci$", "neurodegenera", "cognitive decline is confirmed", "diagnos"]
@@ -728,8 +729,25 @@ def quotes_from(res: dict, text: str, n: int = 2) -> list[str]:
 
 
 def llm_draft_messages(c: dict) -> list[dict]:
-    facts = {k: c.get(k) for k in ("domains", "red_flags", "confounders", "onset", "timeline", "checkin")}
-    return [{"role": "system", "content": "Write a short reason for referral (3-5 sentences, English) for a memory or primary care "
-             "clinician, using ONLY these confirmed facts. Do not add facts, numbers or names. Do not diagnose or name a disease. "
+    """The confirmed facts in plain words (who reported them first), so the model words them and adds nothing."""
+    who = DRAFT_REPORTER.get(c.get("reporter"), DRAFT_REPORTER["family"])
+    lines = [f"Reported by: {who.lower()}"]
+    if c.get("domains"):
+        lines.append("Changes noticed in: " + ", ".join(DRAFT_DOMAIN.get(k, k) for k in c["domains"]))
+    if c.get("onset"):
+        lines.append("When it started: " + ONSET.get(c["onset"], c["onset"]))
+    for a, w in c.get("timeline") or []:
+        lines.append(f"Task taken over by someone else: {DRAFT_ACT.get(a, a)} (now done by {DRAFT_WHO.get(w, w)})")
+    if c.get("red_flags"):
+        lines.append("Urgent signs reported: " + ", ".join(DRAFT_RF.get(k, k) for k in c["red_flags"]))
+    if c.get("confounders"):
+        lines.append("Factors that can affect memory: " + ", ".join(DRAFT_CF.get(k, k) for k in c["confounders"]))
+    ck = c.get("checkin") or {}
+    if ck.get("level"):
+        lines.append("Latest MemBrain check-in result: " + LEVEL_TXT.get(ck["level"], ck["level"]))
+    return [{"role": "system", "content": "You write a short reason for referral (2-4 sentences, plain English) for a memory or "
+             "primary care clinician. Use ONLY the facts listed. Start with who reported it, exactly as written (for example "
+             f"'{who} reports ...'); never write 'the patient reports' unless the person reported it themselves. Do not add "
+             "symptoms, examples, details, numbers, names or time words that are not listed. Do not diagnose or name a disease. "
              "End with: 'No diagnosis has been made.'"},
-            {"role": "user", "content": json.dumps(facts, ensure_ascii=False)}]
+            {"role": "user", "content": "\n".join(lines)}]

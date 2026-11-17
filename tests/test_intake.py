@@ -154,8 +154,17 @@ def test_draft_for_a_case_uses_only_that_case(monkeypatch):
     d = c.post(f"/api/referral/draft/{pid}", headers={"X-Role": "clinician"}).json()
     assert d["engine"] != "template" and any("Alzheimer" in r["text"] for r in d["removed"])
     assert not any("Alzheimer" in s for s in d["sentences"]) and d["facts"]["reporter"] == "family"
-    assert '"memory"' in seen["facts"] and "Mum" not in seen["facts"]          # facts only, never the free text or names
+    assert "Changes noticed in: memory" in seen["facts"] and "Mum" not in seen["facts"]   # facts only, never the free text or names
+    assert seen["facts"].startswith("Reported by: a family member")                      # the model knows who reported it
     assert c.post("/api/referral/draft/NOPE", headers={"X-Role": "clinician"}).status_code == 404
+
+
+def test_draft_that_puts_the_report_in_the_wrong_mouth_is_removed():
+    c = {"reporter": "helper", "domains": ["memory"], "narrative": ""}
+    assert not I.verify_sentence("The patient reports problems with memory.", c)["ok"]
+    assert I.verify_sentence("A household helper reports problems with memory.", c)["ok"]
+    assert I.verify_sentence("Please assess the patient.", c)["ok"]
+    assert I.verify_sentence("The patient reports problems with memory.", dict(c, reporter="self"))["ok"]
 
 
 def test_service_not_accepting_referrals_is_shown_but_not_preselected():
