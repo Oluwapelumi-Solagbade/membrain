@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, ChartColumn, ChartNoAxesColumn, ChevronDown, Inbox, LogOut, Menu, Route, Search, Settings, SquarePlus, UsersRound, X, type LucideIcon } from "lucide-react";
+import { Activity, Bell, ChartColumn, ChartNoAxesColumn, ChevronDown, Inbox, LogOut, Menu, Route, Search, Settings, SquarePlus, UsersRound, X, type LucideIcon } from "lucide-react";
 import { Logo, Mark } from "../Logo";
 import { LevelPill } from "../ui";
 import { Avatar, usePopover } from "./parts";
@@ -51,6 +51,7 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
             { href: "/clinician/", label: "Review queue", icon: Inbox, badge: active },
             { href: "/clinician/referrals/", label: "Referrals", icon: Route },
             { href: "/clinician/validation/", label: "Validation", icon: ChartColumn },
+            { href: "/clinician/live/", label: "Live data", icon: Activity },
             { href: "/concern/", label: "Raise a concern", icon: SquarePlus },
           ]}
         />

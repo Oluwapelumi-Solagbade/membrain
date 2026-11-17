@@ -1,0 +1,72 @@
+"""Live data: what real visitors add is kept apart from the synthetic people, survives a restart, and feeds live stats."""
+import json
+
+from fastapi.testclient import TestClient
+
+from api import store
+from api.main import DB, app
+from membrain.personas import personas
+from tests.test_api import _answers
+
+c = TestClient(app)
+CL = {"X-Role": "clinician"}
+
+
+def _person_with_two_checkins(day1="2026-11-16", day2="2026-11-30"):
+    case = c.post("/concerns", json={"reporter": "family", "lang": "en", "narrative": "Dad forgets and the maid gives his medicines now.",
+                                     "domains": ["memory"], "date": day1}).json()
+    pid = case["participant"]["id"]
+    assert c.patch(f"/participants/{pid}/profile", json={"age": 71, "education": "primary"}).status_code == 200
+    for d, f in ((day1, "A"), (day2, "B")):
+        r = c.post(f"/participants/{pid}/sessions", json={"date": d, "form": f, "lang": "en", "transcripts": _answers(f, "en"),
+                                                          "phq2": 0, "gad2": 0, "sleep_hours": 7})
+        assert r.status_code == 200
+    return pid
+
+
+def test_live_stats_count_only_what_visitors_did_and_need_a_clinician():
+    assert c.get("/live/stats").status_code in (401, 403)
+    before = c.get("/live/stats", headers=CL).json()
+    pid = _person_with_two_checkins()
+    s = c.get("/live/stats", headers=CL).json()
+    assert s["people"] == before["people"] + 1 and s["new_records"] == before["new_records"] + 1
+    assert s["concerns"] == before["concerns"] + 1 and s["checkins"] == before["checkins"] + 2
+    assert s["completion"]["scored"] == before["completion"]["scored"] + 2
+    assert s["reliability"]["pairs"] == before["reliability"]["pairs"] + 1
+    assert s["reporters"]["family"] >= 1
+    assert any(r["group"] == "70+" for r in s["segments"]["age"])
+    assert "sensitivity" in s["not_measurable_yet"]
+    # the synthetic people's made-up history is never counted
+    synthetic_sessions = sum(len(p["sessions"]) for p in personas())
+    assert s["checkins"] + s["concerns"] + s["family_questionnaires"] < synthetic_sessions + 50
+    assert pid in DB["participants"]
+
+
+def test_snapshot_survives_a_restart_and_a_demo_reset():
+    pid = _person_with_two_checkins("2026-10-01", "2026-10-20")
+    extra = c.post("/participants/MB-1041/sessions", json={"date": "2026-11-17", "form": "C", "lang": "ar", "transcripts": _answers("C", "ar")})
+    assert extra.status_code == 200
+    snap = json.loads(json.dumps(store.snapshot(DB), default=str))   # what would be written to the dataset
+    assert pid in snap["participants"] and "MB-1041" in snap["added_to_synthetic"]
+    assert "MB-1187" not in snap["participants"]                      # synthetic people are not copied
+
+    # a restart: fresh synthetic data, then the saved snapshot on top
+    fresh = {"participants": {p["id"]: p for p in personas()}, "tasks": {}, "audit": []}
+    n_before = len(fresh["participants"]["MB-1041"]["sessions"])
+    store.merge(fresh, snap)
+    assert pid in fresh["participants"] and len(fresh["participants"][pid]["sessions"]) == 3
+    assert len(fresh["participants"]["MB-1041"]["sessions"]) > n_before
+
+    # a demo reset restores the synthetic people but keeps what visitors added
+    assert c.post("/demo/reset").status_code == 200
+    assert pid in DB["participants"]
+
+
+def test_save_writes_a_local_copy_when_configured(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.delenv("STORE_REPO", raising=False)
+    _person_with_two_checkins("2026-09-01", "2026-09-15")
+    store._save_now()
+    saved = json.loads((tmp_path / "snapshot.json").read_text("utf-8"))
+    assert saved["version"] == store.VERSION and saved["participants"]
+    assert store.status()["enabled"] and not store.status()["permanent"]

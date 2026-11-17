@@ -127,6 +127,30 @@ def _seed():
 
 _seed()
 
+# Live data: what real visitors add is saved (api/store.py) and survives restarts; synthetic people are rebuilt above.
+from api import store  # noqa: E402
+
+store.remember_seed(DB)
+if store.enabled():
+    store.load_into(DB)
+    for _p in DB["participants"].values():
+        if store.live_sessions(_p):
+            _sync_tasks(_p, evaluate(_p, _p["sessions"]))
+    store.start()
+
+
+@app.middleware("http")
+async def _save_after_changes(request: Request, call_next):
+    resp = await call_next(request)
+    if request.method in ("POST", "PATCH", "PUT", "DELETE") and resp.status_code < 400:
+        store.mark_dirty()
+    return resp
+
+
+from api.live import router as live_router  # noqa: E402
+
+app.include_router(live_router)
+
 
 class Identity(BaseModel):
     full_name: str
@@ -404,7 +428,9 @@ def get_audit(r: str = Depends(role)):
 
 @app.post("/demo/reset")
 def reset():
+    keep = store.snapshot(DB)   # a demo reset restores the synthetic people; it never deletes what real visitors added
     _seed()
+    store.merge(DB, keep)
     return {"ok": True, "participants": len(DB["participants"])}
 
 
