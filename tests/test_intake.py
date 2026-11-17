@@ -266,3 +266,43 @@ def test_a_failed_medgemma_load_never_stops_the_server(monkeypatch):
     monkeypatch.setattr(ML, "complete", None)
     assert ML.load() is False and ML.status["error"].startswith("ImportError") and ML.complete is None
     assert TestClient(app).get("/api/referral/engine").json()["local"]["loaded"] is False
+
+
+def test_second_reader_runs_only_when_rules_find_nothing_and_keeps_only_grounded_items(monkeypatch):
+    import api.navai as N
+    N._SR_HITS.clear()
+    calls = []
+    def fake(m, max_tokens=300, task="second_read"):
+        calls.append(task)
+        return ('{"items": [{"kind": "health", "key": "blood_pressure", "quote": "blood pressure"},'
+                ' {"kind": "domain", "key": "memory", "quote": "he forgets everything"},'        # not in the text: dropped
+                ' {"kind": "health", "key": "cancer", "quote": "pressure"},'                    # key not allowed: dropped
+                ' {"kind": "red_flag", "key": "sudden_onset", "quote": "drastic change"}]}')
+    monkeypatch.setattr(N, "_llm", fake)
+    c = TestClient(app)
+    r = c.post("/api/intake/second-read", json={"text": "I noticed a drastic change in the patient's blood pressure", "lang": "en"}).json()
+    assert calls == ["second_read"] and r["dropped"] == 2
+    assert {(i["kind"], i["key"]) for i in r["items"]} == {("health", "blood_pressure"), ("red_flag", "sudden_onset")}
+    # the rules found something: MedGemma is not asked at all
+    r2 = c.post("/api/intake/second-read", json={"text": "Mum keeps forgetting appointments", "lang": "en"}).json()
+    assert r2["engine"] == "rules" and calls == ["second_read"]
+    # MedGemma off or failing: the chat simply carries on
+    monkeypatch.setattr(N, "_llm", lambda m, max_tokens=300, task="second_read": None)
+    assert c.post("/api/intake/second-read", json={"text": "His kidneys are not good", "lang": "en"}).json()["items"] == []
+
+
+def test_second_reader_is_rate_limited(monkeypatch):
+    import api.navai as N
+    N._SR_HITS.clear()
+    monkeypatch.setattr(N, "_llm", lambda m, max_tokens=300, task="second_read": '{"items": []}')
+    c = TestClient(app)
+    out = [c.post("/api/intake/second-read", json={"text": "His kidneys are not good", "lang": "en"},
+                  headers={"x-forwarded-for": "10.7.7.7"}).json() for _ in range(6)]
+    assert out[-1]["reason"] == "busy"
+
+
+def test_second_reader_arabic_quote_is_grounded_after_normalisation(monkeypatch):
+    import api.navai as N
+    items, dropped = N.ground_second_read('{"items": [{"kind": "health", "key": "blood_sugar", "quote": "السكري"}]}',
+                                          "أبوي عنده السكرى من زمان", "ar")   # ى / ي spelt differently
+    assert items and items[0]["label"] == "السكر / السكري" and dropped == 0

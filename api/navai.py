@@ -9,12 +9,13 @@ and every drafted sentence passes the grounding verifier or is removed.
 from __future__ import annotations
 
 import difflib
+import json
 import os
 import re
 import time
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from api.auth import Principal, principal
@@ -174,6 +175,86 @@ def approve_letter(pid: str, body: ApproveIn, who: Principal = Depends(principal
          "similarity": round(sim, 3), "words_draft": len(a), "words_final": len(b)}
     audit(who.actor, "referral_letter_approved", pid, m)
     return m
+
+
+# ---------------------------------------------------------------- MedGemma as a second reader
+# The rules read every concern first (instant, and they caught every urgent case on our held-out test). Only when they
+# find NOTHING does MedGemma read the words and suggest what they might be. A suggestion is kept only if it quotes the
+# person's own words, and the person confirms it before it counts; urgent suggestions are only ever added (never removed).
+SECOND_HEALTH = {"blood_pressure": ("Blood pressure", "ضغط الدم"), "blood_sugar": ("Blood sugar / diabetes", "السكر / السكري"),
+                 "cholesterol": ("Cholesterol", "الكوليسترول"), "heart": ("Heart", "القلب"), "kidney": ("Kidneys", "الكلى"),
+                 "stroke": ("Stroke or mini-stroke", "جلطة أو جلطة صغيرة"), "weight": ("Weight", "الوزن"),
+                 "smoking": ("Smoking", "التدخين"), "hearing": ("Hearing", "السمع"), "vision": ("Eyesight", "النظر"),
+                 "other_health": ("Other health problem", "مشكلة صحية أخرى")}
+_SR_HITS: dict[str, list[float]] = {}
+_SR_DAY: dict[str, int] = {}
+
+
+def second_read_messages(text: str, lang: str) -> list[dict]:
+    keys = (f"domain: {list(I.DOMAINS)}\nred_flag: {list(I.RED_FLAGS)}\nhealth: {list(SECOND_HEALTH)}")
+    return [{"role": "system", "content":
+             "You read what a person, a family member, a household helper or a clinician wrote about an older adult, and list "
+             "what it mentions, using ONLY these kinds and keys:\n" + keys + "\n\nRules: include an item only if the text "
+             "clearly says it; copy the exact words from the text as the quote (do not translate or reword); do not guess or "
+             "diagnose; return an empty list if nothing matches. Answer with JSON only, in this form: "
+             '{"items": [{"kind": "health", "key": "blood_pressure", "quote": "exact words"}]}'},
+            {"role": "user", "content": text}]
+
+
+def ground_second_read(raw: str, text: str, lang: str) -> tuple[list[dict], int]:
+    """Keep items whose key is allowed and whose quote really is in the text (after Arabic/English normalisation)."""
+    m = re.search(r"\{.*\}", I.strip_thinking(raw or "")[0], re.S)
+    try:
+        items = json.loads(m.group(0)).get("items", []) if m else []
+    except (ValueError, AttributeError):
+        items = []
+    allowed = {"domain": I.DOMAINS, "red_flag": I.RED_FLAGS, "health": SECOND_HEALTH}
+    body, out, seen, dropped = I._norm(text), [], set(), 0
+    for it in items if isinstance(items, list) else []:
+        kind, key, quote = (it or {}).get("kind"), (it or {}).get("key"), str((it or {}).get("quote") or "").strip()
+        nq = I._norm(quote).strip(" .,")
+        if kind not in allowed or key not in allowed[kind] or len(nq) < 3 or nq not in body or (kind, key) in seen:
+            dropped += 1
+            continue
+        seen.add((kind, key))
+        if kind == "health":
+            label = SECOND_HEALTH[key][1 if lang == "ar" else 0]
+        else:
+            label = allowed[kind][key]
+        out.append({"kind": kind, "key": key, "label": label, "quote": quote})
+    return out, dropped
+
+
+class SecondReadIn(BaseModel):
+    text: str = Field(..., min_length=3, max_length=4000)
+    lang: str | None = None
+
+
+@router.post("/intake/second-read")
+def second_read(body: SecondReadIn, request: Request):
+    import datetime as _dt
+    ip = (request.headers.get("x-forwarded-for") or (request.client.host if request.client else "?")).split(",")[0].strip()
+    now = time.time()
+    hits = [t for t in _SR_HITS.get(ip, []) if now - t < 60]
+    day = _dt.date.today().isoformat()
+    if len(hits) >= int(os.getenv("SECOND_READ_PER_MIN", "4")) or _SR_DAY.get(day, 0) >= int(os.getenv("SECOND_READ_DAILY_CAP", "200")):
+        return {"engine": "none", "items": [], "reason": "busy"}
+    _SR_HITS[ip] = hits + [now]
+    lang = body.lang or I._detect_lang(body.text)
+    rules = I.extract_rules(body.text, lang)
+    if rules.get("fields") or rules.get("timeline") or rules.get("onset"):
+        return {"engine": "rules", "items": [], "reason": "the rules already found facts"}
+    _SR_DAY[day] = _SR_DAY.get(day, 0) + 1
+    t = time.perf_counter()
+    raw = _llm(second_read_messages(body.text, lang), 300, task="second_read")
+    ms = round((time.perf_counter() - t) * 1000)
+    if raw is None:
+        return {"engine": "none", "items": [], "reason": "unavailable", "latency_ms": ms}
+    items, dropped = ground_second_read(raw, body.text, lang)
+    from api.main import audit
+    audit("public", "second_read", "-", {"items": len(items), "dropped": dropped, "kinds": sorted({i["kind"] for i in items}),
+                                         "latency_ms": ms, "lang": lang})
+    return {"engine": os.getenv("MEDGEMMA_MODEL", "medgemma"), "items": items, "dropped": dropped, "latency_ms": ms}
 
 
 @router.get("/referral/engine")

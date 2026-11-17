@@ -178,6 +178,12 @@ def compute(db: dict) -> dict:
         "median_similarity": round(median(x["similarity"] for x in ma), 3) if ma else None,
     }
 
+    reads = [a["detail"] for a in db["audit"] if a.get("action") == "second_read"]
+    rlat = [r["latency_ms"] for r in reads if r.get("latency_ms") is not None]
+    second_reader = {"reads": len(reads), "with_suggestions": sum(1 for r in reads if r.get("items")),
+                     "suggestions": sum(r.get("items") or 0 for r in reads), "dropped_ungrounded": sum(r.get("dropped") or 0 for r in reads),
+                     "median_seconds": round(median(rlat) / 1000, 1) if rlat else None}
+
     def rows(d: dict) -> list[dict]:
         out = []
         for k, v in sorted(d.items(), key=lambda kv: -kv[1]["people"]):
@@ -198,6 +204,7 @@ def compute(db: dict) -> dict:
         "review": review,
         "timing": timing,
         "letters": letters,
+        "second_reader": second_reader,
         "segments": {k: rows(v) for k, v in seg.items()},
         "not_measurable_yet": ["sensitivity", "specificity"],
     }

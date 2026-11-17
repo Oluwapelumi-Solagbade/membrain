@@ -20,6 +20,7 @@ export type IntakeField = {
   needs_confirmation: boolean;
   spans: Span[];
   evidence: string[];
+  ai?: boolean;   // suggested by MedGemma as a second reader (the rules found nothing); the person confirms it
 };
 export type IntakeResult = {
   engine: string;

@@ -33,7 +33,7 @@ if os.getenv("MEDGEMMA_KEY"):
 # MEDGEMMA_IN_SPACE=1 (Settings -> Variables). It must load before start-up is reported to ZeroGPU. If it fails,
 # the demo starts without it and letters come from the rules template; delete the variable to switch it off.
 if ON_ZERO_GPU and os.getenv("MEDGEMMA_IN_SPACE") == "1":
-    os.environ.setdefault("MEDGEMMA_TASKS", "draft")          # drafting only; never intake (it failed our safety tests)
+    os.environ.setdefault("MEDGEMMA_TASKS", "draft,second_read")   # letters, and a second reader when the rules find nothing; never first-line intake
     os.environ.setdefault("MEDGEMMA_MODEL", "MedGemma 4B")
     from api import medgemma_local
     print("MedGemma:", "loaded" if medgemma_local.load(spaces) else f"not loaded ({medgemma_local.status['error']})", flush=True)

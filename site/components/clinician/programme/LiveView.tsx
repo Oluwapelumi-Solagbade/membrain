@@ -22,6 +22,7 @@ type Stats = {
   review: { flags: number; reviewed: number; agreed: number; dismissed: number; open: number; false_referral_share: number | null; median_days_to_first_action: number | null };
   letters: { drafts: number; by_medgemma: number; template_fallbacks: number; sentences_checked: number; sentences_removed: number; removed_share: number | null;
     median_seconds: number | null; approved: number; approved_medgemma: number; accepted_unchanged: number; accepted_unchanged_share: number | null; median_similarity: number | null };
+  second_reader: { reads: number; with_suggestions: number; suggestions: number; dropped_ungrounded: number; median_seconds: number | null };
   timing: { referrals: number; median_days_concern_to_referral: number | null; assessed: number; median_days_concern_to_assessment: number | null };
   segments: Record<"language" | "age" | "schooling", Seg[]>;
   not_measurable_yet: string[];
@@ -156,6 +157,15 @@ export function LiveView() {
                 </dl>
               </div>
             )}
+          </Panel>
+
+          <Panel title="AI second reader (MedGemma)" icon={Activity} aside={<span className="text-[14px] text-body">Runs only when the rules find nothing</span>}>
+            <dl className="divide-y divide-line">
+              <Fact k="Concerns read a second time" v={s.second_reader.reads} hint="The rules found no change, so MedGemma read the words" />
+              <Fact k="With at least one suggestion" v={`${s.second_reader.with_suggestions} of ${s.second_reader.reads}`} hint={`${s.second_reader.suggestions} suggestions shown, each quoting the person's words`} />
+              <Fact k="Suggestions dropped (not in the person's words)" v={s.second_reader.dropped_ungrounded} hint="What MedGemma made up never reaches the screen" />
+              <Fact k="Time to read (median)" v={s.second_reader.median_seconds == null ? "–" : `${s.second_reader.median_seconds} s`} />
+            </dl>
           </Panel>
 
           <Panel title="By group" icon={UsersRound} aside={<span className="text-[14px] text-body">Language, age and schooling</span>}>

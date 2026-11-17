@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowUp, Check, Lock, Mic, Phone, RotateCcw, ShieldAlert, Square, Stethoscope, Volume2 } from "lucide-react";
 import { LogoMark, Mark } from "../Logo";
 import { Narrative } from "../Narrative";
-import { config, getEngine, getIntake, LEVEL_TONE, REPORTER_LABEL, type Evaluation, type IntakeResult, type Lang, type Reporter } from "@/lib/mb";
+import { config, getEngine, getIntake, LEVEL_TONE, REPORTER_LABEL, type Evaluation, type IntakeResult, type Lang, type Reporter, type Span } from "@/lib/mb";
 import { ACTIVITY, CONFOUNDER, DOMAIN, ONSET, RED_FLAG, WHO, label } from "@/lib/labels";
 import { rememberClaim } from "@/lib/auth";
 import { getBackend } from "@/lib/workspace/backend";
@@ -177,6 +177,7 @@ export function ConcernChat() {
       .then(async (b) => {
         setOnServer(b.mode === "server");
         if (b.mode !== "server") return;
+        setApiBase(b.base ?? "");
         const r = await fetch((b.base ?? "") + "/api/asr/config");
         const j = (await r.json()) as { enabled?: boolean; in_uae?: boolean };
         setInUae(j.in_uae === true);
@@ -190,6 +191,8 @@ export function ConcernChat() {
   const [messages, setMessages] = useState<string[]>([]); // what the person sent, in order
   const [askedMore, setAskedMore] = useState(false);
   const [result, setResult] = useState<IntakeResult | null>(null);
+  const [apiBase, setApiBase] = useState<string | null>(null);   // the MemBrain server, when there is one
+  const [ai, setAi] = useState<{ state: "idle" | "reading" | "done"; health: string[]; count: number }>({ state: "idle", health: [], count: 0 });
   const [ok, setOk] = useState<Record<string, boolean>>({});
   const [outcome, setOutcome] = useState<Evaluation | null>(null);
   const [caseId, setCaseId] = useState<string | null>(null);
@@ -255,8 +258,40 @@ export function ConcernChat() {
       setResult(r);
       setOk(next);
       setStep("review");
+      setAi({ state: "idle", health: [], count: 0 });
+      if (apiBase !== null && !r.fields.length && !r.timeline.length && !r.onset) void secondRead(joined, r);
     }, 1100);
   };
+
+  // The rules found nothing: ask MedGemma to read the words a second time. Its suggestions must quote the person's words
+  // (checked on the server) and are shown for the person to confirm; urgent ones are added, never taken away.
+  async function secondRead(joined: string, r: IntakeResult) {
+    setAi({ state: "reading", health: [], count: 0 });
+    try {
+      const res = await fetch(apiBase + "/api/intake/second-read", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: joined, lang: r.lang }),
+      });
+      const j = (await res.json()) as { items?: { kind: string; key: string; label: string; quote: string }[] };
+      const items = j.items ?? [];
+      const low = joined.toLowerCase();
+      const fields = items
+        .filter((it) => it.kind === "domain" || it.kind === "red_flag")
+        .map((it) => {
+          const at = low.indexOf(it.quote.toLowerCase());
+          return { kind: it.kind as "domain" | "red_flag", key: it.key, label: it.label, confidence: 0.5, needs_confirmation: it.kind === "domain",
+                   spans: at >= 0 ? ([[at, at + it.quote.length]] as Span[]) : [], evidence: [it.quote], ai: true };
+        });
+      if (fields.length) {
+        setResult((cur) => (cur && cur === r ? { ...cur, fields: [...cur.fields, ...fields], urgent: cur.urgent || fields.some((f) => f.kind === "red_flag") } : cur));
+        setOk((o) => ({ ...o, ...Object.fromEntries(fields.map((f) => [`${f.kind}:${f.key}`, f.kind === "red_flag"])) }));
+      }
+      setAi({ state: "done", health: items.filter((it) => it.kind === "health").map((it) => it.label), count: items.length });
+    } catch {
+      setAi({ state: "done", health: [], count: 0 });   // MedGemma unavailable: the conversation simply carries on
+    }
+  }
 
   const tryExample = (i: number) => {
     const ex = EXAMPLES[i];
@@ -495,8 +530,9 @@ export function ConcernChat() {
   const redFlags = result?.fields.filter((f) => f.kind === "red_flag") ?? [];
   const domains = result?.fields.filter((f) => f.kind === "domain") ?? [];
   const confounders = result?.fields.filter((f) => f.kind === "confounder") ?? [];
-  const nothingFound = result && !domains.length && !redFlags.length && !result.timeline.length && !result.onset;
-  const health = result ? healthFactors(narrative, lang) : { found: [] as string[], urgent: false };
+  const nothingFound = result && !domains.some((f) => !f.ai) && !redFlags.some((f) => !f.ai) && !result.timeline.length && !result.onset;
+  const health0 = result ? healthFactors(narrative, lang) : { found: [] as string[], urgent: false };
+  const health = { ...health0, found: [...new Set([...health0.found, ...ai.health])] };
 
   const factsCard = result && (
     <BotRow wide>
@@ -512,6 +548,10 @@ export function ConcernChat() {
         </div>
       )}
       <p>{nothingFound ? (health.found.length ? t.pickedHealth : t.pickedNone) : frozen ? t.pickedFrozen : t.picked}</p>
+      {ai.state === "reading" && <p className="mt-2 animate-pulse text-[13.5px] text-lv-base">{t.aiReading}</p>}
+      {ai.state === "done" && ai.count > 0 && (
+        <p className="mt-2 rounded-lg bg-[#e8ebf4] px-3 py-2 text-[13.5px] leading-snug text-lv-base">{t.aiSuggested}</p>
+      )}
       <div className="mt-3 rounded-xl bg-paper px-3.5 py-2.5">
         <p className="text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted">{t.yourWords}</p>
         <Narrative text={narrative} result={result} className="mt-1 text-ink" />
@@ -530,7 +570,7 @@ export function ConcernChat() {
         {redFlags.length > 0 && (
           <Section title={t.urgent} tone="urgent">
             {redFlags.map((f) => (
-              <FactRow key={f.key} t={t} locked checked tone="urgent" title={label(RED_FLAG, f.key, lang, f.label)} quote={f.evidence.join(" … ")} />
+              <FactRow key={f.key} t={t} locked checked tone="urgent" title={label(RED_FLAG, f.key, lang, f.label) + (f.ai ? ` · ${t.aiTag}` : "")} quote={f.evidence.join(" … ")} />
             ))}
             {!frozen && <p className="pb-1 text-[12.5px] text-muted">{t.urgentLocked}</p>}
           </Section>
@@ -540,7 +580,7 @@ export function ConcernChat() {
             {domains
               .filter((f) => !frozen || ok[`domain:${f.key}`])
               .map((f) => (
-                <FactRow key={f.key} t={t} locked={frozen} checked={!!ok[`domain:${f.key}`]} onToggle={() => toggle(`domain:${f.key}`)} title={label(DOMAIN, f.key, lang, f.label)} quote={f.evidence.join(" … ")} flag={f.needs_confirmation} />
+                <FactRow key={f.key} t={t} locked={frozen} checked={!!ok[`domain:${f.key}`]} onToggle={() => toggle(`domain:${f.key}`)} title={label(DOMAIN, f.key, lang, f.label) + (f.ai ? ` · ${t.aiTag}` : "")} quote={f.evidence.join(" … ")} flag={f.needs_confirmation} />
               ))}
           </Section>
         )}
