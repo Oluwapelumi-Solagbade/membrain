@@ -1,6 +1,6 @@
 
 # Space only (appended by .github/workflows/hf-space.yml): MedGemma drafting on ZeroGPU, used when MEDGEMMA_IN_SPACE=1
-torch==2.6.0
-transformers>=4.50,<5
+torch==2.8.0
+transformers>=5.0
 accelerate>=0.34
 pillow>=10
