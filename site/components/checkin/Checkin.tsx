@@ -453,12 +453,15 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
       form,
       lang,
       transcripts: ans.tr,
+      // The quality gate is there to catch a broken recording (bad microphone, noisy room), which affects every task;
+      // it must not reject a session because one answer was short or silent: not recalling any word is a valid
+      // score of 0, and exactly the signal MemBrain looks for. So the session is judged by its clearest task.
       audio: audios.length
         ? {
-            snr_db: Math.min(...audios.map((a) => a.snr_db)),
-            clipping: Math.max(...audios.map((a) => a.clipping)),
-            speech_ratio: +(audios.reduce((s, a) => s + a.speech_ratio, 0) / audios.length).toFixed(2),
-            duration_s: Math.min(...audios.map((a) => a.duration_s)),
+            snr_db: Math.max(...audios.map((a) => a.snr_db)),
+            clipping: [...audios.map((a) => a.clipping)].sort((x, y) => x - y)[Math.floor(audios.length / 2)],
+            speech_ratio: Math.max(...audios.map((a) => a.speech_ratio)),
+            duration_s: Math.max(...audios.map((a) => a.duration_s)),
           }
         : null,
       precheck: { hearing_ok: ans.precheck.hearing_ok ?? true, vision_ok: ans.precheck.vision_ok ?? true, noise_ok: ans.precheck.noise_ok ?? true },

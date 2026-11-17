@@ -1,4 +1,4 @@
-# Publishes the site (browser mode: everything runs in the visitor's browser on synthetic data) to GitHub Pages:
+# Publishes the site to GitHub Pages, connected to the live MemBrain server on Hugging Face (same data and AI):
 # https://oluwapelumi-solagbade.github.io/membrain/
 # One-time setup by the repo owner: Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
 name: Site on GitHub Pages
@@ -27,7 +27,9 @@ jobs:
         working-directory: site
         env:
           NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
-          NEXT_PUBLIC_STATIC_ONLY: "1"
+          # The Pages copy is a second front door to the SAME live server (saving, Gulf Whisper, MedGemma); the server
+          # allows this origin (ALLOWED_ORIGINS). If the server is unreachable, the page says so and runs in the browser.
+          NEXT_PUBLIC_API_URL: https://vulcan-spark-membrain.hf.space
           NEXT_PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
         run: |
           npm ci --no-audit --no-fund
