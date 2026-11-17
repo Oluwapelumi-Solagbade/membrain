@@ -70,3 +70,25 @@ def test_save_writes_a_local_copy_when_configured(tmp_path, monkeypatch):
     saved = json.loads((tmp_path / "snapshot.json").read_text("utf-8"))
     assert saved["version"] == store.VERSION and saved["participants"]
     assert store.status()["enabled"] and not store.status()["permanent"]
+
+
+def test_ai_letters_are_measured_drafts_edits_and_approvals(monkeypatch):
+    import api.navai as N
+    monkeypatch.setattr(N, "_llm", lambda m, max_tokens=400, task="draft":
+                        "A household helper reports changes in memory. The patient has dementia. No diagnosis has been made.")
+    before = c.get("/live/stats", headers=CL).json()["letters"]
+    case = c.post("/concerns", json={"reporter": "helper", "lang": "en", "narrative": "He forgets his medicines; I give them now.",
+                                     "domains": ["memory"], "date": "2026-11-17", "timeline": [["medicines", "helper"]]}).json()
+    pid = case["participant"]["id"]
+    d = c.post(f"/api/referral/draft/{pid}", headers=CL).json()
+    assert d["engine"] != "template" and len(d["removed"]) == 1
+    text = " ".join(d["sentences"])
+    assert c.post(f"/api/referral/draft/{pid}/approve", json={"draft": text, "final": text, "engine": d["engine"]}).status_code in (401, 403)
+    same = c.post(f"/api/referral/draft/{pid}/approve", headers=CL, json={"draft": text, "final": text, "engine": d["engine"]}).json()
+    edited = c.post(f"/api/referral/draft/{pid}/approve", headers=CL,
+                    json={"draft": text, "final": text + " Please see within four weeks.", "engine": d["engine"]}).json()
+    assert same["unchanged"] and same["similarity"] == 1.0 and not edited["unchanged"] and 0.5 < edited["similarity"] < 1
+    L = c.get("/live/stats", headers=CL).json()["letters"]
+    assert L["by_medgemma"] == before["by_medgemma"] + 1 and L["sentences_removed"] >= before["sentences_removed"] + 1
+    assert L["approved_medgemma"] == before["approved_medgemma"] + 2 and L["accepted_unchanged"] == before["accepted_unchanged"] + 1
+    assert 0 < L["removed_share"] <= 1 and L["median_similarity"] is not None

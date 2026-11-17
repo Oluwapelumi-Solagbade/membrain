@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Activity, CheckCircle2, Clock, Database, MessageSquareText, RefreshCw, Scale, ShieldCheck, UsersRound } from "lucide-react";
+import { Activity, CheckCircle2, Clock, Database, FileText, MessageSquareText, RefreshCw, Scale, ShieldCheck, UsersRound } from "lucide-react";
 import { PageHeader, Panel, Stat } from "../parts";
 import { Fact, LevelBar, Note, num, pct } from "./common";
 import { authHeader } from "@/lib/auth";
@@ -20,6 +20,8 @@ type Stats = {
   reliability: { pairs: number; min_pairs: number; icc_3_1?: number; pearson_r?: number; mean_change_z?: number; median_days_apart?: number };
   latest_levels: Partial<Record<Level, number>>;
   review: { flags: number; reviewed: number; agreed: number; dismissed: number; open: number; false_referral_share: number | null; median_days_to_first_action: number | null };
+  letters: { drafts: number; by_medgemma: number; template_fallbacks: number; sentences_checked: number; sentences_removed: number; removed_share: number | null;
+    median_seconds: number | null; approved: number; approved_medgemma: number; accepted_unchanged: number; accepted_unchanged_share: number | null; median_similarity: number | null };
   timing: { referrals: number; median_days_concern_to_referral: number | null; assessed: number; median_days_concern_to_assessment: number | null };
   segments: Record<"language" | "age" | "schooling", Seg[]>;
   not_measurable_yet: string[];
@@ -136,6 +138,25 @@ export function LiveView() {
               </dl>
             </Panel>
           </div>
+
+          <Panel title="AI referral letters (MedGemma)" icon={FileText} aside={<span className="text-[14px] text-body">Drafts, fact checks and clinician approvals</span>}>
+            {s.letters.drafts === 0 ? (
+              <Note>No letters drafted yet. Open a case and use Referral letter, then Draft with MedGemma.</Note>
+            ) : (
+              <div className="grid gap-6 lg:grid-cols-2">
+                <dl className="divide-y divide-line">
+                  <Fact k="Drafts" v={s.letters.drafts} hint={`${s.letters.by_medgemma} by MedGemma, ${s.letters.template_fallbacks} by the rules template (MedGemma unavailable or failed the check)`} />
+                  <Fact k="Sentences removed by the fact check" v={`${s.letters.sentences_removed} of ${s.letters.sentences_checked}`} hint={s.letters.removed_share == null ? "" : `${pct(s.letters.removed_share)} of what MedGemma wrote`} />
+                  <Fact k="Time to a draft (median)" v={s.letters.median_seconds == null ? "–" : `${s.letters.median_seconds} s`} />
+                </dl>
+                <dl className="divide-y divide-line">
+                  <Fact k="Letters approved by a clinician" v={s.letters.approved} hint={`${s.letters.approved_medgemma} from MedGemma drafts`} />
+                  <Fact k="Approved without any edit" v={s.letters.accepted_unchanged_share == null ? "–" : pct(s.letters.accepted_unchanged_share)} hint={`${s.letters.accepted_unchanged} of ${s.letters.approved_medgemma} MedGemma drafts`} />
+                  <Fact k="Share of the draft kept (median)" v={s.letters.median_similarity == null ? "–" : pct(s.letters.median_similarity)} hint="Word-level match between draft and approved letter" />
+                </dl>
+              </div>
+            )}
+          </Panel>
 
           <Panel title="By group" icon={UsersRound} aside={<span className="text-[14px] text-body">Language, age and schooling</span>}>
             <div className="grid gap-6 lg:grid-cols-3">

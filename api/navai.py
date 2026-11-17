@@ -8,7 +8,9 @@ and every drafted sentence passes the grounding verifier or is removed.
 """
 from __future__ import annotations
 
+import difflib
 import os
+import re
 import time
 
 import httpx
@@ -139,7 +141,39 @@ def referral_draft_for_case(pid: str, who: Principal = Depends(principal)):
         raise HTTPException(409, "Nothing confirmed on this record to draft from yet.")
     out = draft(conf)
     out["facts"] = {k: conf.get(k) for k in ("reporter", "domains", "onset", "timeline", "red_flags", "confounders", "checkin")}
+    # measured on the Live data page: which engine wrote it, how much the fact check removed, how long it took
+    from api.main import audit
+    audit(who.actor, "referral_drafted", pid, {"engine": "medgemma" if out["engine"] != "template" else "template",
+                                               "checked": out.get("checked", 0), "removed": len(out.get("removed", [])),
+                                               "kept": len(out["sentences"]), "latency_ms": out.get("latency_ms"),
+                                               "fallback": out.get("fallback_reason")})
     return out
+
+
+class ApproveIn(BaseModel):
+    draft: str = Field(..., max_length=4000)
+    final: str = Field(..., min_length=10, max_length=4000)
+    engine: str = Field("template", max_length=40)
+
+
+def _words(t: str) -> list[str]:
+    return re.findall(r"[\w'’-]+", (t or "").lower())
+
+
+@router.post("/referral/draft/{pid}/approve")
+def approve_letter(pid: str, body: ApproveIn, who: Principal = Depends(principal)):
+    """The clinician approves the letter (as drafted or after editing). Only measures are kept, not the text:
+    how much of the draft survived, so 'the AI helps' becomes a number on the Live data page."""
+    _clinician(who)
+    from api.main import DB, audit
+    if pid not in DB["participants"]:
+        raise HTTPException(404)
+    a, b = _words(body.draft), _words(body.final)
+    sim = difflib.SequenceMatcher(None, a, b).ratio() if a or b else 1.0
+    m = {"engine": "medgemma" if body.engine not in ("template", "") else "template", "unchanged": a == b,
+         "similarity": round(sim, 3), "words_draft": len(a), "words_final": len(b)}
+    audit(who.actor, "referral_letter_approved", pid, m)
+    return m
 
 
 @router.get("/referral/engine")

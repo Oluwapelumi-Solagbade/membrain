@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Copy, ShieldCheck, Sparkles } from "lucide-react";
+import { Check, Copy, ShieldCheck, Sparkles } from "lucide-react";
 import { authHeader } from "@/lib/auth";
 import { getBackend } from "@/lib/workspace/backend";
 import { btnClass } from "../parts";
@@ -27,6 +27,8 @@ export function ReferralDraft({ pid }: { pid: string }) {
   const [text, setText] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [original, setOriginal] = useState("");
+  const [approved, setApproved] = useState<{ unchanged: boolean; similarity: number } | null>(null);
 
   useEffect(() => {
     getBackend().then((b) => setBase(b.mode === "server" ? b.base ?? "" : null)).catch(() => setBase(null));
@@ -40,11 +42,31 @@ export function ReferralDraft({ pid }: { pid: string }) {
       const j = (await r.json()) as Draft & { detail?: string };
       if (!r.ok) throw new Error(j.detail || `Server answered ${r.status}`);
       setD(j);
-      setText(j.sentences.map((x) => (/[.!?…”"]$/.test(x.trim()) ? x.trim() : x.trim() + ".")).join(" "));
+      const t = j.sentences.map((x) => (/[.!?…”"]$/.test(x.trim()) ? x.trim() : x.trim() + ".")).join(" ");
+      setText(t);
+      setOriginal(t);
+      setApproved(null);
     } catch (e) {
       setErr((e as Error).message);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function approve() {
+    if (base == null || !d) return;
+    setErr(null);
+    try {
+      const r = await fetch(`${base}/api/referral/draft/${encodeURIComponent(pid)}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeader() },
+        body: JSON.stringify({ draft: original, final: text, engine: d.engine }),
+      });
+      const j = (await r.json()) as { unchanged: boolean; similarity: number; detail?: string };
+      if (!r.ok) throw new Error(j.detail || `Server answered ${r.status}`);
+      setApproved(j);
+    } catch (e) {
+      setErr((e as Error).message);
     }
   }
 
@@ -78,12 +100,22 @@ export function ReferralDraft({ pid }: { pid: string }) {
 
           <label className="block">
             <span className="text-[13px] font-medium text-muted">Draft for you to edit and approve</span>
-            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={5}
+            <textarea value={text} onChange={(e) => { setText(e.target.value); setApproved(null); }} rows={5}
               className="mt-1 w-full rounded-xl border border-line bg-white p-3 text-[15px] leading-relaxed outline-none focus:border-leaf" />
           </label>
-          <button type="button" onClick={() => { void navigator.clipboard?.writeText(text); setCopied(true); }} className={`${btnClass.secondary} inline-flex items-center gap-2`}>
-            <Copy size={16} /> {copied ? "Copied" : "Copy text"}
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" onClick={approve} disabled={text.trim().length < 10 || !!approved} className={`${btnClass.primary} inline-flex items-center gap-2`}>
+              <Check size={16} /> {approved ? "Approved" : "Approve letter"}
+            </button>
+            <button type="button" onClick={() => { void navigator.clipboard?.writeText(text); setCopied(true); }} className={`${btnClass.secondary} inline-flex items-center gap-2`}>
+              <Copy size={16} /> {copied ? "Copied" : "Copy text"}
+            </button>
+            {approved && (
+              <span className="text-[13.5px] text-body">
+                {approved.unchanged ? "Approved as drafted." : `Approved after your edits (${Math.round(approved.similarity * 100)}% of the draft kept).`} Recorded for the Live data measures; the text itself is not stored.
+              </span>
+            )}
+          </div>
 
           {d.removed.length > 0 && (
             <div className="rounded-xl border border-[#f1d3cb] bg-[#fdf3f0] p-3">

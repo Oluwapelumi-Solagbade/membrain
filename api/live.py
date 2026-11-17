@@ -159,6 +159,25 @@ def compute(db: dict) -> dict:
     timing = {"referrals": len(to_ref), "median_days_concern_to_referral": median(to_ref) if to_ref else None,
               "assessed": len(to_seen), "median_days_concern_to_assessment": median(to_seen) if to_seen else None}
 
+    # AI drafting of referral letters, measured from the audit log (drafts and clinician approvals)
+    drafts = [a["detail"] for a in db["audit"] if a.get("action") == "referral_drafted"]
+    approvals = [a["detail"] for a in db["audit"] if a.get("action") == "referral_letter_approved"]
+    md = [d for d in drafts if d.get("engine") == "medgemma"]
+    checked = sum(d.get("checked") or 0 for d in md)
+    removed = sum(d.get("removed") or 0 for d in md)
+    lat = [d["latency_ms"] for d in md if d.get("latency_ms") is not None]
+    ma = [x for x in approvals if x.get("engine") == "medgemma"]
+    letters = {
+        "drafts": len(drafts), "by_medgemma": len(md), "template_fallbacks": len(drafts) - len(md),
+        "sentences_checked": checked, "sentences_removed": removed,
+        "removed_share": round(removed / checked, 3) if checked else None,
+        "median_seconds": round(median(lat) / 1000, 1) if lat else None,
+        "approved": len(approvals), "approved_medgemma": len(ma),
+        "accepted_unchanged": sum(1 for x in ma if x.get("unchanged")),
+        "accepted_unchanged_share": round(sum(1 for x in ma if x.get("unchanged")) / len(ma), 3) if ma else None,
+        "median_similarity": round(median(x["similarity"] for x in ma), 3) if ma else None,
+    }
+
     def rows(d: dict) -> list[dict]:
         out = []
         for k, v in sorted(d.items(), key=lambda kv: -kv[1]["people"]):
@@ -178,6 +197,7 @@ def compute(db: dict) -> dict:
         "latest_levels": latest_levels,
         "review": review,
         "timing": timing,
+        "letters": letters,
         "segments": {k: rows(v) for k, v in seg.items()},
         "not_measurable_yet": ["sensitivity", "specificity"],
     }
