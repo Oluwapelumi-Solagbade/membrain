@@ -90,8 +90,9 @@ def snapshot(db: dict) -> dict:
         else:
             n_s, n_r = seed["participants"][pid]["sessions"], seed["participants"][pid]["referrals"]
             add_s, add_r = p.get("sessions", [])[n_s:], p.get("referrals", [])[n_r:]
-            if add_s or add_r:
-                extra[pid] = {"sessions": add_s, "referrals": add_r}
+            add_x = p.get("exploratory", [])   # synthetic people have none at start: all of them were added live
+            if add_s or add_r or add_x:
+                extra[pid] = {"sessions": add_s, "referrals": add_r, "exploratory": add_x}
     tasks = {k: t for k, t in db["tasks"].items() if k not in seed["tasks"] or t.get("actions")}
     return {"version": VERSION, "saved_at": datetime.now(timezone.utc).isoformat(), "participants": people,
             "added_to_synthetic": extra, "tasks": tasks, "audit": db["audit"][-AUDIT_CAP:]}
@@ -111,6 +112,8 @@ def merge(db: dict, snap: dict) -> dict:
             continue
         p.setdefault("sessions", []).extend(add.get("sessions", []))
         p.setdefault("referrals", []).extend(add.get("referrals", []))
+        if add.get("exploratory"):
+            p["exploratory"] = list(add["exploratory"])
         n_s += len(add.get("sessions", []))
     db["tasks"].update(snap.get("tasks") or {})
     seen = {(a.get("ts"), a.get("action"), a.get("target")) for a in db["audit"]}

@@ -21,6 +21,7 @@ import {
   Route,
   Stethoscope,
   X,
+  MapPinned,
 } from "lucide-react";
 import { Mark } from "../../Logo";
 import { LevelPill } from "../../ui";
@@ -415,6 +416,36 @@ function CaseBody({ c }: { c: Case }) {
               </ul>
             </div>
           ) : null}
+        </Panel>
+      )}
+
+      {/* Exploratory tasks: shown, never scored */}
+      {((p as { exploratory?: unknown[] }).exploratory ?? []).length > 0 && (
+        <Panel title="Souq route (exploratory)" icon={MapPinned} aside={<span className="text-[14px] text-body">Spatial route memory · not used for triage</span>}>
+          <table className="w-full text-[14.5px]">
+            <thead>
+              <tr className="text-left text-[13px] text-muted">
+                <th className="pb-1.5 font-medium">Date</th><th className="pb-1.5 font-medium">Route span</th><th className="pb-1.5 font-medium">Steps right</th>
+                <th className="pb-1.5 font-medium">Time per step</th><th className="pb-1.5 font-medium">Form · language</th>
+              </tr>
+            </thead>
+            <tbody>
+              {((p as { exploratory?: { task: string; date: string; span: number; accuracy: number | null; ms_per_step: number | null; form: string; lang: string }[] }).exploratory ?? [])
+                .filter((x) => x.task === "souq_route")
+                .map((x, i) => (
+                  <tr key={i} className="border-t border-line">
+                    <td className="py-1.5">{fmtDate(x.date)}</td>
+                    <td className="font-semibold">{x.span} stops</td>
+                    <td>{x.accuracy == null ? "–" : `${Math.round(x.accuracy * 100)}%`}</td>
+                    <td>{x.ms_per_step == null ? "–" : `${(x.ms_per_step / 1000).toFixed(1)} s`}</td>
+                    <td className="text-muted">{x.form} · {x.lang === "ar" ? "Arabic" : "English"}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+          <p className="mt-3 rounded-lg bg-[#e8ebf4] px-3 py-2 text-[13px] leading-snug text-lv-base">
+            New and not yet validated. Spatial route memory (the spatial-span method in a market scene) is among the first abilities to change in Alzheimer&apos;s disease. Track it alongside the check-in; it will join the engine only after the pilot validates it against a clinician-given assessment.
+          </p>
         </Panel>
       )}
 

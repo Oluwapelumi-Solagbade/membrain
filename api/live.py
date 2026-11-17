@@ -184,6 +184,19 @@ def compute(db: dict) -> dict:
                      "suggestions": sum(r.get("items") or 0 for r in reads), "dropped_ungrounded": sum(r.get("dropped") or 0 for r in reads),
                      "median_seconds": round(median(rlat) / 1000, 1) if rlat else None}
 
+    routes = [x for p in db["participants"].values() for x in p.get("exploratory", []) if x.get("task") == "souq_route"]
+    route_pairs = []
+    for p in db["participants"].values():
+        r = [x for x in p.get("exploratory", []) if x.get("task") == "souq_route"]
+        if len(r) >= 2:
+            route_pairs.append((r[0]["span"], r[1]["span"]))
+    souq_route = {"done": len(routes), "people": sum(1 for p in db["participants"].values() if any(x.get("task") == "souq_route" for x in p.get("exploratory", []))),
+                  "median_span": median(x["span"] for x in routes) if routes else None,
+                  "median_accuracy": round(median(x["accuracy"] for x in routes if x.get("accuracy") is not None), 3) if routes else None,
+                  "repeat_pairs": len(route_pairs),
+                  "icc_3_1": round(_icc_3_1(np.array([a for a, _ in route_pairs], float), np.array([b for _, b in route_pairs], float)), 3)
+                  if len(route_pairs) >= MIN_PAIRS else None}
+
     def rows(d: dict) -> list[dict]:
         out = []
         for k, v in sorted(d.items(), key=lambda kv: -kv[1]["people"]):
@@ -205,6 +218,7 @@ def compute(db: dict) -> dict:
         "timing": timing,
         "letters": letters,
         "second_reader": second_reader,
+        "souq_route": souq_route,
         "segments": {k: rows(v) for k, v in seg.items()},
         "not_measurable_yet": ["sensitivity", "specificity"],
     }

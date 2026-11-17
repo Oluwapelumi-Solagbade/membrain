@@ -92,3 +92,30 @@ def test_ai_letters_are_measured_drafts_edits_and_approvals(monkeypatch):
     assert L["by_medgemma"] == before["by_medgemma"] + 1 and L["sentences_removed"] >= before["sentences_removed"] + 1
     assert L["approved_medgemma"] == before["approved_medgemma"] + 2 and L["accepted_unchanged"] == before["accepted_unchanged"] + 1
     assert 0 < L["removed_share"] <= 1 and L["median_similarity"] is not None
+
+
+def _route(span=4, form="A", date="2026-11-17"):
+    trials = [{"length": n, "correct": n <= span, "steps_correct": n if n <= span else n - 2, "ms": 900 * n} for n in range(3, span + 2)]
+    return {"task": "souq_route", "version": "sr-0.1", "form": form, "date": date, "lang": "ar", "span": span, "trials": trials}
+
+
+def test_souq_route_is_saved_shown_as_exploratory_and_never_changes_triage():
+    before = c.get("/cases/MB-1041", headers=CL).json()["latest"]["level"]
+    r = c.post("/participants/MB-1041/exploratory", headers=CL, json=_route(span=2)).json()   # a very low span
+    assert r["saved"] and r["span"] == 2 and 0 < r["accuracy"] <= 1 and r["ms_per_step"] > 0
+    case = c.get("/cases/MB-1041", headers=CL).json()
+    assert case["latest"]["level"] == before                                                # triage untouched
+    assert case["participant"]["exploratory"][-1]["task"] == "souq_route"
+    snap = json.loads(json.dumps(store.snapshot(DB), default=str))
+    assert snap["added_to_synthetic"]["MB-1041"]["exploratory"]                             # survives a restart
+    fresh = {"participants": {p["id"]: p for p in personas()}, "tasks": {}, "audit": []}
+    store.merge(fresh, snap)
+    assert fresh["participants"]["MB-1041"]["exploratory"][-1]["span"] == 2
+    s = c.get("/live/stats", headers=CL).json()["souq_route"]
+    assert s["done"] >= 1 and s["median_span"] is not None
+
+
+def test_souq_route_rejects_bad_input_and_other_peoples_records():
+    assert c.post("/participants/MB-1041/exploratory", headers=CL, json=_route() | {"task": "something_else"}).status_code == 422
+    assert c.post("/participants/MB-1041/exploratory", headers=CL, json=_route() | {"span": 42}).status_code == 422
+    assert c.post("/participants/NOPE/exploratory", headers=CL, json=_route()).status_code == 404

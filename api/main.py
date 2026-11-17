@@ -330,6 +330,46 @@ def submit_session(pid: str, body: SessionIn, who: Principal = Depends(principal
     return out  # held results: participant sees only the message; details go to clinician
 
 
+# ------------------------------------------------------------- Exploratory tasks (never used for triage)
+class RouteTrial(BaseModel):
+    length: int = Field(ge=2, le=9)
+    correct: bool
+    steps_correct: int = Field(ge=0, le=9)
+    ms: int = Field(ge=0, le=600000)
+
+
+class ExploratoryIn(BaseModel):
+    task: str = Field(pattern="^souq_route$")
+    version: str = Field(max_length=20)
+    form: str = Field(pattern="^[ABC]$")
+    date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    lang: str = Field(pattern="^(ar|en)$")
+    span: int = Field(ge=0, le=9)
+    trials: list[RouteTrial] = Field(max_length=20)
+    assisted: bool = False
+
+
+@app.post("/participants/{pid}/exploratory")
+def exploratory_result(pid: str, body: ExploratoryIn, who: Principal = Depends(principal)):
+    """Souq route (spatial route memory): kept with the record and shown to the clinician as EXPLORATORY.
+    It is not part of the scored check-in and never changes a triage level until it has been validated (pilot)."""
+    own(who, pid)
+    p = DB["participants"].get(pid)
+    if not p:
+        raise HTTPException(404)
+    t = body.trials
+    steps = sum(x.length for x in t)
+    res = body.model_dump() | {
+        "accuracy": round(sum(x.steps_correct for x in t) / steps, 3) if steps else None,
+        "ms_per_step": round(sum(x.ms for x in t) / steps) if steps else None,
+        "trials_correct": sum(1 for x in t if x.correct),
+    }
+    p.setdefault("exploratory", []).append(res)
+    audit(who.actor, "exploratory_task", pid, {"task": body.task, "span": body.span, "accuracy": res["accuracy"]})
+    return {"saved": True, "span": body.span, "accuracy": res["accuracy"], "ms_per_step": res["ms_per_step"],
+            "previous": [{"date": x["date"], "span": x["span"]} for x in p["exploratory"][:-1] if x["task"] == body.task][-3:]}
+
+
 @app.patch("/participants/{pid}/profile")
 def set_profile(pid: str, body: Profile, who: Principal = Depends(principal)):
     """Only for someone who came in through a concern (no enrolment yet); an enrolled profile is not changed here."""

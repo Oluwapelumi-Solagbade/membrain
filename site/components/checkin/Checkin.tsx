@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, ChevronDown, ClipboardCheck, HeartHandshake, MessageSquarePlus, Keyboard, Leaf, Volume1, Loader2, Phone, Play, RotateCcw, Settings2, Stethoscope, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, ClipboardCheck, HeartHandshake, MessageSquarePlus, Keyboard, Leaf, Volume1, Loader2, Phone, Play, RotateCcw, Settings2, Stethoscope, Users, MapPinned } from "lucide-react";
 import { Mark } from "../Logo";
 import { LevelPill } from "../ui";
 import engineData from "@/lib/generated/engine-data.json";
@@ -1013,6 +1013,7 @@ function Done({ t, lang, name, result, after, form, speechLabel, speaking, onRep
             {[
               { href: `/concern/?for=${encodeURIComponent(p.id)}&lang=${lang}`, icon: MessageSquarePlus, title: t.alsoChange, body: t.alsoChangeBody },
               { href: `/informant/?id=${encodeURIComponent(p.id)}&lang=${lang}`, icon: ClipboardCheck, title: t.alsoFamily, body: t.alsoFamilyBody },
+              { href: `/checkin/route/?id=${encodeURIComponent(p.id)}&lang=${lang}`, icon: MapPinned, title: t.alsoRoute, body: t.alsoRouteBody },
             ].map(({ href, icon: I, title, body }) => (
               <Link key={href} href={href} className="group flex gap-3.5 rounded-2xl border border-line bg-white p-4 transition-colors hover:border-leaf/50 hover:bg-[#fbfcfb]">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-mist text-deep"><I size={18} /></span>

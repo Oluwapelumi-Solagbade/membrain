@@ -23,6 +23,7 @@ type Stats = {
   letters: { drafts: number; by_medgemma: number; template_fallbacks: number; sentences_checked: number; sentences_removed: number; removed_share: number | null;
     median_seconds: number | null; approved: number; approved_medgemma: number; accepted_unchanged: number; accepted_unchanged_share: number | null; median_similarity: number | null };
   second_reader: { reads: number; with_suggestions: number; suggestions: number; dropped_ungrounded: number; median_seconds: number | null };
+  souq_route: { done: number; people: number; median_span: number | null; median_accuracy: number | null; repeat_pairs: number; icc_3_1: number | null };
   timing: { referrals: number; median_days_concern_to_referral: number | null; assessed: number; median_days_concern_to_assessment: number | null };
   segments: Record<"language" | "age" | "schooling", Seg[]>;
   not_measurable_yet: string[];
@@ -165,6 +166,14 @@ export function LiveView() {
               <Fact k="With at least one suggestion" v={`${s.second_reader.with_suggestions} of ${s.second_reader.reads}`} hint={`${s.second_reader.suggestions} suggestions shown, each quoting the person's words`} />
               <Fact k="Suggestions dropped (not in the person's words)" v={s.second_reader.dropped_ungrounded} hint="What MedGemma made up never reaches the screen" />
               <Fact k="Time to read (median)" v={s.second_reader.median_seconds == null ? "–" : `${s.second_reader.median_seconds} s`} />
+            </dl>
+          </Panel>
+
+          <Panel title="Souq route (exploratory)" icon={Activity} aside={<span className="text-[14px] text-body">Spatial route memory · not used for triage</span>}>
+            <dl className="divide-y divide-line">
+              <Fact k="Tasks completed" v={s.souq_route.done} hint={`${s.souq_route.people} people`} />
+              <Fact k="Route span (median)" v={s.souq_route.median_span == null ? "–" : `${s.souq_route.median_span} stops`} hint={s.souq_route.median_accuracy == null ? "" : `${pct(s.souq_route.median_accuracy)} of steps right`} />
+              <Fact k="Test–retest (ICC)" v={s.souq_route.icc_3_1 == null ? "–" : num(s.souq_route.icc_3_1)} hint={`${s.souq_route.repeat_pairs} people repeated it; calculated from 5`} />
             </dl>
           </Panel>
 
