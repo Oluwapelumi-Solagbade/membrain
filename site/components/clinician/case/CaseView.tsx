@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Download,
   FileClock,
+  HandHelping,
   HeartPulse,
   LineChart,
   ListChecks,
@@ -30,6 +31,7 @@ import { useWorkspace } from "../WorkspaceProvider";
 import { fhirBundle } from "./fhir";
 import { ReferralForm } from "./ReferralForm";
 import { ReportsOverTime } from "./Reports";
+import { Handover, handoverRows } from "./Handover";
 import { EDUCATION_LABEL, type Evaluation } from "@/lib/mb";
 import { dueOf, fmtDate, fmtTime, isIntakeOnly, levelOf } from "@/lib/workspace/derive";
 import { NAV } from "@/lib/workspace/navigator";
@@ -301,6 +303,12 @@ function CaseBody({ c }: { c: Case }) {
       {c.history.some((h) => zOf(h)?.composite != null) && (
         <Panel title="Over time" icon={LineChart} aside={<span className="text-[14px] text-body">Compared with own baseline</span>}>
           <Trend history={c.history} />
+        </Panel>
+      )}
+
+      {handoverRows(p).length > 0 && (
+        <Panel title="Who does it now" icon={HandHelping} aside={<span className="text-[14px] text-body">Tasks the household has taken over, beside the check-ins</span>}>
+          <Handover p={p} history={c.history} />
         </Panel>
       )}
 
