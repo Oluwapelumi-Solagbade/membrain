@@ -78,3 +78,19 @@ def test_parser_tolerates_how_llama_models_write_json():
     assert pk["rule_out"][0]["check"] == "blood_pressure" and pk["rule_out"][0]["why"] == "BP 151/90 is raised"
     assert PK.verify('{"summary": [{"text": "x", "facts": ["F1"]}]} {"other": 1}', fs)[0]   # first object only
     assert PK.verify("no json here", fs) == (None, 0, 0)
+
+
+def test_med42s_real_mistakes_on_the_live_space_are_caught():
+    """From Med42's first live answer (18 Nov): a made-up language, 4.0 for 4, every check listed, wrong facts cited."""
+    fs = _fs()
+    assert "speaks Arabic" in fs[0]["text"]
+    raw = ('{"summary": [{"text": "Delayed word recall fell from 5.0 to 4.0, a reliable decline.", "facts": ["F3"]},'
+           '{"text": "Spanish is the primary language.", "facts": []}],'
+           '"rule_out": [{"check": "thyroid", "why": "to rule out thyroid dysfunction", "facts": ["F7"]},'
+           '{"check": "depression", "why": "to rule out depression", "facts": ["F4", "F5"]},'
+           '{"check": "blood_pressure", "why": "Blood pressure is 151/90.", "facts": ["F7"]},'
+           '{"check": "glucose", "why": "HbA1c is 6.9%.", "facts": ["F8"]}], "ask": []}')
+    pk, kept, removed = PK.verify(raw, fs)
+    assert [s["text"] for s in pk["summary"]] == ["Delayed word recall fell from 5.0 to 4.0, a reliable decline."]
+    assert [r["check"] for r in pk["rule_out"]] == ["blood_pressure", "glucose"]    # thyroid on BP and depression on PHQ 1/6 dropped
+    assert removed == 3

@@ -39,7 +39,8 @@ def facts(p: dict, ev: dict, dossier: dict) -> list[dict]:
 
     pt = dossier.get("participant") or {}
     if pt.get("age"):
-        add("person", f"Age {pt['age']}; schooling: {pt.get('education_band') or 'not recorded'}; language {pt.get('language') or 'not recorded'}.")
+        lang = {"ar": "Arabic", "en": "English"}.get(pt.get("language"), pt.get("language") or "not recorded")
+        add("person", f"Age {pt['age']}; schooling: {pt.get('education_band') or 'not recorded'}; speaks {lang}.")
     c = dossier.get("concern") or {}
     if c.get("in_their_words"):
         from .deid import redact
@@ -149,11 +150,19 @@ def messages(fs: list[dict]) -> list[dict]:
            "Answer with JSON only, in this shape: "
            '{"summary":[{"text":"...","facts":["F1"]}],"rule_out":[{"check":"<key>","why":"...","facts":["F2"]}],'
            '"ask":[{"q":"...","facts":["F3"]}]}. '
-           f"summary: 2 or 3 sentences. rule_out: reversible causes worth checking, keys only from: {checks}. "
+           f"summary: 2 or 3 sentences, each citing its facts. rule_out: at most 5 reversible causes that a fact points to "
+           f"(an abnormal value or a reported problem), keys only from: {checks}; do not list routine blood tests, they "
+           f"are added automatically. "
            "ask: up to 5 questions for the person and family at the visit. Every item cites the facts it rests on. "
            "Use no number that is not in the cited facts. Write facts as strings like \"F2\". Start your answer with { and "
            "write nothing after the closing }.")
-    return [{"role": "system", "content": sys}, {"role": "user", "content": "Facts:\n" + lines}]
+    example = ('Example for other facts (F1: Age 80; speaks English. F2: Sleep reported at the last check-in: 4.5 hours a night. '
+               'F3: Story recall: 9 at baseline, 6 now (reliable decline).):\n'
+               '{"summary":[{"text":"Story recall fell from 9 to 6, a reliable decline.","facts":["F3"]},'
+               '{"text":"Sleep is short at 4.5 hours a night.","facts":["F2"]}],'
+               '"rule_out":[{"check":"sleep","why":"Short sleep lowers memory scores.","facts":["F2"]}],'
+               '"ask":[{"q":"How has sleep been over the last month?","facts":["F2"]}]}')
+    return [{"role": "system", "content": sys + "\n\n" + example}, {"role": "user", "content": "Facts:\n" + lines}]
 
 
 def _clean(t: str) -> str:
@@ -165,10 +174,44 @@ def _blocked(t: str) -> bool:
     return any(re.search(r"\b" + b.replace("$", r"\b"), low) for b in BLOCKED)
 
 
+def _nums(t: str) -> set[float]:
+    return {float(n) for n in re.findall(r"\d+(?:\.\d+)?", t)}
+
+
 def _numbers_ok(t: str, refs: list[str], by_id: dict) -> bool:
-    src = " ".join(by_id[r] for r in refs)
+    src = _nums(" ".join(by_id[r] for r in refs))
     t = re.sub(r"\bF\d+\b", "", t)   # fact labels written in the sentence are not numbers
-    return all(n in src for n in re.findall(r"\d+(?:\.\d+)?", t))
+    return _nums(t) <= src             # 4 and 4.0 are the same number
+
+
+def supports(check: str, text: str) -> bool:
+    """Does this fact actually point to this check? (the same thresholds as the rules)"""
+    low = text.lower()
+    num = lambda pat: (lambda m: float(m.group(1)) if m else None)(re.search(pat, text))  # noqa: E731
+    if check == "depression":
+        v = num(r"PHQ-2 [^:]*: ([\d.]+)")
+        return (v is not None and v >= 3) or ("reported" in low and ("mood" in low or "sad" in low or "depress" in low))
+    if check == "anxiety":
+        v = num(r"GAD-2 [^:]*: ([\d.]+)")
+        return (v is not None and v >= 3) or ("reported" in low and "anxi" in low)
+    if check == "sleep":
+        v = num(r"Sleep [^:]*: ([\d.]+) hours")
+        return (v is not None and v < 6) or ("reported" in low and "sleep" in low)
+    if check == "hearing_vision":
+        return "hearing" in low or "vision" in low or "eyesight" in low
+    if check == "medication":
+        return "medic" in low or "tablet" in low
+    if check == "delirium":
+        return "urgent signs" in low or "sudden" in low or "comes and goes" in low
+    if check == "blood_pressure":
+        v = num(r"Blood pressure (\d+)")
+        return v is not None and v >= 140
+    if check == "glucose":
+        v = num(r"HbA1c ([\d.]+)")
+        return v is not None and v >= 6.5
+    if check == "alcohol":
+        return "alcohol" in low
+    return False   # routine checks (thyroid, B12, blood count, kidney) are added by the rules without facts
 
 
 def _refs(v) -> list[str]:
@@ -239,7 +282,9 @@ def verify(raw: str, fs: list[dict]) -> tuple[dict | None, int, int]:
             removed += 1
     seen = set()
     for it in data.get("rule_out") or []:
-        if isinstance(it, dict) and it.get("check") in CHECKS and it["check"] not in seen and ok(it.get("why"), it.get("facts") or [], need_refs=False):
+        refs = (it.get("facts") or []) if isinstance(it, dict) else []
+        grounded = isinstance(it, dict) and refs and all(r in by_id and supports(it.get("check"), by_id[r]) for r in refs)
+        if isinstance(it, dict) and it.get("check") in CHECKS and it["check"] not in seen and grounded and ok(it.get("why"), refs):
             seen.add(it["check"])
             out["rule_out"].append({"check": it["check"], "label": CHECKS[it["check"]], "why": _clean(it["why"]), "facts": it.get("facts") or []}); kept += 1
         else:
