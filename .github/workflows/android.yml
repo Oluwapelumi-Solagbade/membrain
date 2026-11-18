@@ -31,7 +31,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: android-actions/setup-android@v3
+      # The Android SDK is preinstalled on GitHub's Ubuntu runners (ANDROID_HOME); Gradle fetches platform 34 if needed.
       - name: Build the app's web bundle (the home screen is the app; talks to the live server, runs on the phone without it)
         run: |
           cd mobile
