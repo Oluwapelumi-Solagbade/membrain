@@ -8,6 +8,7 @@ import { LogoMark, Mark } from "../Logo";
 import { Narrative } from "../Narrative";
 import { config, getEngine, getIntake, LEVEL_TONE, REPORTER_LABEL, type Evaluation, type IntakeResult, type Lang, type Reporter, type Span } from "@/lib/mb";
 import { ACTIVITY, CONFOUNDER, DOMAIN, ONSET, RED_FLAG, WHO, label } from "@/lib/labels";
+import { APP_HOME, appCaseHref, inApp } from "@/lib/app";
 import { rememberClaim } from "@/lib/auth";
 import { getBackend } from "@/lib/workspace/backend";
 import { COPY, EXAMPLES, REPORTERS, type Copy } from "./copy";
@@ -172,6 +173,9 @@ export function ConcernChat() {
   const [lang, setLang] = useState<Lang>(params.get("lang") === "ar" ? "ar" : "en");
   // ?for=<record>: a follow-up about someone already known, added to their record (signed in as them, or as staff).
   const forPid = params.get("for");
+  // Opened from the mobile app: its links lead back to the app (known only in the browser, so set after mount).
+  const [appMode, setAppMode] = useState(false);
+  useEffect(() => setAppMode(inApp()), []); // eslint-disable-line react-hooks/set-state-in-effect
   const [saveError, setSaveError] = useState<string | null>(null);
   const t = COPY[lang];
   const [step, setStep] = useState<Step>("who");
@@ -654,8 +658,9 @@ export function ConcernChat() {
     const tone = LEVEL_TONE[outcome.level];
     // A follow-up (?for=): say what it adds to the earlier report, from the engine's own comparison.
     const ch = outcome.concern_change;
-    const follow = !!forPid && outcome.level !== "URGENT" && !!ch && !ch.first;   // the record's first concern reads as a new one
-    const spread = follow && outcome.level === "CLINICIAN_REVIEW" && !outcome.carried;
+    // The record's first concern reads as a new one; urgent wording only when this report raised an urgent sign itself.
+    const follow = !!forPid && !!ch && !ch.first && !(outcome.level === "URGENT" && !outcome.carried);
+    const spread = follow && !!ch && (ch.new_activities.length > 0 || ch.new_domains.some((d) => config.CONCERN_COGNITIVE_DOMAINS.includes(d)));
     const sep = lang === "ar" ? "، " : ", ";
     const newItems = ch
       ? [
@@ -846,7 +851,7 @@ export function ConcernChat() {
   } else if (step === "outcome") {
     composer = (
       <div className="flex flex-wrap gap-2">
-        <Link href={caseId ? `/clinician/case/?id=${encodeURIComponent(caseId)}` : "/clinician/"} className="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-deep px-5 py-3.5 text-[15px] font-medium text-white hover:bg-deep-hover sm:flex-none">
+        <Link href={caseId ? (appMode ? appCaseHref(caseId) : `/clinician/case/?id=${encodeURIComponent(caseId)}`) : appMode ? APP_HOME : "/clinician/"} className="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-deep px-5 py-3.5 text-[15px] font-medium text-white hover:bg-deep-hover sm:flex-none">
           <Stethoscope size={18} /> {t.clinician}
         </Link>
         {outcome?.level !== "URGENT" && (
@@ -866,7 +871,7 @@ export function ConcernChat() {
       {/* Top bar */}
       <header className="shrink-0 border-b border-line bg-white/95 backdrop-blur">
         <div className="mx-auto flex h-[64px] max-w-[1080px] items-center gap-3 px-3 sm:px-6">
-          <Link href="/" aria-label={t.home} className="flex h-10 w-10 items-center justify-center rounded-full text-ink hover:bg-mist">
+          <Link href={appMode ? APP_HOME : lang === "ar" ? "/ar/" : "/"} aria-label={t.home} className="flex h-10 w-10 items-center justify-center rounded-full text-ink hover:bg-mist">
             <ArrowLeft size={21} className="rtl:-scale-x-100" />
           </Link>
           <Mark className="h-9 w-auto" />

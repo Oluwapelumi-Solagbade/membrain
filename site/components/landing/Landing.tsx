@@ -21,6 +21,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { HeroCard } from "@/components/landing/HeroCard";
 import { ChatChannels } from "@/components/landing/ChatChannels";
 import { DemoSection } from "@/components/landing/DemoSection";
+import { AppSection } from "@/components/landing/AppSection";
 import { QueuePreview } from "@/components/landing/QueuePreview";
 import { BaselineCompare } from "@/components/landing/BaselineCompare";
 import { btn, Eyebrow, SectionHeading } from "@/components/ui";
@@ -172,6 +173,8 @@ export function Landing({ lang }: { lang: Lang }) {
         </section>
 
         <DemoSection lang={lang} />
+
+        <AppSection lang={lang} />
 
         {/* Audiences */}
         <section id="families" aria-label={t.audiencesLabel} className="scroll-mt-20 border-t border-line bg-paper py-14 lg:py-20">

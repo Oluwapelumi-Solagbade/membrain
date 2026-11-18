@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans, IBM_Plex_Sans_Arabic, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 import { ModeBanner } from "@/components/ModeBanner";
+import { AndroidBack } from "@/components/app/AndroidBack";
 
 const plexSans = IBM_Plex_Sans({ variable: "--font-plex-sans", subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 const plexArabic = IBM_Plex_Sans_Arabic({ variable: "--font-plex-arabic", subsets: ["arabic"], weight: ["400", "500", "600", "700"] });
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={`${plexSans.variable} ${plexArabic.variable} ${plexMono.variable} ${sourceSerif.variable} antialiased`}>
       <body className="font-sans">
         <ModeBanner />
+        <AndroidBack />
         {children}
       </body>
     </html>

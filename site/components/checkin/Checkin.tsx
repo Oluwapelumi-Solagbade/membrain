@@ -9,6 +9,7 @@ import { LevelPill } from "../ui";
 import engineData from "@/lib/generated/engine-data.json";
 import { DEMO_TODAY, getEngine, type Lang, type Level } from "@/lib/mb";
 import { detectSpeech, LABEL, Recorder, speak, stopSpeaking, type Audio, type Recording, type Speech, type VoiceFeatures } from "@/lib/voice";
+import { appCaseHref, homeHref } from "@/lib/app";
 import { useSession } from "@/lib/auth";
 import { getBackend } from "@/lib/workspace/backend";
 import type { Backend, Case, CheckinResult, Participant, SessionIn } from "@/lib/workspace/types";
@@ -523,7 +524,7 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
   // The arrow leaves the check-in: a patient goes back to the home page (in their language), staff to this person's case.
   // ("/checkin/" would bring a signed-in patient straight back here, so the arrow seemed to do nothing.)
   const staff = me?.user.role === "clinician" || me?.user.role === "coordinator";
-  const exitHref = staff ? `/clinician/case/?id=${encodeURIComponent(p.id)}` : lang === "ar" ? "/ar/" : "/";
+  const exitHref = staff ? appCaseHref(p.id) : homeHref(lang); // back to the app when it opened the check-in
   const subtitle = [name || p.id, t.minutes].join(" · ");
   const engineLabel = speech ? (lang === "ar" ? ENGINE_AR[speech.engine === "local" && !speech.inUae ? "localDemo" : speech.engine] : speech.label) : "";
 
@@ -1037,7 +1038,7 @@ function Done({ t, lang, name, result, after, form, speechLabel, speaking, onRep
       )}
 
       <div className="flex flex-wrap gap-2.5 pt-1">
-        <Link href="/" className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-deep px-6 py-3.5 text-[16px] font-semibold text-white hover:bg-deep-hover sm:flex-none">
+        <Link href={homeHref(lang)} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-deep px-6 py-3.5 text-[16px] font-semibold text-white hover:bg-deep-hover sm:flex-none">
           {t.done}
         </Link>
         <Link href="/checkin/" className="inline-flex items-center justify-center gap-2 rounded-xl border border-line bg-white px-5 py-3.5 text-[15.5px] font-medium hover:bg-mist">

@@ -1,0 +1,59 @@
+# Builds the MemBrain Android app (mobile/: the site's mobile build packaged with Capacitor) on every push to main and
+# publishes it as MemBrain.apk on the "android-latest" release, which the landing page's download button links to.
+name: Android app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            site/package-lock.json
+            mobile/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - name: Build the app's web bundle (the home screen is the app; talks to the live server, runs on the phone without it)
+        run: |
+          cd mobile
+          npm ci --no-audit --no-fund
+          bash build-web.sh
+          npx cap sync android
+      - name: Build the APK
+        run: |
+          cd mobile/android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/MemBrain.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MemBrain-apk
+          path: MemBrain.apk
+      - name: Publish to the android-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="The MemBrain Android app, built from ${GITHUB_SHA::7}. Prototype with synthetic data; MemBrain never diagnoses. Install: allow installs from this source when Android asks."
+          gh release view android-latest >/dev/null 2>&1 || gh release create android-latest --title "MemBrain for Android" --notes "$notes" --target "$GITHUB_SHA"
+          gh release edit android-latest --notes "$notes"
+          gh release upload android-latest MemBrain.apk --clobber
+          echo "APK: https://github.com/${GITHUB_REPOSITORY}/releases/download/android-latest/MemBrain.apk" >> "$GITHUB_STEP_SUMMARY"

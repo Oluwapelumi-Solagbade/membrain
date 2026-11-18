@@ -137,3 +137,14 @@ mark.mb-ev-timeline { background: transparent; box-shadow: inset 0 -2px 0 #2a604
 .mb-hc .border-line, .mb-hc .ring-line { border-color: #5f6d67; --tw-ring-color: #5f6d67; }
 .mb-hc .bg-paper { background-color: #ffffff; }
 .mb-hc .text-leaf { color: #0f3f2c; }
+
+/* The mobile app (components/app): sheets slide up, their backdrop fades, the splash loading bar sweeps. */
+@keyframes mb-sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes mb-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mb-load { 0% { transform: translateX(-110%); } 100% { transform: translateX(220%); } }
+.mb-sheet-in { animation: mb-sheet-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.mb-fade-in { animation: mb-fade-in 0.25s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .mb-sheet-in, .mb-fade-in { animation: none; } }
+/* App screens behave like an app: no text selection or grey flash when tapping buttons; fields stay editable. */
+.mb-app { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+.mb-app input, .mb-app textarea, .mb-app [contenteditable] { -webkit-user-select: text; user-select: text; }

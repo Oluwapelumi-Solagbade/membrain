@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, Check, ChevronDown, Info, Loader2, Phone, Send }
 import { Mark } from "../Logo";
 import { Options } from "../checkin/parts";
 import type { Lang } from "@/lib/mb";
+import { APP_HOME, appCaseHref, homeHref, inApp } from "@/lib/app";
 import { useSession } from "@/lib/auth";
 import { getBackend, type Backend, type Case, type Respondent } from "@/lib/workspace/backend";
 import { FAQ_INTERVAL_WEEKS, FAQ_ITEMS, ITEM, NEVER, RESPONDENT, SCALE } from "@/lib/workspace/informant";
@@ -49,7 +50,7 @@ export function Questionnaire() {
       <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-paper px-6 text-center" dir={lang === "ar" ? "rtl" : "ltr"}>
         <Mark className="h-12 w-auto opacity-90" />
         <p className="text-[16px] text-body">{t.notYours}</p>
-        <Link href="/" className="rounded-xl border border-line bg-white px-5 py-3 text-[15px] font-medium hover:bg-mist">{t.exit}</Link>
+        <Link href={homeHref(lang)} className="rounded-xl border border-line bg-white px-5 py-3 text-[15px] font-medium hover:bg-mist">{t.exit}</Link>
       </div>
     );
   }
@@ -71,7 +72,7 @@ function Run({ c, backend, lang, setLang }: { c: Case; backend: Backend; lang: L
   const [message, setMessage] = useState("");
   const n = FAQ_ITEMS.length;
   const item = i >= 0 && i < n ? FAQ_ITEMS[i] : null;
-  const exitHref = staff ? `/clinician/case/?id=${encodeURIComponent(c.participant.id)}` : `/checkin/?id=${encodeURIComponent(c.participant.id)}&lang=${lang}`;
+  const exitHref = staff ? appCaseHref(c.participant.id) : inApp() ? APP_HOME : `/checkin/?id=${encodeURIComponent(c.participant.id)}&lang=${lang}`;
   const reportHref = `/concern/?for=${encodeURIComponent(c.participant.id)}&lang=${lang}`;
   const respondents = useMemo(() => (Object.keys(RESPONDENT) as Respondent[]).map((k) => ({ value: k, label: RESPONDENT[k][lang] })), [lang]);
 

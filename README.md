@@ -23,6 +23,7 @@ MemBrain is a bilingual (Arabic dialects and English), voice-first cognitive and
 | Navigator: red-flag screen, service directory, accessibility matching, closed-loop referral tracking, next-steps pack, programme metrics | `membrain/navigator.py`, Referrals tab | Working, tested |
 | Telegram bot: raise a concern by text or voice note (AR/EN), read-back with evidence, same triage and clinician queue as the website | `api/telegram.py`, [guide](docs/TELEGRAM_BOT.md) | Working, tested; needs a bot token |
 | Website: landing page (EN/AR), sign-in, concern chat, spoken check-in, family questionnaire, clinician workspace, referrals, validation | `site/` | Working; hosted on Azure, Hugging Face and GitHub Pages |
+| Mobile app (Android APK and `/app/`): clinician dashboard, map of the emirates, alert queue, written reports, case screen, voice intake; for people and families the check-in, report a change, family questionnaire, plan (EN/AR) | `site/components/app/`, `mobile/` | Working; APK built on every push ([download](https://github.com/Oluwapelumi-Solagbade/membrain/releases/download/android-latest/MemBrain.apk)) |
 | Python/JavaScript parity (90 golden cases, 461 session evaluations, navigator metrics; 0 mismatches) | `web/parity_test.js` | Passing |
 
 ## Quick start

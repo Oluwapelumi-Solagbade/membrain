@@ -1,0 +1,8 @@
+{
+  "appId": "ae.membrain.app",
+  "appName": "MemBrain",
+  "webDir": "www",
+  "backgroundColor": "#0f3f2c",
+  "server": { "androidScheme": "https" },
+  "android": { "allowMixedContent": false, "captureInput": true }
+}
