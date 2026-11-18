@@ -153,3 +153,42 @@ def test_saved_data_is_encrypted_when_a_key_is_set(tmp_path, monkeypatch):
     except Exception:
         pass
     assert store.status()["encrypted"]
+
+
+def test_family_sees_only_a_clinician_approved_next_step():
+    case = c.post("/concerns", json={"reporter": "family", "lang": "ar", "narrative": "أبوي صار ينسى الدوا وايد كل يوم",
+                                     "domains": ["memory"], "date": "2026-11-18"}).json()
+    pid = case["participant"]["id"]
+    fam = {"X-Role": "participant"}
+    before = c.get(f"/me/{pid}/next-step?lang=ar", headers=fam).json()
+    assert before["status"] == "waiting" and "يراجع الطبيب" in before["text"]          # nothing shown before approval
+    assert c.get(f"/participants/{pid}/family-message/suggest", headers=fam).status_code in (401, 403)
+    s = c.get(f"/participants/{pid}/family-message/suggest", headers=CL).json()
+    assert s["en"] and s["ar"] and "diagnos" not in s["en"].lower().replace("not a diagnosis", "")
+    assert c.post(f"/participants/{pid}/family-message", headers=fam, json={"en": s["en"], "ar": s["ar"]}).status_code in (401, 403)
+    edited = s["ar"] + " نتمنى له الصحة."
+    assert c.post(f"/participants/{pid}/family-message", headers=CL, json={"en": s["en"], "ar": edited}).status_code == 200
+    after = c.get(f"/me/{pid}/next-step?lang=ar", headers=fam).json()
+    assert after["status"] == "approved" and after["text"] == edited                    # exactly what the clinician approved
+    assert c.get(f"/me/{pid}/next-step?lang=en", headers=fam).json()["text"] == s["en"]
+    snap = json.loads(json.dumps(store.snapshot(DB), default=str))
+    assert snap["participants"][pid]["family_messages"][-1]["ar"] == edited               # kept across restarts
+    assert pid in snap["claims"]                                                         # so the family can still sign in to it
+
+
+def test_suggested_family_message_follows_the_case():
+    from api.family import suggest
+    p = {"referrals": [{"id": "R1", "state": "sent", "service_id": "SVC-01", "history": []}]}
+    assert "assessment at Memory Clinic" in suggest(p, {"level": "CLINICIAN_REVIEW"}, None)["en"]
+    assert "998" in suggest({}, {"level": "URGENT"}, None)["en"]
+    assert "six months" in suggest({"sessions": [{"raw": {"x": 1}}]}, {"level": "STABLE"}, {"status": "closed"})["en"]
+
+
+def test_suggestion_never_says_nothing_to_do_before_any_check_in():
+    from api.family import suggest
+    concern_only = {"sessions": [{"type": "intake"}]}
+    assert "check-in" in suggest(concern_only, {"level": "BASELINE"}, None)["en"]
+    assert "Nothing needs to change" not in suggest(concern_only, {"level": "STABLE"}, None)["en"]
+    checked = {"sessions": [{"raw": {"memory_delayed": 5}}]}
+    assert "2 to 4 weeks" in suggest(checked, {"level": "CHECK_AGAIN"}, None)["en"]
+    assert "will contact you" in suggest(checked, {"level": "CLINICIAN_REVIEW"}, None)["en"]

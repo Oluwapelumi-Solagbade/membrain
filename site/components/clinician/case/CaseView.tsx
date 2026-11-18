@@ -22,6 +22,7 @@ import {
   Stethoscope,
   X,
   MapPinned,
+  Send,
 } from "lucide-react";
 import { Mark } from "../../Logo";
 import { LevelPill } from "../../ui";
@@ -35,6 +36,7 @@ import { ReferralForm } from "./ReferralForm";
 import { ReportsOverTime } from "./Reports";
 import { Handover, handoverRows } from "./Handover";
 import { ReferralDraft } from "./ReferralDraft";
+import { FamilyMessage } from "./FamilyMessage";
 import { EDUCATION_LABEL, type Evaluation } from "@/lib/mb";
 import { dueOf, fmtDate, fmtTime, isIntakeOnly, levelOf } from "@/lib/workspace/derive";
 import { NAV } from "@/lib/workspace/navigator";
@@ -450,6 +452,11 @@ function CaseBody({ c }: { c: Case }) {
           </p>
         </Panel>
       )}
+
+      {/* What the family is told: only after a clinician approves it */}
+      <Panel title="Message to the family" icon={Send} aside={<span className="text-[14px] text-body">Shared only after you approve it</span>}>
+        <FamilyMessage pid={p.id} />
+      </Panel>
 
       {/* Referral letter: always available to a clinician, before or after a referral */}
       <Panel title="Referral letter" icon={FileText} aside={<span className="text-[14px] text-body">Drafted by MedGemma, fact-checked by MemBrain</span>}>

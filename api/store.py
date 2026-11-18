@@ -115,11 +115,13 @@ def snapshot(db: dict) -> dict:
             n_s, n_r = seed["participants"][pid]["sessions"], seed["participants"][pid]["referrals"]
             add_s, add_r = p.get("sessions", [])[n_s:], p.get("referrals", [])[n_r:]
             add_x = p.get("exploratory", [])   # synthetic people have none at start: all of them were added live
-            if add_s or add_r or add_x:
-                extra[pid] = {"sessions": add_s, "referrals": add_r, "exploratory": add_x}
+            add_m = p.get("family_messages", [])
+            if add_s or add_r or add_x or add_m:
+                extra[pid] = {"sessions": add_s, "referrals": add_r, "exploratory": add_x, "family_messages": add_m}
     tasks = {k: t for k, t in db["tasks"].items() if k not in seed["tasks"] or t.get("actions")}
+    from api.auth import CLAIMS   # pid -> sha256(claim token): lets a family who raised a concern sign in to it later
     return {"version": VERSION, "saved_at": datetime.now(timezone.utc).isoformat(), "participants": people,
-            "added_to_synthetic": extra, "tasks": tasks, "audit": db["audit"][-AUDIT_CAP:]}
+            "added_to_synthetic": extra, "tasks": tasks, "audit": db["audit"][-AUDIT_CAP:], "claims": dict(CLAIMS)}
 
 
 def merge(db: dict, snap: dict) -> dict:
@@ -138,8 +140,14 @@ def merge(db: dict, snap: dict) -> dict:
         p.setdefault("referrals", []).extend(add.get("referrals", []))
         if add.get("exploratory"):
             p["exploratory"] = list(add["exploratory"])
+        if add.get("family_messages"):
+            p["family_messages"] = list(add["family_messages"])
         n_s += len(add.get("sessions", []))
     db["tasks"].update(snap.get("tasks") or {})
+    if snap.get("claims"):
+        from api.auth import CLAIMS
+        for pid, h in snap["claims"].items():
+            CLAIMS.setdefault(pid, h)
     seen = {(a.get("ts"), a.get("action"), a.get("target")) for a in db["audit"]}
     db["audit"][:0] = [a for a in (snap.get("audit") or []) if (a.get("ts"), a.get("action"), a.get("target")) not in seen]
     return {"participants": len(snap.get("participants") or {}), "sessions": n_s}

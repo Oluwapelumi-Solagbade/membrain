@@ -169,6 +169,9 @@ async def _save_after_changes(request: Request, call_next):
 from api.live import router as live_router  # noqa: E402
 
 app.include_router(live_router)
+from api.family import router as family_router  # noqa: E402
+
+app.include_router(family_router)
 
 
 class Identity(BaseModel):
