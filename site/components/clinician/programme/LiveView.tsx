@@ -27,6 +27,12 @@ type Stats = {
   souq_route: { done: number; people: number; median_span: number | null; median_accuracy: number | null; repeat_pairs: number; icc_3_1: number | null };
   timing: { referrals: number; median_days_concern_to_referral: number | null; assessed: number; median_days_concern_to_assessment: number | null };
   segments: Record<"language" | "age" | "schooling", Seg[]>;
+  moca: {
+    records: number; people: number; pairs: number; window_days: number; cut: number; min_pairs: number; below_cut: number;
+    median_gap_days: number | null; spearman_total: number | null; spearman_delayed_recall: number | null; recall_pairs: number;
+    auc_below_cut: number | null;
+    agreement: { flag_and_below: number; no_flag_but_below: number; no_flag_and_above: number; flag_but_above: number; sensitivity: number | null; specificity: number | null };
+  };
   not_measurable_yet: string[];
 };
 
@@ -170,6 +176,22 @@ export function LiveView() {
               <Fact k="Suggestions dropped (not in the person's words)" v={s.second_reader.dropped_ungrounded} hint="What MedGemma made up never reaches the screen" />
               <Fact k="Time to read (median)" v={s.second_reader.median_seconds == null ? "–" : `${s.second_reader.median_seconds} s`} />
             </dl>
+          </Panel>
+
+          <Panel title="Home check-in against the clinic MoCA" icon={Scale} aside={<span className="text-[14px] text-body">Reference entered by certified clinicians · paired within {s.moca.window_days} days</span>}>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <dl className="divide-y divide-line">
+                <Fact k="Clinic MoCAs recorded" v={s.moca.records} hint={`${s.moca.people} people; ${s.moca.pairs} with a home check-in within ${s.moca.window_days} days${s.moca.median_gap_days == null ? "" : ` (median ${s.moca.median_gap_days} days apart)`}`} />
+                <Fact k="Rank correlation with the MoCA total" v={s.moca.spearman_total == null ? "–" : num(s.moca.spearman_total)} hint={`Spearman, home composite score; calculated from ${s.moca.min_pairs} pairs`} />
+                <Fact k="Delayed recall against MoCA recall" v={s.moca.spearman_delayed_recall == null ? "–" : num(s.moca.spearman_delayed_recall)} hint={`${s.moca.recall_pairs} pairs with section scores`} />
+              </dl>
+              <dl className="divide-y divide-line">
+                <Fact k={`Separates MoCA below ${s.moca.cut} (AUC)`} v={s.moca.auc_below_cut == null ? "–" : num(s.moca.auc_below_cut)} hint={`${s.moca.below_cut} of ${s.moca.pairs} below the cut-off; 0.5 is chance, 1 is perfect`} />
+                <Fact k="Flagged when the MoCA was low" v={s.moca.agreement.sensitivity == null ? "–" : pct(s.moca.agreement.sensitivity)} hint={`${s.moca.agreement.flag_and_below} flagged, ${s.moca.agreement.no_flag_but_below} not flagged`} />
+                <Fact k="Not flagged when the MoCA was normal" v={s.moca.agreement.specificity == null ? "–" : pct(s.moca.agreement.specificity)} hint={`${s.moca.agreement.no_flag_and_above} not flagged, ${s.moca.agreement.flag_but_above} flagged`} />
+              </dl>
+            </div>
+            <p className="mt-3 text-[13px] text-muted">Agreement with a clinic screening test, not accuracy against a diagnosis. Accuracy against diagnosis comes from the pilot&apos;s clinical assessments.</p>
           </Panel>
 
           <Panel title="Souq route (exploratory)" icon={Activity} aside={<span className="text-[14px] text-body">Spatial route memory · not used for triage</span>}>

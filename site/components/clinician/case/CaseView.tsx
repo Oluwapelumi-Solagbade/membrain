@@ -37,6 +37,7 @@ import { ReportsOverTime } from "./Reports";
 import { Handover, handoverRows } from "./Handover";
 import { ReferralDraft } from "./ReferralDraft";
 import { FamilyMessage } from "./FamilyMessage";
+import { MocaPanel } from "./MocaPanel";
 import { EDUCATION_LABEL, type Evaluation } from "@/lib/mb";
 import { dueOf, fmtDate, fmtTime, isIntakeOnly, levelOf } from "@/lib/workspace/derive";
 import { NAV } from "@/lib/workspace/navigator";
@@ -452,6 +453,11 @@ function CaseBody({ c }: { c: Case }) {
           </p>
         </Panel>
       )}
+
+      {/* Clinic MoCA: the reference standard, entered by the clinician (scores only) */}
+      <Panel title="Clinic MoCA" icon={Stethoscope} aside={<span className="text-[14px] text-body">Given by a certified clinician · reference, not used for triage</span>}>
+        <MocaPanel pid={p.id} />
+      </Panel>
 
       {/* What the family is told: only after a clinician approves it */}
       <Panel title="Message to the family" icon={Send} aside={<span className="text-[14px] text-body">Shared only after you approve it</span>}>

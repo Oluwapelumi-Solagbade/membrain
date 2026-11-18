@@ -116,8 +116,9 @@ def snapshot(db: dict) -> dict:
             add_s, add_r = p.get("sessions", [])[n_s:], p.get("referrals", [])[n_r:]
             add_x = p.get("exploratory", [])   # synthetic people have none at start: all of them were added live
             add_m = p.get("family_messages", [])
-            if add_s or add_r or add_x or add_m:
-                extra[pid] = {"sessions": add_s, "referrals": add_r, "exploratory": add_x, "family_messages": add_m}
+            add_c = p.get("moca", [])            # likewise: clinician-entered MoCA scores
+            if add_s or add_r or add_x or add_m or add_c:
+                extra[pid] = {"sessions": add_s, "referrals": add_r, "exploratory": add_x, "family_messages": add_m, "moca": add_c}
     tasks = {k: t for k, t in db["tasks"].items() if k not in seed["tasks"] or t.get("actions")}
     from api.auth import CLAIMS   # pid -> sha256(claim token): lets a family who raised a concern sign in to it later
     return {"version": VERSION, "saved_at": datetime.now(timezone.utc).isoformat(), "participants": people,
@@ -142,6 +143,8 @@ def merge(db: dict, snap: dict) -> dict:
             p["exploratory"] = list(add["exploratory"])
         if add.get("family_messages"):
             p["family_messages"] = list(add["family_messages"])
+        if add.get("moca"):
+            p["moca"] = list(add["moca"])
         n_s += len(add.get("sessions", []))
     db["tasks"].update(snap.get("tasks") or {})
     if snap.get("claims"):

@@ -220,6 +220,7 @@ def compute(db: dict) -> dict:
         "letters": letters,
         "second_reader": second_reader,
         "souq_route": souq_route,
+        "moca": __import__("api.moca", fromlist=["validation"]).validation(db),
         "segments": {k: rows(v) for k, v in seg.items()},
         "not_measurable_yet": ["sensitivity", "specificity"],
     }
