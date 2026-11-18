@@ -45,6 +45,8 @@ app = FastAPI(title="MemBrain API", version=C.ENGINE_VERSION, lifespan=lifespan,
 ALLOWED_ORIGINS = [o.strip() for o in os.getenv(
     "ALLOWED_ORIGINS", "https://oluwapelumi-solagbade.github.io,http://localhost:8000,http://127.0.0.1:8000,"
     "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3100,http://127.0.0.1:3100").split(",") if o.strip()]
+# The Android app (Capacitor) loads its screens from https://localhost on the phone; it calls the same API.
+ALLOWED_ORIGINS += [o for o in ("https://localhost", "capacitor://localhost") if o not in ALLOWED_ORIGINS]
 app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, allow_methods=["*"], allow_headers=["*"])
 
 from api.speech import router as speech_router  # noqa: E402
@@ -179,31 +181,56 @@ app.include_router(packet_router)
 
 
 class Identity(BaseModel):
-    full_name: str
-    national_id: str | None = None   # Emirates ID or MRN
-    phone: str | None = None
+    full_name: str = Field(max_length=200)
+    national_id: str | None = Field(None, max_length=40)   # Emirates ID or MRN
+    phone: str | None = Field(None, max_length=30)
     preferred_channel: str = Field("app", pattern="^(app|whatsapp|phone)$")
 
 
 class Informant(BaseModel):
-    name: str
-    relation: str
-    phone: str | None = None
+    """Who the informant is, for the identity vault (name and phone never enter the analytics record)."""
+    name: str = Field(max_length=200)
+    relation: str = Field(max_length=40)
+    phone: str | None = Field(None, max_length=30)
+
+
+class InformantProfile(BaseModel):
+    """What the analytics record keeps about the informant: their role, never who they are."""
+    type: str = Field("family", pattern="^(family|household_helper)$")
+    relation: str | None = Field(None, max_length=40)
+    language: str | None = Field(None, max_length=10)
+    consented: bool = True
+    timeline: list[dict] = Field(default_factory=list, max_length=12)   # {activity, change, when, who_took_over, why}
+
+
+class EnrolConcern(BaseModel):
+    """How the person came to the programme, what was noticed, and the red-flag screen done before any testing."""
+    route: str = Field("programme", pattern="^(programme|primary_care|family|household_helper|self)$")
+    text: str = Field("", max_length=2000)
+    onset: str | None = Field(None, pattern="^(days|weeks|months|years|none)$")
+    red_flags: list[str] = Field(default_factory=list, max_length=len(C.RED_FLAGS))
 
 
 class Enrol(BaseModel):
     identity: Identity | None = None
     informant: Informant | None = None
+    informant_profile: InformantProfile | None = None
+    concern: EnrolConcern | None = None
     enrolled_by: str = "coordinator"
     programme: str = "pilot"
     consent_version: str = "consent-ar-en-0.1"
     age: float = Field(ge=50, le=75)
-    sex: str = "U"
+    sex: str = Field("U", pattern="^(F|M|U)$")
     education: str = Field(pattern="^(none|primary|secondary|tertiary)$")
     language: str = Field(pattern="^(ar|en)$")
-    dialect: str = "Emirati"
+    dialect: str = Field("Emirati", max_length=40)
     consent: dict = Field(default_factory=dict)
     context: dict = Field(default_factory=dict)
+    emirate: str | None = Field(None, max_length=40)
+    funding: str | None = Field(None, max_length=40)
+    iqcode: float | None = Field(None, ge=1, le=5)   # IQCODE-16 average, if an informant completed it today
+    apoe: str | None = Field(None, pattern="^e[234]/e[234]$")   # an existing result, imported only with genomics consent
+    date: str | None = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
 
 
 class SessionIn(BaseModel):
@@ -274,24 +301,88 @@ def items(form: str, lang: str = "en"):
             "judgement": JUDGEMENT[form][lang]}
 
 
+def _informant_record(prof: "InformantProfile") -> dict:
+    """The informant's role and the changes they describe, with each activity as a known key and its label."""
+    rows = []
+    for t in prof.timeline:
+        key = str(t.get("activity_key") or "")
+        label = _IK.ACTIVITIES.get(key) or str(t.get("activity") or "")[:80]
+        if not label:
+            continue
+        rows.append({"activity_key": key if key in _IK.ACTIVITIES else None, "activity": label,
+                     **{k: str(t.get(k) or "")[:120] for k in ("change", "when", "who_took_over", "why")}})
+    return prof.model_dump(exclude={"timeline"}) | {"timeline": rows}
+
+
+# How someone came to the programme (enrolment) -> who raised the concern (the triage engine's reporter keys).
+ROUTE_REPORTER = {"programme": "coordinator", "primary_care": "professional", "family": "family", "household_helper": "helper", "self": "self"}
+
+
 @app.post("/participants")
-def enrol(body: Enrol, r: str = Depends(role)):
-    need(r, "coordinator", "clinician")
-    pid = "MB-" + uuid.uuid4().hex[:6].upper()
-    data = body.model_dump()
-    ident, informant = data.pop("identity"), data.pop("informant")
-    VAULT[pid] = {"identity": ident, "informant": informant}   # identifiers never enter the analytics record
-    p = data | {"id": pid, "sessions": [], "has_informant": informant is not None,
-                "enrolled_at": datetime.now(timezone.utc).isoformat()}
+def enrol(body: Enrol, who: Principal = Depends(principal)):
+    """A coordinator or clinician enrols someone. Name, ID and phone go to the identity vault only; the record the
+    engine, dashboard and analytics use carries a pseudonymous ID. A red flag at the safety screen opens an urgent
+    review straight away."""
+    r = who.actor   # audited under the signed-in account
+    need(who.role, "coordinator", "clinician")
+    while True:
+        pid = "MB-" + uuid.uuid4().hex[:6].upper()
+        if pid not in DB["participants"]:
+            break
+    today = body.date or datetime.now(timezone.utc).date().isoformat()
+    consent = {k: bool(v) for k, v in (body.consent or {}).items()}
+    ctx = dict(body.context or {})
+    if not consent.get("clinical_record", True):        # no health-record consent: keep only what the person said
+        for k in ("sbp", "dbp", "hba1c", "ldl", "bmi"):
+            ctx[k] = None
+    if not consent.get("family_history", True):
+        ctx["family_history_dementia"] = None
+    age = float(body.age)
+    prof = body.informant_profile
+    helper_ok = prof is None or prof.type != "household_helper" or prof.consented
+    p = {"id": pid, "display_name": {"en": "Enrolled participant", "ar": "مشارك مسجّل"}, "age": age,
+         "age_band": "50-59" if age < 60 else "60-69" if age < 70 else "70-75", "sex": body.sex, "education": body.education,
+         "dialect": body.dialect, "language": body.language, "languages": [body.language], "story": "", "context": ctx,
+         "consent": consent, "sessions": [], "referrals": [], "enrolled": True,
+         "entry_route": body.concern.route if body.concern else "programme", "emirate": body.emirate, "funding": body.funding,
+         "preferred_channel": body.identity.preferred_channel if body.identity else "app",
+         "pending_iqcode": body.iqcode, "has_informant": body.informant is not None or prof is not None,
+         "informant": _informant_record(prof) if prof and helper_ok else None,
+         "genomics": {"apoe": body.apoe, "source": "Existing result entered at enrolment", "date": today, "counselling": "not_offered"}
+         if body.apoe and consent.get("genomics") else None,
+         "programme": body.programme, "consent_version": body.consent_version, "enrolled_by": body.enrolled_by,
+         "enrolled_at": datetime.now(timezone.utc).isoformat()}
+    cz = body.concern or EnrolConcern()
+    flags = [f for f in dict.fromkeys(cz.red_flags) if f in C.RED_FLAGS]
+    acts = sorted({str(t.get("activity_key")) for t in (prof.timeline if prof else []) if t.get("activity_key") in _IK.ACTIVITIES})
+    if body.concern:   # the concern and the red-flag screen, recorded before any testing
+        p["sessions"].append({"session_id": f"{pid}-intake", "date": today, "type": "intake", "channel": "app",
+                            "concern": cz.text.strip() or "routine programme screening", "onset": cz.onset, "red_flags": flags,
+                            "reported_concern": {"reporter": ROUTE_REPORTER[cz.route], "domains": [], "activities_taken_over": acts}})
     DB["participants"][pid] = p
-    audit(r, "enrol", pid, {"consent": body.consent, "consent_version": body.consent_version, "programme": body.programme})
-    return {"id": pid, "first_form": form_for_session(0, participant_seed(pid)), "schedule": {"baseline_1": "today", "baseline_2": "+2 weeks", "follow_up": "+12 weeks"}}
+    VAULT[pid] = {"identity": body.identity.model_dump() if body.identity else None,
+                  "informant": body.informant.model_dump() if body.informant else None}   # identifiers never enter the record
+    phone_linked = False
+    if body.identity and body.identity.phone:   # the person can then sign in with this number and land on their own record
+        from api.auth import PHONES, normalise_phone
+        ph = normalise_phone(body.identity.phone)
+        if ph and ph not in PHONES:
+            PHONES[ph] = pid
+            phone_linked = True
+    if p["sessions"]:
+        _sync_tasks(p, evaluate(p, p["sessions"]))
+    audit(r, "enrol", pid, {"consent": consent, "consent_version": body.consent_version, "programme": body.programme,
+                            "entry_route": p["entry_route"], "red_flags": flags})
+    return {"id": pid, "first_form": form_for_session(0, participant_seed(pid)), "phone_linked": phone_linked,
+            "schedule": {"baseline_1": "today", "baseline_2": "+2 weeks", "follow_up": "+12 weeks"}, "case": _case(p)}
 
 
 @app.post("/participants/{pid}/reidentify")
-def reidentify(pid: str, reason: dict, r: str = Depends(role)):
-    """Break-glass re-identification for follow-up contact: clinician only, reason required, audited."""
-    need(r, "clinician", "coordinator")
+def reidentify(pid: str, reason: dict, who: Principal = Depends(principal)):
+    """Break-glass re-identification for follow-up contact: clinical staff only, reason required, audited under the
+    signed-in account."""
+    r = who.actor
+    need(who.role, "clinician", "coordinator")
     if not reason.get("reason"):
         raise HTTPException(422, "a reason is required to re-identify")
     if pid not in VAULT:
@@ -346,12 +437,15 @@ def submit_session(pid: str, body: SessionIn, who: Principal = Depends(principal
     p["sessions"].append(s)
     ev = evaluate(p, p["sessions"])
     _sync_tasks(p, ev)
-    audit(r, "session_submitted", pid, {"session_id": s["session_id"], "level": ev["latest"]["level"]})
-    msg = participant_message(ev["latest"], lang)
-    out = {"session_id": s["session_id"], "message": msg, "level": ev["latest"]["level"],
-           "held_for_clinician": bool(ev["latest"].get("held_for_clinician")),
+    # The person hears about the check-in they just did, even if a report (a concern, the family questionnaire) on the
+    # record is dated later.
+    mine = next((e for e in ev["history"] if e["session_id"] == s["session_id"]), ev["latest"])
+    audit(r, "session_submitted", pid, {"session_id": s["session_id"], "level": mine["level"]})
+    msg = participant_message(mine, lang)
+    out = {"session_id": s["session_id"], "message": msg, "level": mine["level"],
+           "held_for_clinician": bool(mine.get("held_for_clinician")),
            "next_form": form_for_session(idx + 1, participant_seed(pid))}
-    if ev["latest"]["level"] in ("BASELINE", "STABLE"):
+    if mine["level"] in ("BASELINE", "STABLE"):
         out["prevention"] = prevention_plan({**p.get("context", {}), "mood_positive": (body.phq2 or 0) >= 3}, lang)
     return out  # held results: participant sees only the message; details go to clinician
 

@@ -54,12 +54,15 @@ function samples(task: Task, form: string, lang: Lang): [string, string] {
 
 const addDays = (iso: string, d: number) => new Date(Date.parse(iso + "T00:00:00Z") + d * 86400000).toISOString().slice(0, 10);
 
-/** The check-in's date in the demo's synthetic world: today, or two weeks after the last check-in if that is later. */
+/** The check-in's date in the demo's synthetic world: today, or two weeks after the last check-in if that is later,
+ *  and never before a report already on the record (a concern or the family questionnaire, which carry real dates). */
 function sessionDate(p: Participant) {
-  const scored = p.sessions.filter((s) => s.type !== "intake").map((s) => s.date.slice(0, 10)).sort();
+  const isReport = (s: Participant["sessions"][number]) => s.type === "intake" || s.type === "informant";
+  const scored = p.sessions.filter((s) => !isReport(s)).map((s) => s.date.slice(0, 10)).sort();
+  const reports = p.sessions.filter(isReport).map((s) => s.date.slice(0, 10)).sort();
   const last = scored[scored.length - 1];
-  const soonest = last ? addDays(last, 14) : DEMO_TODAY;
-  return soonest > DEMO_TODAY ? soonest : DEMO_TODAY;
+  const soonest = [last ? addDays(last, 14) : DEMO_TODAY, reports[reports.length - 1] ?? DEMO_TODAY, DEMO_TODAY].sort().pop()!;
+  return soonest;
 }
 
 const nameOf = (p: Participant, lang: Lang) => (p.enrolled === false ? "" : p.display_name?.[lang] || p.display_name?.en || "");

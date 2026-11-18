@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Activity, Bell, ChartColumn, ChartNoAxesColumn, ChevronDown, Inbox, LogOut, Menu, Route, Search, Settings, SquarePlus, UsersRound, X, type LucideIcon } from "lucide-react";
+import { Activity, Bell, ChartColumn, ChartNoAxesColumn, ChevronDown, Inbox, LogOut, Menu, Route, Search, Settings, SquarePlus, UsersRound, X, type LucideIcon, UserPlus } from "lucide-react";
 import { Logo, Mark } from "../Logo";
 import { LevelPill } from "../ui";
 import { Avatar, usePopover } from "./parts";
@@ -52,6 +52,7 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
             { href: "/clinician/referrals/", label: "Referrals", icon: Route },
             { href: "/clinician/validation/", label: "Validation", icon: ChartColumn },
             { href: "/clinician/live/", label: "Live data", icon: Activity },
+            { href: "/clinician/enrol/", label: "Enrol a participant", icon: UserPlus },
             { href: "/concern/", label: "Raise a concern", icon: SquarePlus },
           ]}
         />
@@ -94,10 +95,12 @@ function useMe() {
   const u = session?.user;
   return { name: u?.name ?? "Signed in", title: u?.title ?? (u?.role === "coordinator" ? "Programme coordinator" : "Clinician"), email: u?.email ?? "", demo: session?.mode === "browser" };
 }
+// Letters only: "Layla (coordinator)" is "LC", not "L(".
 const initials = (n: string) =>
   n
     .replace(/^Dr\.?\s+/i, "")
     .split(/\s+/)
+    .map((w) => w.replace(/[^\p{L}]/gu, ""))
     .filter(Boolean)
     .slice(0, 2)
     .map((w) => w[0])

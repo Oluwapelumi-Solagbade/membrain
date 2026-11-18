@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { getBackend, type AuditEntry, type Backend, type Case, type ReferralIn, type ReferralState, type TaskAction } from "@/lib/workspace/backend";
+import { getBackend, type AuditEntry, type Backend, type Case, type EnrolDone, type EnrolIn, type ReferralIn, type ReferralState, type TaskAction, type VaultEntry } from "@/lib/workspace/backend";
 
 type Workspace = {
   ready: boolean;
@@ -18,6 +18,8 @@ type Workspace = {
   advance: (rid: string, state: ReferralState, date: string, reason?: string) => Promise<void>;
   audit: () => Promise<AuditEntry[]>;
   reset: () => Promise<void>;
+  enrol: (body: EnrolIn) => Promise<EnrolDone>;
+  reidentify: (pid: string, reason: string) => Promise<VaultEntry>;
 };
 
 const Ctx = createContext<Workspace | null>(null);
@@ -70,6 +72,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       advance: (rid, state, date, reason) => run((b) => b.advance(rid, state, date, reason)),
       audit: async () => (await getBackend()).audit(),
       reset: () => run((b) => b.reset()),
+      enrol: async (body) => {
+        let out: EnrolDone | null = null;
+        await run(async (b) => {
+          out = await b.enrol(body);
+        });
+        return out!;
+      },
+      reidentify: async (pid, reason) => (await getBackend()).reidentify(pid, reason),
     }),
     [backend, cases, error, query, run],
   );

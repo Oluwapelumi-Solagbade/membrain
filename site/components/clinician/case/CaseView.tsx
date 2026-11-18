@@ -24,6 +24,7 @@ import {
   MapPinned,
   Send,
   ClipboardCheck,
+  Lock,
 } from "lucide-react";
 import { Mark } from "../../Logo";
 import { LevelPill } from "../../ui";
@@ -35,6 +36,7 @@ import { useWorkspace } from "../WorkspaceProvider";
 import { fhirBundle } from "./fhir";
 import { ReferralForm } from "./ReferralForm";
 import { ReportsOverTime } from "./Reports";
+import { ContactDetails } from "./ContactDetails";
 import { Handover, handoverRows } from "./Handover";
 import { ReferralDraft } from "./ReferralDraft";
 import { FamilyMessage } from "./FamilyMessage";
@@ -121,6 +123,7 @@ function CaseBody({ c }: { c: Case }) {
   const referred = p.referrals.length > 0;
   const due = referred || c.task?.status === "closed" ? null : dueOf(c);
   const [referring, setReferring] = useState(false);
+  const [contact, setContact] = useState(false);
   const [activity, setActivity] = useState<AuditEntry[] | null>(null);
   const actionsTaken = c.task?.actions.length ?? 0;
   const refCount = p.referrals.length;
@@ -179,6 +182,11 @@ function CaseBody({ c }: { c: Case }) {
           <Link href={`/checkin/?id=${encodeURIComponent(p.id)}&lang=${p.language ?? "en"}`} className={btnClass.secondary}>
             <Mic size={17} /> Start a check-in
           </Link>
+          {p.enrolled !== false && !p.id.startsWith("MB-C") && (
+            <button type="button" onClick={() => setContact((x) => !x)} aria-expanded={contact} className={btnClass.secondary}>
+              <Lock size={17} /> Contact details
+            </button>
+          )}
           <button type="button" onClick={exportFhir} className={btnClass.secondary}>
             <Download size={17} /> Export FHIR
           </button>
@@ -187,6 +195,7 @@ function CaseBody({ c }: { c: Case }) {
           </button>
         </div>
       </div>
+      {contact && <ContactDetails pid={p.id} onClose={() => setContact(false)} />}
 
       {/* Header */}
       <section className="rounded-2xl border border-[#ebece8] bg-white p-5 sm:p-6">

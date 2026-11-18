@@ -1,7 +1,7 @@
 // The workspace against the MemBrain API (api/main.py). Every call carries the signed-in session's bearer token
 // (lib/auth.ts); the server decides from it what the caller may see.
 import { authHeader, sessionEnded } from "../auth";
-import type { AuditEntry, Backend, Case, CheckinResult, ConcernIn, InformantDone, InformantIn, ProfileIn, Referral, ReferralIn, ReferralState, SessionIn, TaskAction } from "./types";
+import type { AuditEntry, Backend, Case, CheckinResult, ConcernIn, EnrolDone, EnrolIn, InformantDone, InformantIn, VaultEntry, ProfileIn, Referral, ReferralIn, ReferralState, SessionIn, TaskAction } from "./types";
 
 async function call<T>(base: string, path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(base + path, {
@@ -37,6 +37,8 @@ export function serverBackend(base: string): Backend {
     raiseConcern: (body: ConcernIn) => post<Case>("/concerns", body),
     followUpConcern: (pid: string, body: ConcernIn) => post<Case>(`/participants/${encodeURIComponent(pid)}/concerns`, body),
     submitInformant: (pid: string, body: InformantIn) => post<InformantDone>(`/participants/${encodeURIComponent(pid)}/informant`, body),
+    enrol: (body: EnrolIn) => post<EnrolDone>("/participants", body),
+    reidentify: (pid: string, reason: string) => post<VaultEntry>(`/participants/${encodeURIComponent(pid)}/reidentify`, { reason }),
     setProfile: (pid: string, body: ProfileIn) =>
       call<Case>(base, `/participants/${encodeURIComponent(pid)}/profile`, { method: "PATCH", body: JSON.stringify(body) }),
     submitSession: (pid: string, body: SessionIn) =>

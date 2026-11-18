@@ -107,6 +107,32 @@ export type InformantIn = { date: string; lang: Lang; respondent: Respondent; an
 /** What the family sees: a message, never a score. Clinicians also get the updated case. */
 export type InformantDone = { session_id: string; message: string; held_for_clinician: boolean; case?: Case };
 
+/** Enrolment by a coordinator or clinician (api/main.py Enrol). Name, ID and phone go to the identity vault only. */
+export type EnrolIdentity = { full_name: string; national_id?: string | null; phone?: string | null; preferred_channel: "app" | "whatsapp" | "phone" };
+export type EnrolInformant = { name: string; relation: string; phone?: string | null };
+export type InformantChange = { activity_key: string; change: string; when: string; who_took_over: string; why: string };
+export type EnrolIn = {
+  date: string;
+  age: number;
+  sex: "F" | "M";
+  education: NonNullable<Participant["education"]>;
+  language: Lang;
+  dialect: string;
+  identity: EnrolIdentity | null;
+  informant: EnrolInformant | null;
+  informant_profile: { type: "family" | "household_helper"; relation: string | null; language: string | null; consented: boolean; timeline: InformantChange[] } | null;
+  concern: { route: "programme" | "primary_care" | "family" | "household_helper" | "self"; text: string; onset: "days" | "weeks" | "months" | "years" | "none" | null; red_flags: string[] };
+  consent: Record<string, boolean>;
+  context: Record<string, unknown>;
+  emirate: string | null;
+  funding: string | null;
+  iqcode: number | null;
+  apoe: string | null;
+};
+export type EnrolDone = { id: string; first_form: string; phone_linked: boolean; case?: Case };
+/** What re-identification returns (clinical staff only, a reason is required, and it is audited). */
+export type VaultEntry = { identity: EnrolIdentity | null; informant: EnrolInformant | null };
+
 /** A finished check-in, as the participant app sends it (api/main.py SessionIn). Transcripts are scored by the
  * engine: in Python on the server, or by the byte-identical JavaScript copy in the browser. */
 export type SessionIn = {
@@ -154,6 +180,8 @@ export interface Backend {
   /** A later concern about someone already known: added to their record, dated, and compared with what came before. */
   followUpConcern(pid: string, body: ConcernIn): Promise<Case>;
   submitInformant(pid: string, body: InformantIn): Promise<InformantDone>;
+  enrol(body: EnrolIn): Promise<EnrolDone>;
+  reidentify(pid: string, reason: string): Promise<VaultEntry>;
   setProfile(pid: string, body: ProfileIn): Promise<Case>;
   submitSession(pid: string, body: SessionIn): Promise<CheckinResult>;
   reset(): Promise<void>;

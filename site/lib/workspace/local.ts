@@ -6,14 +6,17 @@ import programmeData from "../generated/programme-data.json";
 import { config, getEngine, type Level, type Persona, type Session } from "../mb";
 import { concernSummary } from "./concern";
 import { FAQ_ITEMS, INFORMANT_MESSAGE } from "./informant";
+import { preventionPlan, riskContext } from "./prevention";
 import { nav } from "./navigator";
-import type { AuditEntry, Backend, Case, CheckinResult, ConcernIn, InformantDone, InformantIn, Participant, ProfileIn, Referral, ReferralIn, ReferralState, SessionIn, Task, TaskAction } from "./types";
+import type { AuditEntry, Backend, Case, CheckinResult, ConcernIn, EnrolDone, EnrolIn, InformantDone, InformantIn, VaultEntry, Participant, ProfileIn, Referral, ReferralIn, ReferralState, SessionIn, Task, TaskAction } from "./types";
 
 const KEY = "membrain.workspace.v2";
 // Who raised the concern -> the navigator's entry route (as api/main.py does).
 const ENTRY_ROUTE: Record<string, string> = { self: "self", family: "family", helper: "household_helper", professional: "primary_care", coordinator: "programme" };
 const HELD: Level[] = ["CLINICIAN_REVIEW", "URGENT"];
 const REPORTS_PER_PERSON = 60; // as api/main.py
+// How someone came to the programme -> who raised the concern (api/main.py ROUTE_REPORTER).
+const ROUTE_REPORTER: Record<EnrolIn["concern"]["route"], string> = { programme: "coordinator", primary_care: "professional", family: "family", household_helper: "helper", self: "self" };
 
 type State = {
   concerns: Participant[];
@@ -21,11 +24,13 @@ type State = {
   tasks: Record<string, Task>; // tasks that have been acted on
   sessions: Record<string, Session[]>; // check-ins done here, added after a participant's own sessions
   profiles: Record<string, ProfileIn>; // age and schooling given at a first check-in after a concern
+  enrolled: Participant[]; // people enrolled here (pseudonymous records only)
+  vault: Record<string, VaultEntry>; // their names and contact details, kept apart from the records
   audit: AuditEntry[];
 };
 
 const MESSAGES = (programmeData as unknown as { messages: Record<string, [string, string]> }).messages;
-const empty = (): State => ({ concerns: [], referrals: {}, tasks: {}, sessions: {}, profiles: {}, audit: [] });
+const empty = (): State => ({ concerns: [], referrals: {}, tasks: {}, sessions: {}, profiles: {}, enrolled: [], vault: {}, audit: [] });
 
 function load(): State {
   try {
@@ -59,7 +64,7 @@ function audit(s: State, actor: string, action: string, target: string, detail: 
 
 function participants(s: State): Participant[] {
   const base = clone(personasJson as unknown as Participant[]);
-  return [...base, ...clone(s.concerns)].map((p) => ({
+  return [...base, ...clone(s.concerns), ...clone(s.enrolled)].map((p) => ({
     ...p,
     ...(s.profiles[p.id] ?? {}),
     sessions: [...p.sessions, ...clone(s.sessions[p.id] ?? [])],
@@ -240,6 +245,49 @@ export const localBackend: Backend = {
     return { session_id, message: INFORMANT_MESSAGE[body.lang], held_for_clinician: Boolean(latest?.held_for_clinician) };
   },
 
+  async enrol(body: EnrolIn): Promise<EnrolDone> {
+    if (body.age < 50 || body.age > 75) throw new Error("MemBrain is for people aged 50 to 75");
+    const s = clone(state());
+    let id = "";
+    do id = "MB-" + Math.floor(Math.random() * 0xffffff).toString(16).toUpperCase().padStart(6, "0");
+    while (participants(s).some((x) => x.id === id));
+    const consent = Object.fromEntries(Object.entries(body.consent).map(([k, v]) => [k, !!v]));
+    const ctx: Record<string, unknown> = { ...body.context };
+    if (consent.clinical_record === false) for (const k of ["sbp", "dbp", "hba1c", "ldl", "bmi"]) ctx[k] = null;
+    if (consent.family_history === false) ctx.family_history_dementia = null;
+    const prof = body.informant_profile;
+    const helperOk = !prof || prof.type !== "household_helper" || prof.consented;
+    const flags = [...new Set(body.concern.red_flags)].filter((f) => f in (config.RED_FLAGS as Record<string, string>));
+    const acts = [...new Set((prof?.timeline ?? []).map((t) => t.activity_key).filter(Boolean))].sort();
+    const p = {
+      id, display_name: { en: "Enrolled participant", ar: "مشارك مسجّل" }, age: body.age, age_band: body.age < 60 ? "50-59" : body.age < 70 ? "60-69" : "70-75",
+      sex: body.sex, education: body.education, dialect: body.dialect, language: body.language, languages: [body.language], story: "", context: ctx, consent,
+      referrals: [], enrolled: true, entry_route: body.concern.route, emirate: body.emirate ?? undefined, funding: body.funding ?? undefined,
+      prevention: { en: preventionPlan(ctx, "en"), ar: preventionPlan(ctx, "ar") }, risk_context: riskContext(ctx, body.education),
+      pending_iqcode: body.iqcode, informant: prof && helperOk ? { ...prof } : null,
+      genomics: body.apoe && consent.genomics ? { apoe: body.apoe, source: "Existing result entered at enrolment", date: body.date, counselling: "not_offered" } : null,
+      sessions: [{
+        session_id: `${id}-intake`, date: body.date, type: "intake", channel: "app", concern: body.concern.text.trim() || "routine programme screening", onset: body.concern.onset, red_flags: flags,
+        reported_concern: { reporter: ROUTE_REPORTER[body.concern.route], domains: [], activities_taken_over: acts },
+      }],
+    } as unknown as Participant;
+    s.enrolled.push(p);
+    s.vault[id] = { identity: body.identity, informant: body.informant };
+    audit(s, "coordinator", "enrol", id, { consent, entry_route: body.concern.route, red_flags: flags });
+    commit(s);
+    return { id, first_form: "A", phone_linked: false, case: buildCase(participants(s).find((x) => x.id === id)!, s) };
+  },
+
+  async reidentify(pid: string, reason: string): Promise<VaultEntry> {
+    if (!reason.trim()) throw new Error("A reason is required to show contact details");
+    const s = clone(state());
+    const v = s.vault[pid];
+    if (!v) throw new Error("No contact details on file for this person");
+    audit(s, "clinician", "reidentify", pid, { reason });
+    commit(s);
+    return clone(v);
+  },
+
   async setProfile(pid: string, body: ProfileIn) {
     const s = clone(state());
     const p = participants(s).find((x) => x.id === pid);
@@ -269,7 +317,9 @@ export const localBackend: Backend = {
     };
     (s.sessions[pid] ??= []).push(session);
     const after = participants(s).find((x) => x.id === pid)!;
-    const ev = getEngine().evaluate(after as unknown as Persona, after.sessions).latest as ReturnType<ReturnType<typeof getEngine>["evaluate"]>["latest"] & { confounders?: { code: string }[] };
+    // The person hears about the check-in they just did, even if a report on the record is dated later (as api/main.py).
+    const hist = getEngine().evaluate(after as unknown as Persona, after.sessions).history;
+    const ev = (hist.find((e) => e.session_id === session.session_id) ?? hist[hist.length - 1]) as (typeof hist)[number] & { confounders?: { code: string }[] };
     audit(s, "participant", "session_submitted", pid, { session_id: session.session_id, level: ev.level });
     commit(s);
     const i = lang === "ar" ? 1 : 0;

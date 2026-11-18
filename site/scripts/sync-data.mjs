@@ -28,7 +28,7 @@ write("personas.json", D.personas.map(withoutBulk));
 const { synthetic_log: _log, ...navigator } = D.navigator;
 void _log;
 write("navigator.json", navigator);
-write("programme-data.json", { validation: D.validation, navai: D.navai, prevention_rules: D.prevention_rules, messages: D.messages });
+write("programme-data.json", { validation: D.validation, navai: D.navai, prevention_rules: D.prevention_rules, prevention_always: D.prevention_always, messages: D.messages });
 
 // 2. The engines, wrapped as ES modules. The source is untouched between the wrapper lines.
 const wrap = (file, name) => {
