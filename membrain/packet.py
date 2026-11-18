@@ -26,7 +26,8 @@ CHECKS = {
     "alcohol": "Alcohol use", "blood_pressure": "Blood pressure and vascular risk",
 }
 ROUTINE = ("thyroid", "b12_folate", "blood_count", "glucose", "renal", "medication")
-BLOCKED = IN.BLOCKED + ["contribute to the decline", "contributing to the decline", "caused by", "due to smoking", "prescribe", "start treatment", "mg", "donepezil", "memantine", "lecanemab", "rivastigmine", "galantamine"]
+BLOCKED = IN.BLOCKED + ["contribut[a-z]* to (the |memory |cognitive )?decline", "can cause", "causes? (memory|cognitive)",
+                        "caused by", "due to smoking", "lead[s]? to (memory|cognitive)", "prescribe", "start treatment", "mg", "donepezil", "memantine", "lecanemab", "rivastigmine", "galantamine"]
 MAX_TEXT = 260
 
 
@@ -152,7 +153,7 @@ def messages(fs: list[dict]) -> list[dict]:
            '"ask":[{"q":"...","facts":["F3"]}]}. '
            f"summary: 2 or 3 sentences, each citing its facts. rule_out: at most 5 reversible causes that a fact points to "
            f"(an abnormal value or a reported problem), keys only from: {checks}; do not list routine blood tests, they "
-           f"are added automatically. "
+           f"are added automatically. In the why field, state the value and that it is worth checking; never say that something causes or contributes to the decline. "
            "ask: up to 5 questions for the person and family at the visit. Every item cites the facts it rests on. "
            "Use no number that is not in the cited facts. Write facts as strings like \"F2\". Start your answer with { and "
            "write nothing after the closing }.")
@@ -195,6 +196,19 @@ def contradicts(t: str, refs: list[str], by_id: dict) -> bool:
     return False
 
 
+def _own_refs(sent: str, refs: list[str], by_id: dict) -> list[str]:
+    nums = _nums(re.sub(r"\bF\d+\b", "", sent))
+    words = {w for w in re.findall(r"[a-z]{5,}", sent.lower())} - {"reported", "noted", "observed", "decline", "reliable", "check"}
+    own = []
+    for r in refs:
+        if r not in by_id:
+            continue
+        t = by_id[r]
+        if (nums and nums & _nums(t)) or (not nums and words & set(re.findall(r"[a-z]{5,}", t.lower()))):
+            own.append(r)
+    return own if (not nums or nums <= _nums(" ".join(by_id[r] for r in own))) else []
+
+
 def _sentences(t: str) -> list[str]:
     return [s.strip() for s in re.split(r"(?<=[.!?])\s+(?=[A-Z])", t) if s.strip()]
 
@@ -217,16 +231,17 @@ def _numbers_ok(t: str, refs: list[str], by_id: dict) -> bool:
 def supports(check: str, text: str) -> bool:
     """Does this fact actually point to this check? (the same thresholds as the rules)"""
     low = text.lower()
+    told = bool(re.search(r"changes reported in|reported:|factors that can affect memory", low))   # the concern, not a measurement
     num = lambda pat: (lambda m: float(m.group(1)) if m else None)(re.search(pat, text))  # noqa: E731
     if check == "depression":
         v = num(r"PHQ-2 [^:]*: ([\d.]+)")
-        return (v is not None and v >= 3) or ("reported" in low and ("mood" in low or "sad" in low or "depress" in low))
+        return (v is not None and v >= 3) or (told and ("mood" in low or "sad" in low or "depress" in low))
     if check == "anxiety":
         v = num(r"GAD-2 [^:]*: ([\d.]+)")
-        return (v is not None and v >= 3) or ("reported" in low and "anxi" in low)
+        return (v is not None and v >= 3) or (told and "anxi" in low)
     if check == "sleep":
         v = num(r"Sleep [^:]*: ([\d.]+) hours")
-        return (v is not None and v < 6) or ("reported" in low and "sleep" in low)
+        return (v is not None and v < 6) or (told and "sleep" in low)
     if check == "hearing_vision":
         return "hearing" in low or "vision" in low or "eyesight" in low
     if check == "medication":
@@ -345,8 +360,11 @@ def verify(raw: str, fs: list[dict]) -> tuple[dict | None, int, int]:
         if not isinstance(it, dict) or not isinstance(it.get("text"), str):
             removed += 1
             continue
-        for sent in _sentences(it["text"]) if len(it["text"]) > MAX_TEXT else [it["text"]]:
+        split = len(it["text"]) > MAX_TEXT
+        for sent in _sentences(it["text"]) if split else [it["text"]]:
             refs = it.get("facts") or []
+            if split:   # cite only the facts this sentence uses
+                refs = _own_refs(sent, refs, by_id) or refs
             if ok(sent, refs) and not contradicts(sent, refs, by_id) and len(out["summary"]) < 4:
                 out["summary"].append({"text": _clean(sent), "facts": refs}); kept += 1
             else:
@@ -356,7 +374,8 @@ def verify(raw: str, fs: list[dict]) -> tuple[dict | None, int, int]:
         refs = (it.get("facts") or []) if isinstance(it, dict) else []
         grounded = isinstance(it, dict) and refs and all(r in by_id and supports(it.get("check"), by_id[r]) for r in refs)
         if isinstance(it, dict) and it.get("check") in CHECKS and it["check"] not in seen and grounded and ok(it.get("why"), refs) \
-                and not contradicts(it.get("why") or "", refs, by_id):
+                and not contradicts(it.get("why") or "", refs, by_id) \
+                and not re.search(r"\b(adequate|within normal|normal range|no significant|not reported|not provided)\b", (it.get("why") or "").lower()):
             seen.add(it["check"])
             out["rule_out"].append({"check": it["check"], "label": CHECKS[it["check"]], "why": _clean(it["why"]), "facts": it.get("facts") or []}); kept += 1
         else:

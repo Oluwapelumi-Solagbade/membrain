@@ -110,9 +110,11 @@ def test_broken_or_cut_off_answers_from_the_live_space_are_salvaged():
     """Med42's second live answer (18 Nov): a missing quote in one item and the answer cut off mid-question."""
     pk, kept, removed = PK.verify(R1187, _fs())
     assert len(pk["summary"]) == 2
-    assert [r["check"] for r in pk["rule_out"]] == ["glucose", "blood_pressure"]         # names mapped to the list
+    assert pk["rule_out"] == []   # names map to the list, but "may contribute to memory decline" is a causal claim
     assert [a["q"] for a in pk["ask"]] == ["Has there been any change in sleep patterns or quality?"]
-    assert removed == 4   # smoking, depression on PHQ 1/6, the broken item, the cut-off question
+    assert removed == 6   # 2 causal reasons, smoking, depression on PHQ 1/6, the broken item, the cut-off question
+    alias = PK.parse('{"rule_out":[{"check":"Hypertension","why":"x","facts":["F7"]},{"check":"diabetes","why":"x","facts":["F8"]}]}')
+    assert [r["check"] for r in alias["rule_out"]] == ["blood_pressure", "glucose"]
 
 
 R1322_SUMMARY = ('{"summary":[{"text":"Significant memory decline noted with IQCODE increasing from 3.05 to 3.72, indicating a large or '
@@ -142,3 +144,19 @@ def test_good_parts_are_kept_when_the_summary_fails():
     assert pk and not pk["summary"] and kept == 1
     rules = PK.rules_packet(_fs(), {"concern": {}})
     assert PK.merge(pk, rules)["summary"] == rules["summary"]
+
+
+def test_third_live_round_reasons_must_be_reasons_and_cite_their_own_facts():
+    """Med42's live answers (18 Nov, third round)."""
+    fs = _fs("MB-1322")
+    assert not PK.supports("sleep", fs[11]["text"])                       # "Sleep reported ...: 7.0 hours" is not a sleep problem
+    raw = ('{"summary":[],"rule_out":[{"check":"sleep","why":"7 hours a night, adequate.","facts":["F12"]}],"ask":[]}')
+    assert PK.verify(raw, fs)[0] is None
+    pk, _, _ = PK.verify(R1322_SUMMARY, fs)
+    assert pk["summary"][0]["facts"] == ["F4"]                              # IQCODE sentence cites only the IQCODE fact
+    fs = _fs()
+    raw = ('{"rule_out":[{"check":"blood_pressure","why":"Elevated blood pressure may contribute to memory decline.","facts":["F7"]},'
+           '{"check":"glucose","why":"HbA1c is 6.9%, in the diabetes range.","facts":["F8"]}]}')
+    pk, kept, removed = PK.verify(raw, fs)
+    assert [r["check"] for r in pk["rule_out"]] == ["glucose"] and removed == 1
+    assert PK._blocked("Anxiety can cause memory decline and poor sleep.")
