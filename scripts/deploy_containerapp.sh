@@ -32,13 +32,10 @@ if [ -n "$TG" ]; then
 fi
 unset TG
 
-echo "https://$FQDN" > web/api_url.txt
-python scripts/build_web.py
 sleep 20
 curl -s "https://$FQDN/health"; echo
 curl -s "https://$FQDN/api/speech/config" | head -c 120; echo
 curl -s "https://$FQDN/telegram/status"; echo
 echo
 echo "Live app: https://$FQDN/"
-echo "Now commit and push so the GitHub Pages copy uses this API:"
-echo "  git add web/api_url.txt web/dist/index.html && git commit -m 'Point Pages at Container App' && git push"
+echo "To point the GitHub Pages copy at this API, set NEXT_PUBLIC_API_URL in .github/workflows/pages.yml to https://$FQDN."

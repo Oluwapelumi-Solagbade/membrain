@@ -6,7 +6,7 @@ Lancet Commission on dementia prevention.
 """
 from __future__ import annotations
 
-PREVENTION_VERSION = "pv-0.2.0"
+PREVENTION_VERSION = "pv-0.2.1"
 
 # Each rule: id, test(context) -> bool, evidence, en, ar
 RULES = [
@@ -57,8 +57,8 @@ RULES = [
 ]
 
 ALWAYS = (
-    "Keep your mind active: reading, Quran memorisation, learning a skill, or games with grandchildren all count.",
-    "حَافِظْ عَلَى نَشَاطِ عَقْلِكَ: القِرَاءَةُ، حِفْظُ القُرْآنِ، تَعَلُّمُ مَهَارَةٍ جَدِيدَةٍ، أَوِ اللَّعِبُ مَعَ الأَحْفَادِ.",
+    "Keep your mind active: reading, memorising poems or passages, learning a skill, or games with grandchildren all count.",
+    "حَافِظْ عَلَى نَشَاطِ عَقْلِكَ: القِرَاءَةُ، حِفْظُ الشِّعْرِ أَوِ النُّصُوصِ، تَعَلُّمُ مَهَارَةٍ جَدِيدَةٍ، أَوِ اللَّعِبُ مَعَ الأَحْفَادِ.",
 )
 
 MODIFIABLE_FACTORS = ["hypertension", "diabetes", "ldl", "physical_inactivity", "smoking", "obesity",

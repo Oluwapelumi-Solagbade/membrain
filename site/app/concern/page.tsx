@@ -4,7 +4,7 @@ import { ConcernChat } from "@/components/concern/ConcernChat";
 
 export const metadata: Metadata = {
   title: "Raise a concern | MemBrain",
-  description: "Describe a change in memory or thinking, in Gulf Arabic or English. Urgent signs are checked first and a clinician reviews every case.",
+  description: "Describe a change in memory or thinking, in Arabic (Gulf or any other dialect) or English. Urgent signs are checked first and a clinician reviews every case.",
 };
 
 export default function ConcernPage() {

@@ -1,4 +1,4 @@
-// A FHIR R4 collection Bundle for one case, built in the browser. Ported from fhirBundle in web/app.js
+// A FHIR R4 collection Bundle for one case, built in the browser. First written for the earlier prototype
 // (the genomics part is left out). The server's GET /participants/{pid}/fhir is the reference export.
 import { config, LEVEL_LABEL } from "@/lib/mb";
 import { NAV } from "@/lib/workspace/navigator";

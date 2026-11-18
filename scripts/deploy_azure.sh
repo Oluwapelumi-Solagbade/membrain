@@ -9,7 +9,7 @@ RG="${RG:-membrain-rg}"
 LOC="${LOC:-uaenorth}"
 SKU="${SKU:-B1}"                           # B1 is the smallest always-on Linux plan; F1 (free) if your subscription allows it in UAE North
 
-# Build the front end first: the API serves site/out at "/" (with the earlier prototype at /prototype/).
+# Build the front end first: the API serves site/out at "/".
 echo "Building the site (site/out)…"
 (cd site && npm ci --no-audit --no-fund && NEXT_PUBLIC_SITE_URL="https://$APP.azurewebsites.net" npm run build)
 

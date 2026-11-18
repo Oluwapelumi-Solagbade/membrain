@@ -9,6 +9,7 @@ import { LevelPill } from "../ui";
 import engineData from "@/lib/generated/engine-data.json";
 import { DEMO_TODAY, getEngine, type Lang, type Level } from "@/lib/mb";
 import { detectSpeech, LABEL, Recorder, speak, stopSpeaking, type Audio, type Recording, type Speech, type VoiceFeatures } from "@/lib/voice";
+import { useSession } from "@/lib/auth";
 import { getBackend } from "@/lib/workspace/backend";
 import type { Backend, Case, CheckinResult, Participant, SessionIn } from "@/lib/workspace/types";
 import { COPY, num, type Copy } from "./copy";
@@ -28,7 +29,7 @@ const DOMAINS = (engineData as unknown as { config: { DOMAINS: Record<string, { 
 type EngineX = { formForSession: (i: number, seed: number) => "A" | "B" | "C"; DLABEL: Record<string, string> };
 const ENGINE = () => getEngine() as unknown as EngineX;
 
-/** Same as hashSeed in web/app.js and participant_seed in membrain/items.py. */
+/** Same as participant_seed in membrain/items.py. */
 function seedOf(id: string) {
   let h = 0;
   for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) % 997;
@@ -221,7 +222,7 @@ function Picker({ cases, initialLang }: { cases: Case[]; initialLang: Lang }) {
   }, [cases]);
   return (
     <div dir={lang === "ar" ? "rtl" : "ltr"} lang={lang} className="flex min-h-dvh flex-col bg-paper">
-      <TopBar t={t} lang={lang} setLang={setLang} subtitle={t.minutes} exitHref="/" />
+      <TopBar t={t} lang={lang} setLang={setLang} subtitle={t.minutes} exitHref="/clinician/" />
       <main className="mx-auto w-full max-w-[1080px] px-4 py-10 sm:px-6 sm:py-14">
         <p className="text-[12.5px] font-semibold uppercase tracking-[0.2em] text-leaf">{t.pickEyebrow}</p>
         <h1 className="mt-3 max-w-[680px] font-serif text-[32px] font-semibold leading-[1.12] tracking-[-0.015em] text-balance sm:text-[42px]">{t.pickTitle}</h1>
@@ -230,7 +231,7 @@ function Picker({ cases, initialLang }: { cases: Case[]; initialLang: Lang }) {
           {people.map((p) => {
             const concern = p.enrolled === false;
             const nm = concern ? p.id : nameOf(p, lang);
-            const n = p.sessions.filter((s) => s.type !== "intake").length;
+            const n = p.sessions.filter((s) => s.type !== "intake" && s.type !== "informant").length;
             const pl = (p.language as Lang) ?? "en";
             return (
               <Link
@@ -276,6 +277,7 @@ function Picker({ cases, initialLang }: { cases: Case[]; initialLang: Lang }) {
 
 function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLang: Lang }) {
   const p = c.participant;
+  const { session: me } = useSession();
   const saved = useMemo(() => readJson<Saved>("session", saveKey(p.id)), [p.id]);
   const needsProfile = p.age == null || p.education == null;
   const flow: Step[] = useMemo(() => [...(needsProfile ? (["profile"] as Step[]) : []), "welcome", ...TASKS], [needsProfile]);
@@ -515,7 +517,10 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
     step === "ill" ? ans.ill !== null : false;
 
   const section = SECTION[step];
-  const exitHref = "/checkin/";
+  // The arrow leaves the check-in: a patient goes back to the home page (in their language), staff to this person's case.
+  // ("/checkin/" would bring a signed-in patient straight back here, so the arrow seemed to do nothing.)
+  const staff = me?.user.role === "clinician" || me?.user.role === "coordinator";
+  const exitHref = staff ? `/clinician/case/?id=${encodeURIComponent(p.id)}` : lang === "ar" ? "/ar/" : "/";
   const subtitle = [name || p.id, t.minutes].join(" · ");
   const engineLabel = speech ? (lang === "ar" ? ENGINE_AR[speech.engine === "local" && !speech.inUae ? "localDemo" : speech.engine] : speech.label) : "";
 

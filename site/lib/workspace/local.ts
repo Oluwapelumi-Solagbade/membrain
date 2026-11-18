@@ -10,7 +10,7 @@ import { nav } from "./navigator";
 import type { AuditEntry, Backend, Case, CheckinResult, ConcernIn, InformantDone, InformantIn, Participant, ProfileIn, Referral, ReferralIn, ReferralState, SessionIn, Task, TaskAction } from "./types";
 
 const KEY = "membrain.workspace.v2";
-// Who raised the concern -> the navigator's entry route (as api/main.py and web/app.js do).
+// Who raised the concern -> the navigator's entry route (as api/main.py does).
 const ENTRY_ROUTE: Record<string, string> = { self: "self", family: "family", helper: "household_helper", professional: "primary_care", coordinator: "programme" };
 const HELD: Level[] = ["CLINICIAN_REVIEW", "URGENT"];
 const REPORTS_PER_PERSON = 60; // as api/main.py

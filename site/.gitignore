@@ -6,4 +6,3 @@ next-env.d.ts
 .DS_Store
 # generated from ../web by scripts/sync-data.mjs
 /lib/generated/
-/public/prototype/

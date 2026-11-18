@@ -8,7 +8,7 @@ git pull
 az login
 bash scripts/deploy_containerapp.sh
 ```
-Paste **Key 2** when asked. At the end, the script prints the live address, then tells you to commit `web/api_url.txt` so the GitHub Pages link also uses Azure Speech.
+Paste **Key 2** when asked. At the end, the script prints the live address. To have the GitHub Pages copy use it, set `NEXT_PUBLIC_API_URL` in `.github/workflows/pages.yml`.
 
 If Container Apps is refused in UAE North too, tell Claude. The fallback is a token-only broker hosted elsewhere: audio still streams **browser → Azure UAE North** directly, and only the 10-minute token passes through that broker.
 
@@ -38,7 +38,7 @@ If the name is taken, choose another:
 ```bash
 APP=membrain-cerebrospark2 bash scripts/deploy_azure.sh
 ```
-Then tell Claude the new name so the GitHub Pages default (`DEFAULT_API` in `web/app.js`) can be updated.
+Then set `NEXT_PUBLIC_API_URL` in `.github/workflows/pages.yml` to the new address, so the GitHub Pages copy uses it.
 
 ## Test
 - Open `https://membrain-cerebrospark.azurewebsites.net/` in Chrome.

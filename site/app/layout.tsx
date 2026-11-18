@@ -9,7 +9,7 @@ const plexMono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"
 const sourceSerif = Source_Serif_4({ variable: "--font-source-serif", subsets: ["latin"], weight: ["500", "600"] });
 
 const description =
-  "Noticed a change in memory or thinking? Describe it in Gulf Arabic or English. MemBrain checks for urgent signs first, prepares the facts for a clinician and follows the referral until someone is seen.";
+  "Noticed a change in memory or thinking? Describe it in Arabic (Gulf or any other dialect) or English. MemBrain checks for urgent signs first, prepares the facts for a clinician and follows the referral until someone is seen.";
 
 export const metadata: Metadata = {
   // Set NEXT_PUBLIC_SITE_URL when deploying, so share previews link to the real address.

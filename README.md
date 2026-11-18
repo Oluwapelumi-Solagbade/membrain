@@ -18,11 +18,11 @@ MemBrain is a bilingual (Arabic dialects and English), voice-first cognitive and
 | FHIR R4 mapping (Patient, Consent, Observation, RiskAssessment, Task) | `membrain/fhir.py` | Validated against `fhir.resources` R4B |
 | Synthetic cohort + all requirement-6 metrics, by subgroup | `membrain/simulate.py`, `membrain/validation.py` | Working |
 | REST API with role checks and audit log | `api/main.py` | Working (in-memory store) |
-| Azure AI Speech (UAE North): server-side token broker, streaming transcription by dialect, automatic fallback | `api/speech.py`, `web/app.js` | Working; goes live once deployed with the key |
-| Enrolment: identity vault, consent for each data type, informant, health context, session plan, audited re-identification | `web/app.js`, `api/main.py` | Working, tested |
+| Azure AI Speech (UAE North): server-side token broker, streaming transcription by dialect, automatic fallback | `api/speech.py`, `site/lib/voice.ts` | Working; goes live once deployed with the key |
+| Enrolment API: identity vault, consent for each data type, informant, health context, session plan, audited re-identification | `api/main.py` | API working, tested; no enrolment screen in the site yet |
 | Navigator: red-flag screen, service directory, accessibility matching, closed-loop referral tracking, next-steps pack, programme metrics | `membrain/navigator.py`, Referrals tab | Working, tested |
 | Telegram bot: raise a concern by text or voice note (AR/EN), read-back with evidence, same triage and clinician queue as the website | `api/telegram.py`, [guide](docs/TELEGRAM_BOT.md) | Working, tested; needs a bot token |
-| Web prototype: enrolment, participant app, clinician dashboard, referrals, validation, architecture | `web/` | Working; also published as a hosted demo |
+| Website: landing page (EN/AR), sign-in, concern chat, spoken check-in, family questionnaire, clinician workspace, referrals, validation | `site/` | Working; hosted on Azure, Hugging Face and GitHub Pages |
 | Python/JavaScript parity (90 golden cases, 461 session evaluations, navigator metrics; 0 mismatches) | `web/parity_test.js` | Passing |
 
 ## Quick start
@@ -30,20 +30,22 @@ MemBrain is a bilingual (Arabic dialects and English), voice-first cognitive and
 ```bash
 pip install -r requirements.txt
 make test          # 39 Python tests + JS parity check
-make web           # regenerate golden vectors, validation run, and web/dist/index.html
+make web           # regenerate golden vectors, the validation run and web/data.js
+make site          # build the website into site/out (the API serves it at /)
 make api           # http://localhost:8000/docs
 ```
 
-Open `web/dist/index.html` in Chrome for the full demo. Opened locally, the microphone, live speech recognition and on-device voice features all work. The hosted preview blocks the microphone, so there you type answers or use the sample answers.
+Run `npm run dev` in `site/` (or `make site` then `make api`) and open the site in Chrome. The earlier single-page prototype (`web/app.js`) is retired; everything is in the site, and `/prototype/` forwards to it.
 
 ## Repository map
 
 ```
 membrain/      engine (config, items, scoring, change, triage, prevention, navigator, fhir, dossier, simulate, validation, personas)
 api/           FastAPI service
-web/           engine.js + navigator.js (ports of the engine), app.js (UI), index.html, build -> dist/index.html
+web/           engine.js, intake.js, navigator.js, genomics.js (JavaScript ports of the engine) and data.js
+site/          the website (Next.js): landing, sign-in, concern chat, check-in, family questionnaire, clinician workspace
 tests/         pytest suite + golden_vectors.json
-scripts/       export_golden.py, export_web_data.py, build_web.py, quick_val.py
+scripts/       export_golden.py, export_web_data.py, quick_val.py
 docs/          technical documentation, assumptions and limitations, data sources, team plan, demo script
 ```
 

@@ -1,7 +1,7 @@
 // Copies MemBrain's engine, intake extractor and synthetic data from ../web into lib/generated/.
 // ../web stays the single source of truth: web/parity_test.js checks those files against the Python
 // engine, and this site runs byte-identical copies of them. Run by `npm run dev` and `npm run build`.
-import { readFileSync, writeFileSync, mkdirSync, cpSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
@@ -47,11 +47,5 @@ const wrap = (file, name) => {
 wrap("engine.js", "makeEngine");
 wrap("intake.js", "makeIntake");
 wrap("navigator.js", "makeNavigator");
-
-// 3. The full earlier prototype (check-in, enrolment, referrals, validation) stays reachable at /prototype/.
-const dist = join(web, "dist");
-if (existsSync(join(dist, "index.html"))) {
-  cpSync(dist, join(here, "..", "public", "prototype"), { recursive: true });
-}
 
 console.log(`sync-data: ${D.personas.length} personas, engine ${D.config.ENGINE_VERSION}, intake ${D.intake.INTAKE_VERSION}`);

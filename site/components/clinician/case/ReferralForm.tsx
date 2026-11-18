@@ -30,7 +30,7 @@ type Drafting = {
   splitSentences: (t: string) => string[];
 };
 
-/** Mirrors draftConfirmed in web/app.js: the confirmed intake plus the latest check-in, when there is one. */
+/** The confirmed intake plus the latest check-in, when there is one. */
 function draftConfirmed(c: Case): Confirmed {
   const base = JSON.parse(JSON.stringify(c.participant.intake?.confirmed ?? { narrative: "", domains: [], red_flags: [], confounders: [], onset: null, timeline: [], quotes: [] })) as Confirmed;
   base.quotes = base.quotes ?? [];

@@ -48,7 +48,7 @@ shows which mode is live.
 | `/clinician/reports/` | Programme metrics for this cohort and the 160-referral simulation, with equity breakdowns. |
 | `/clinician/validation/` | Simulated validation against usual care, intake release gates and the speech result. |
 | `/clinician/settings/` | Data mode, demo reset, the thresholds from `membrain/config.py`, and the audit log. |
-| `/prototype/` | The earlier single-file prototype (check-in, enrolment), kept until those screens move over. |
+| `/prototype/` | Retired: forwards old links to the home page. |
 
 All people and data are synthetic.
 
@@ -79,7 +79,7 @@ deploying so link previews point at the real address.
 - slices of `web/data.js` (config, intake lexicons, personas, the navigator and programme data), so each page loads
   only what it needs.
 
-It also copies the earlier prototype (`web/dist`) to `/prototype/`. Run `make web` first if `web/` changed.
+Run `make web` first if `web/` changed. The earlier single-page prototype is retired: `public/prototype/` only forwards old links to the home page, and the Azure Speech SDK it used now sits in `public/vendor/`.
 
 ## Deploying
 
@@ -90,7 +90,7 @@ so the API always ships with the current front end.
 
 - **Hero photo.** `public/images/hero-family.webp` and `hero-family-top.webp` are crops of the design mockup, which has the card baked into the photo; the live card is positioned to cover it. Replace both with the original photo (no card on it, at least 1700 px wide) and the card placement can be relaxed.
 - **Doctor avatar.** `public/images/avatar-dr-demo.webp` is a 54 px crop of the dashboard mockup.
-- Move the participant check-in and enrolment over from the prototype.
+- Build an enrolment screen (identity, consent per data type, informant, health context) on the existing enrolment API.
 - Real sign-in (SMART on FHIR / OAuth2) and a persistent store (PostgreSQL) on the server.
 - Native-speaker review of all Arabic text.
 - The WhatsApp and Telegram previews on the landing page are of planned channels, and are labelled that way.

@@ -2,7 +2,7 @@
 // Recognition uses the best engine this server offers: MemBrain's own Gulf Arabic Whisper (self-hosted), Azure AI
 // Speech in UAE North, then the browser's own recognition. Without any of them, answers are typed.
 // The level meter, audio quality and voice features are worked out here, on the device; audio is never kept.
-// A port of the recorder in web/app.js.
+// The check-in's recorder (first written for the earlier prototype).
 import type { Lang } from "./mb";
 import { asset } from "@/lib/asset";
 
@@ -16,7 +16,7 @@ export type Recording = { text: string; engine: string; locale: string | null; a
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type AnyWin = Window & { SpeechRecognition?: any; webkitSpeechRecognition?: any; SpeechSDK?: any; webkitAudioContext?: any };
 const win = () => window as AnyWin;
-const SDK_URL = asset("/prototype/vendor/speech-sdk-1.53.0.min.js"); // Microsoft's Speech SDK (MIT), vendored with the site
+const SDK_URL = asset("/vendor/speech-sdk-1.53.0.min.js"); // Microsoft's Speech SDK (MIT), vendored with the site
 
 export const LABEL: Record<Engine, string> = {
   local: "MemBrain Gulf Whisper (self-hosted, in-country)",
@@ -91,6 +91,17 @@ export function stopSpeaking() {
   } catch {
     /* ignore */
   }
+}
+
+/** In Arabic mode only Arabic words count: a recogniser sometimes writes a word it mis-heard in English letters
+ *  ("Call lemon"). Words containing Latin letters are dropped from what was heard; what the person types is untouched. */
+export function arabicOnly(text: string): string {
+  return text
+    .split(/\s+/)
+    .filter((w) => w && !/[A-Za-z]/.test(w))
+    .join(" ")
+    .replace(/\s+([.,،؛؟?!:])/g, "$1")
+    .trim();
 }
 
 /** Says the text; resolves when it has finished. Resolves `false` when the device plainly could not say it
@@ -191,7 +202,7 @@ export class Recorder {
     if (o.transcribe === false) return true;
 
     const emit = (interim = "") => {
-      this.text = (this.finalText + " " + interim).trim();
+      this.text = this.keep((this.finalText + " " + interim).trim());
       this.onText?.(this.text);
     };
     const sp = o.speech;
@@ -262,6 +273,10 @@ export class Recorder {
     return true;
   }
 
+  private keep(text: string): string {
+    return this.lang === "ar" ? arabicOnly(text) : text;
+  }
+
   private browser(lang: Lang) {
     const SR = win().SpeechRecognition ?? win().webkitSpeechRecognition;
     if (!SR) return;
@@ -273,7 +288,7 @@ export class Recorder {
       this.sr.onresult = (ev: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => {
         let f = "";
         for (let i = 0; i < ev.results.length; i++) f += ev.results[i][0].transcript + " ";
-        this.text = f.trim();
+        this.text = this.keep(f.trim());
         this.onText?.(this.text);
       };
       this.sr.onerror = () => {};
@@ -358,7 +373,7 @@ export class Recorder {
         const r = await fetch(this.speech.base + "/api/asr/transcribe", { method: "POST", body: fd, signal: ctl.signal });
         window.clearTimeout(t);
         if (!r.ok) throw new Error("asr");
-        this.text = (((await r.json()) as { text?: string }).text ?? "").trim();
+        this.text = this.keep((((await r.json()) as { text?: string }).text ?? "").trim());
         this.onText?.(this.text);
       } catch {
         this.engine = "local-failed";

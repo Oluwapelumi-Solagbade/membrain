@@ -101,6 +101,7 @@ export function MicAnswer({
   const [level, setLevel] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [failed, setFailed] = useState(false);
+  const [timeUp, setTimeUp] = useState(false); // a timed task stopped itself at zero
   const timer = useRef<number | null>(null);
   const stopRef = useRef<() => void>(() => {});
 
@@ -123,7 +124,11 @@ export function MicAnswer({
   const start = async () => {
     if (!speech) return;
     const r = new Recorder();
-    const before = value.trim() ? value.trim() + " " : "";
+    // A timed task (word fluency) starts over: a new try replaces the last one and gets the full time again, so it can
+    // never add up to more than one minute. Other answers keep what was said before and add to it.
+    const before = seconds ? "" : value.trim() ? value.trim() + " " : "";
+    if (seconds) onText("");
+    setTimeUp(false);
     const ok = await r.start({ lang, speech, dialect, onText: (x) => onText(before + x), onLevel: setLevel });
     if (!ok) {
       setFailed(true);
@@ -137,7 +142,11 @@ export function MicAnswer({
     timer.current = window.setInterval(() => {
       const s = (performance.now() - t0) / 1000;
       setElapsed(s);
-      if (seconds && s >= seconds) stopRef.current();
+      if (seconds && s >= seconds) {
+        setElapsed(seconds);
+        setTimeUp(true);
+        stopRef.current();
+      }
     }, 200);
   };
 
@@ -185,10 +194,15 @@ export function MicAnswer({
               </>
             ) : state === "working" ? (
               t.working
+            ) : timeUp ? (
+              <span className="font-mono text-[15px] tabular-nums">{fmt(0, lang)}</span>
             ) : (
               t.tap
             )}
           </p>
+          {state === "idle" && timeUp && seconds && (
+            <p role="status" className="mt-2 max-w-[440px] rounded-xl bg-sand-soft px-4 py-2.5 text-center text-[15px] leading-snug text-[#6b4714]">{t.timeUp(seconds)}</p>
+          )}
           {state === "rec" && <p className="mt-1 text-[14px] text-muted">{t.stopTap}</p>}
         </>
       )}

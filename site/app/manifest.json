@@ -1,7 +1,7 @@
 {
   "name": "MemBrain",
   "short_name": "MemBrain",
-  "description": "From the first worry about memory to the right clinician. Gulf Arabic and English.",
+  "description": "From the first worry about memory to the right clinician. Arabic (Gulf or any other dialect) and English.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

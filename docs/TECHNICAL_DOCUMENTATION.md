@@ -96,7 +96,7 @@ The clinician sees BP, HbA1c, LDL, BMI, activity, sleep, PHQ-2, GAD-2, IQCODE-16
 
 ## 6. Prevention and timely care (requirement 4)
 
-- **Prevention.** Clinician-authored, versioned rules turn context into up to 5 actions per person, in Arabic or English, with cultural adaptations (walking after Maghrib, mall walking in summer, shisha and medwakh, majlis, Quran memorisation). Each rule links to its evidence. No AI writes free-text medical advice.
+- **Prevention.** Clinician-authored, versioned rules turn context into up to 5 actions per person, in Arabic or English, with cultural adaptations (walking after Maghrib, mall walking in summer, shisha and medwakh, majlis). Each rule links to its evidence. No AI writes free-text medical advice.
 - **Pathways.** Memory clinic, geriatrics or neurology; mental health; primary care; urgent safety review.
 - **Reversible causes.** The dossier suggests checks for TSH, B12, folate, FBC, HbA1c, renal function, anticholinergic burden, PHQ-9, STOP-BANG, and hearing and vision.
 - **Referral dossier.** A one-page summary with trend, drivers, confounders, risk context and limitations. It is also available as a FHIR bundle.

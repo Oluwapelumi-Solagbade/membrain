@@ -101,7 +101,7 @@ FLUENCY_LEXICON = {
 
 
 def participant_seed(pid: str) -> int:
-    """Deterministic counterbalancing seed (same as hashSeed in web/app.js). Never use hash(): it is salted per process."""
+    """Deterministic counterbalancing seed (same as hashSeed in site/components/checkin/Checkin.tsx). Never use hash(): it is salted per process."""
     h = 0
     for ch in pid:
         h = (h * 31 + ord(ch)) % 997

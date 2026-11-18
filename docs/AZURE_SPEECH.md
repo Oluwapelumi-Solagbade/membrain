@@ -8,9 +8,9 @@ Original guide: Abdulwaliy. Reviewed and implemented on 14 November. This file r
 |---|---|
 | Token broker: the key stays on the server, the browser gets a ~10-minute token; rate limit and token caching | `api/speech.py` |
 | `GET /api/speech/config` (enabled, region, dialect → locale map) and `GET /api/speech/token` | `api/speech.py` |
-| Browser streaming to `uaenorth`: one microphone stream is shared by Azure transcription and the on-device acoustic features | `web/app.js` (`Rec`, `initSpeech`) |
-| Automatic fallback: Azure → browser recognition → typed or sample answers. The active engine is shown to the user and saved with each session. | `web/app.js` |
-| Speech SDK 1.53.0 (MIT, redistributable) served from our own App Service, with a pinned CDN fallback | `web/vendor/` |
+| Browser streaming to `uaenorth`: one microphone stream is shared by Azure transcription and the on-device acoustic features | `site/lib/voice.ts` (`Recorder`, `detectSpeech`) |
+| Automatic fallback: Azure → browser recognition → typed or sample answers. The active engine is shown to the user and saved with each session. | `site/lib/voice.ts` |
+| Speech SDK 1.53.0 (MIT, redistributable) served from our own App Service, with a pinned CDN fallback | `site/public/vendor/` |
 | Deployment of the API and web app to App Service in UAE North | `scripts/deploy_azure.sh`, `docs/DEPLOY_AZURE.md` |
 | Tests: disabled without a key; token brokered; key never returned; rate limit | `tests/test_speech.py` |
 

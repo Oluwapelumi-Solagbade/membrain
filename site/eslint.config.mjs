@@ -15,6 +15,7 @@ const eslintConfig = defineConfig([
     // generated from ../web by scripts/sync-data.mjs
     "lib/generated/**",
     "public/prototype/**",
+    "public/vendor/**",
   ]),
 ]);
 

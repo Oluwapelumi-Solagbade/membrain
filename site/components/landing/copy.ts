@@ -32,7 +32,7 @@ export const LANDING = {
     heroTitle: ["From “something’s not right” to the ", "right clinician.", ""] as Hl,
     heroLead: "Have you noticed a change in your memory, thinking or everyday activities? Start here.",
     heroBody:
-      "Describe the change you have noticed, by voice or text, in Gulf Arabic or English. MemBrain checks for urgent warning signs first, turns your words into facts a clinician can act on, and follows the referral until someone is actually seen.",
+      "Describe the change you have noticed, by voice or text, in Arabic (Gulf or any other dialect) or English. MemBrain checks for urgent warning signs first, turns your words into facts a clinician can act on, and follows the referral until someone is actually seen.",
     heroCta: "I've noticed a change",
     heroCta2: "Check my own brain health",
     heroOther: { label: "Start in Arabic", href: "/concern/?lang=ar" },
@@ -126,7 +126,7 @@ export const LANDING = {
       links: [
         ["Raise a concern", "/concern/"],
         ["Clinician view", "/clinician/"],
-        ["Full prototype", "/prototype/"],
+        ["Check-in", "/checkin/"],
         ["Evidence", "#evidence"],
       ],
       note: "Prototype for the Future Health Digital Innovation Challenge. Synthetic data only. Not a medical device; in an emergency call 998.",
@@ -151,7 +151,7 @@ export const LANDING = {
       intro: "Recorded from the live site and the MemBrain server, start to finish, on synthetic data. Nothing is mocked up: every fact, level and referral on screen is what the engine produced.",
       steps: [
         "Anyone who notices a change raises it: the person, family, a helper or a doctor.",
-        "They describe it in their own words, by voice or text, in Gulf Arabic or English.",
+        "They describe it in their own words, by voice or text, in Arabic (Gulf or any other dialect) or English.",
         "MemBrain picks out the facts, each with the words it came from.",
         "The engine sets the next step: here, a clinician review within 21 days.",
         "It arrives at the top of the clinician's review queue, with the reason.",
@@ -169,7 +169,7 @@ export const LANDING = {
     chat: {
       eyebrow: "No app needed",
       title: ["Raise it where families already talk: ", "WhatsApp and Telegram", ""] as Hl,
-      intro: "Send a voice note or a message in Gulf Arabic or English. MemBrain reads back what it understood, with the words each fact came from, and tells you what happens next. It never gives a diagnosis.",
+      intro: "Send a voice note or a message in Arabic (Gulf or any other dialect) or English. MemBrain reads back what it understood, with the words each fact came from, and tells you what happens next. It never gives a diagnosis.",
       wa: ["WhatsApp, in Arabic", "The app most families in the UAE already have open. A voice note is enough."],
       tg: ["Telegram, in English", "For expatriate families and carers. The same checks, the same clinician queue."],
       note: "Both channels are planned for the pilot and shown here as previews. The facts and the outcome are the engine's real output for these two messages.",
@@ -201,7 +201,7 @@ export const LANDING = {
     heroTitle: ["من «هناك شيء ليس على ما يرام» إلى ", "الطبيب المناسب.", ""] as Hl,
     heroLead: "هل لاحظت تغيّرًا في ذاكرتك أو تفكيرك أو أنشطتك اليومية؟ ابدأ من هنا.",
     heroBody:
-      "صِف التغيّر الذي لاحظته، بالصوت أو بالكتابة، باللهجة الخليجية أو بالإنجليزية. يتحقّق MemBrain أولًا من علامات الخطر العاجلة، ثم يحوّل كلامك إلى معلومات يستطيع الطبيب أن يتصرّف بناءً عليها، ويتابع الإحالة حتى يُرى الشخص فعلًا.",
+      "صِف التغيّر الذي لاحظته، بالصوت أو بالكتابة، بالعربية بأي لهجة، ومنها الخليجية، أو بالإنجليزية. يتحقّق MemBrain أولًا من علامات الخطر العاجلة، ثم يحوّل كلامك إلى معلومات يستطيع الطبيب أن يتصرّف بناءً عليها، ويتابع الإحالة حتى يُرى الشخص فعلًا.",
     heroCta: "لاحظت تغيّرًا",
     heroCta2: "أفحص صحة دماغي",
     heroOther: { label: "Start in English", href: "/concern/" },
@@ -295,7 +295,7 @@ export const LANDING = {
       links: [
         ["أبلغ عن تغيّر", "/concern/?lang=ar"],
         ["واجهة الطبيب", "/clinician/"],
-        ["النموذج الكامل", "/prototype/"],
+        ["الفحص", "/checkin/?lang=ar"],
         ["الأدلة", "#evidence"],
       ],
       note: "نموذج تجريبي لتحدّي الابتكار الرقمي لمستقبل الصحة. بيانات وهمية فقط. ليس جهازًا طبيًا؛ في الطوارئ اتصل على ٩٩٨.",
@@ -320,7 +320,7 @@ export const LANDING = {
       intro: "سُجّل من الموقع الحي ومن خادم MemBrain، من البداية إلى النهاية، على بيانات وهمية. لا شيء مصطنع: كل معلومة ومستوى وإحالة على الشاشة هي ما أنتجه النظام.",
       steps: [
         "من يلاحظ تغيّرًا يبلّغ عنه: الشخص نفسه، أو العائلة، أو العاملة، أو الطبيب.",
-        "يصفه بكلماته، بالصوت أو بالكتابة، باللهجة الخليجية أو بالإنجليزية.",
+        "يصفه بكلماته، بالصوت أو بالكتابة، بالعربية بأي لهجة، ومنها الخليجية، أو بالإنجليزية.",
         "يستخرج MemBrain المعلومات، كلٌّ منها مع الكلمات التي جاءت منها.",
         "يحدّد النظام الخطوة التالية: هنا، مراجعة الطبيب خلال ٢١ يومًا.",
         "تصل الحالة إلى أعلى قائمة مراجعة الطبيب، ومعها السبب.",
@@ -338,7 +338,7 @@ export const LANDING = {
     chat: {
       eyebrow: "بدون تطبيق جديد",
       title: ["بلّغ حيث تتحدّث العائلات أصلًا: ", "واتساب وتيليجرام", ""] as Hl,
-      intro: "أرسل رسالة صوتية أو مكتوبة باللهجة الخليجية أو بالإنجليزية. يعيد MemBrain عليك ما فهمه، مع الكلمات التي جاءت منها كل معلومة، ويخبرك بالخطوة التالية. ولا يعطي تشخيصًا أبدًا.",
+      intro: "أرسل رسالة صوتية أو مكتوبة بالعربية بأي لهجة، ومنها الخليجية، أو بالإنجليزية. يعيد MemBrain عليك ما فهمه، مع الكلمات التي جاءت منها كل معلومة، ويخبرك بالخطوة التالية. ولا يعطي تشخيصًا أبدًا.",
       wa: ["واتساب، بالعربية", "التطبيق المفتوح عند أغلب العائلات في الإمارات. تكفي رسالة صوتية."],
       tg: ["تيليجرام، بالإنجليزية", "للعائلات المقيمة ومقدّمي الرعاية. نفس الفحوصات، ونفس قائمة الطبيب."],
       note: "القناتان مخطّطتان للتجربة الميدانية، وتظهران هنا كمعاينة. المعلومات والنتيجة هي ما أخرجه النظام فعلًا لهاتين الرسالتين.",

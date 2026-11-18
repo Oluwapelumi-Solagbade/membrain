@@ -338,7 +338,7 @@ def submit_session(pid: str, body: SessionIn, who: Principal = Depends(principal
     if s.get("transcripts") and not s.get("raw"):
         scored = score_session_transcripts(s["transcripts"], s["form"], lang)
         s["raw"], s["scoring_detail"] = scored["raw"], scored["detail"]
-    # An informant questionnaire collected at enrolment travels with the first scored check-in (as web/app.js does).
+    # An informant questionnaire collected at enrolment travels with the first scored check-in (as the earlier prototype did).
     if p.get("pending_iqcode") is not None and s.get("iqcode") is None and not any(x.get("type") != "intake" for x in p["sessions"]):
         s["iqcode"], p["pending_iqcode"] = p["pending_iqcode"], None
     if not (p.get("consent") or {}).get("voice_features"):
@@ -739,7 +739,7 @@ class ConcernIn(BaseModel):
         return v
 
 
-# Who raised the concern -> the navigator's entry route (as web/app.js does at enrolment).
+# Who raised the concern -> the navigator's entry route (as enrolment does).
 ENTRY_ROUTE = {"self": "self", "family": "family", "helper": "household_helper", "professional": "primary_care", "coordinator": "programme"}
 
 
@@ -897,9 +897,10 @@ def informant_questionnaire(pid: str, body: InformantIn, who: Principal = Depend
 
 # ------------------------------------------------------------- web app (keep LAST: the mount catches every unmatched path)
 # Serve the built site at "/" so one in-country App Service hosts both the API and the front end (same origin:
-# microphone and speech work over HTTPS). The new site (site/out) wins; it carries the old prototype at /prototype/.
+# microphone and speech work over HTTPS). Only the site (site/out, built by `npm run build` in site/) is served; the
+# earlier single-page prototype is retired, and /prototype/ forwards to the site's home page.
 _ROOT = pathlib.Path(__file__).resolve().parents[1]
-_DIST = next((d for d in (_ROOT / "site" / "out", _ROOT / "web" / "dist") if (d / "index.html").exists()), None)
+_DIST = _ROOT / "site" / "out" if (_ROOT / "site" / "out" / "index.html").exists() else None
 if _DIST:
     from fastapi.staticfiles import StaticFiles
     app.mount("/", StaticFiles(directory=str(_DIST), html=True), name="web")

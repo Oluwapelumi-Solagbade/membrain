@@ -25,7 +25,7 @@ If the name is taken, choose another:
 ```bash
 APP=membrain-cerebrospark2 bash scripts/deploy_azure.sh
 ```
-Then tell Claude the new name so the GitHub Pages default (`DEFAULT_API` in `web/app.js`) can be updated.
+Then set `NEXT_PUBLIC_API_URL` in `.github/workflows/pages.yml` to the new address, so the GitHub Pages copy uses it.
 
 ## Test
 - Open `https://membrain-cerebrospark.azurewebsites.net/` in Chrome.

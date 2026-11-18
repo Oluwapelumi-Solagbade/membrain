@@ -135,25 +135,23 @@ def test_a_slow_transcription_does_not_hold_up_other_requests(monkeypatch):
     """Recognition runs in a worker thread: while one answer is transcribed, the server still answers everyone else
     (before, one recording froze the whole demo server, health checks included, and the host restarted it)."""
     import asyncio
-    import time
     import numpy as np
     import api.asr_local as A
     monkeypatch.setenv("WHISPER_MODEL", "fake"); monkeypatch.delenv("AZURE_SPEECH_KEY", raising=False)
     monkeypatch.setattr(A, "decode", lambda data: np.zeros(16000, dtype=np.float32))
-    monkeypatch.setitem(A._MODEL, "m", _SlowModel(1.0))
+    monkeypatch.setitem(A._MODEL, "m", _SlowModel(3.0))
 
     async def go():
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as ac:
-            t0 = time.perf_counter()
             rec = asyncio.create_task(ac.post("/api/asr/transcribe", files={"audio": ("a.webm", b"x", "audio/webm")}, data={"lang": "ar"}))
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.2)
             h = await ac.get("/health")
-            health_s = time.perf_counter() - t0
+            answered_while_busy = not rec.done()   # the health check came back while the recording was still being transcribed
             r = await rec
-            return h, health_s, r
+            return h, answered_while_busy, r
 
-    h, health_s, r = asyncio.run(go())
-    assert h.status_code == 200 and health_s < 0.6
+    h, answered_while_busy, r = asyncio.run(go())
+    assert h.status_code == 200 and answered_while_busy
     assert r.status_code == 200 and r.json()["text"] == "مرحبا"
 
 
