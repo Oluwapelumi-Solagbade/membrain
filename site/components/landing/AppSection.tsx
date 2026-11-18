@@ -1,8 +1,7 @@
 // "MemBrain in your pocket": the mobile app on the landing page, with real screenshots (scripts/app-shots.mjs), the
-// Android download (built by .github/workflows/android.yml) and a link to open the same app in the browser.
+// Android download (built by .github/workflows/android.yml).
 import Image from "next/image";
-import Link from "next/link";
-import { BellRing, Download, MapPinned, Mic, Smartphone, Sparkles, UsersRound } from "lucide-react";
+import { BellRing, Download, MapPinned, Mic, Smartphone, UsersRound } from "lucide-react";
 import { Eyebrow } from "@/components/ui";
 import { APK_URL } from "@/lib/app";
 import { asset } from "@/lib/asset";
@@ -12,7 +11,7 @@ const T = {
   en: {
     eyebrow: "The MemBrain app",
     title: ["MemBrain, in your ", "pocket", "."],
-    intro: "One app for the whole journey. Families report a change by voice and the family questionnaire; the person does the spoken check-in; clinicians work the alert queue, the map of the emirates and written reports. It talks to the MemBrain server when there is a connection and keeps working on the phone when there is not.",
+    intro: "One app for the whole journey. Families report a change by voice and the family questionnaire; the person does the spoken check-in; clinicians work the alert queue, the map of the emirates, referrals and written reports. Everything is read from and written to the MemBrain server as it happens, so the phone and the clinician workspace always show the same record.",
     features: [
       { icon: Mic, title: "Speak, don't type", text: "Concerns and check-ins by voice, in Arabic or English, read on the phone as you speak." },
       { icon: BellRing, title: "Alerts that explain themselves", text: "Urgent first, every level with its reasons and the next action." },
@@ -20,8 +19,7 @@ const T = {
       { icon: UsersRound, title: "Family in the loop", text: "Report a change since last time and answer the family questionnaire." },
     ],
     download: "Download for Android",
-    apk: "APK, about 6 MB · install from a trusted source",
-    open: "Open the app in your browser",
+    apk: "Android APK · about 6 MB",
     shots: [
       { src: "/images/app/clinician-home.webp", alt: "The clinician's home screen: people needing review, urgent alerts and triage levels" },
       { src: "/images/app/intake.webp", alt: "A new concern read on the phone: an urgent sign shown first, and the facts picked out" },
@@ -32,7 +30,7 @@ const T = {
   ar: {
     eyebrow: "تطبيق MemBrain",
     title: ["MemBrain ", "في جيبك", "."],
-    intro: "تطبيق واحد للرحلة كلها. تبلّغ الأسرة عن التغيّر بالصوت وتجيب عن استبيان الأسرة، ويُجري الشخص الفحص الصوتي، ويعمل الأطباء على قائمة التنبيهات وخريطة الإمارات والتقارير المكتوبة. يتصل بخادم MemBrain عند توفر الاتصال، ويستمر في العمل على الهاتف عند انقطاعه.",
+    intro: "تطبيق واحد للرحلة كلها. تبلّغ الأسرة عن التغيّر بالصوت وتجيب عن استبيان الأسرة، ويُجري الشخص الفحص الصوتي، ويعمل الأطباء على قائمة التنبيهات وخريطة الإمارات والإحالات والتقارير المكتوبة. كل ما يجري يُقرأ من خادم MemBrain ويُحفظ فيه لحظة حدوثه، فيرى الهاتف وواجهة الطبيب السجل نفسه دائمًا.",
     features: [
       { icon: Mic, title: "تحدّث بدلًا من الكتابة", text: "البلاغات والفحوص بالصوت، بالعربية أو بالإنجليزية، ويقرؤها الهاتف أثناء حديثك." },
       { icon: BellRing, title: "تنبيهات تشرح نفسها", text: "العاجل أولًا، ولكل مستوى أسبابه والخطوة التالية." },
@@ -40,8 +38,7 @@ const T = {
       { icon: UsersRound, title: "الأسرة جزء من الرحلة", text: "الإبلاغ عن تغيّر منذ المرة الماضية والإجابة عن استبيان الأسرة." },
     ],
     download: "حمّل التطبيق لأندرويد",
-    apk: "ملف APK، نحو ٦ ميغابايت · ثبّته من مصدر موثوق",
-    open: "افتح التطبيق في المتصفح",
+    apk: "ملف APK لأندرويد · نحو ٦ ميغابايت",
     shots: [
       { src: "/images/app/patient-home-ar.webp", alt: "الشاشة الرئيسية للشخص بالعربية: آخر المستجدات والفحص القادم والخطة" },
       { src: "/images/app/intake.webp", alt: "بلاغ جديد يقرؤه الهاتف: العلامة العاجلة أولًا ثم المعلومات المستخرجة" },
@@ -94,9 +91,6 @@ export function AppSection({ lang }: { lang: Lang }) {
                 <span className="block text-[12px] text-body">{t.apk}</span>
               </span>
             </a>
-            <Link href="/app/" className="inline-flex items-center gap-2 rounded-2xl px-4 py-3.5 text-[15px] font-semibold text-white ring-1 ring-white/25 hover:bg-white/10">
-              <Sparkles size={17} className="text-sand" /> {t.open}
-            </Link>
           </div>
           <p className="mt-5 text-[12.5px] text-white/50">{t.note}</p>
         </div>

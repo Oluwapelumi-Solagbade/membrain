@@ -15,7 +15,7 @@ const COPY: Record<Lang, { tagline: string; emergency: string; app: string; appS
     appSub: "For clinicians and families",
     groups: [
       { title: "Families", items: [{ label: "Raise a concern", href: "/concern/" }, { label: "Six-minute check-in", href: "/checkin/" }, { label: "Sign in", href: "/signin/" }] },
-      { title: "Clinicians", items: [{ label: "Clinician workspace", href: "/clinician/" }, { label: "Mobile app", href: "/app/" }, { label: "Enrol a participant", href: "/clinician/enrol/" }] },
+      { title: "Clinicians", items: [{ label: "Clinician workspace", href: "/clinician/" }, { label: "Enrol a participant", href: "/clinician/enrol/" }] },
       { title: "MemBrain", items: [{ label: "How it works", href: "#how" }, { label: "Evidence", href: "#evidence" }, { label: "Watch the demo", href: "#demo" }] },
     ],
     lang: { label: "العربية", href: "/ar/" },
@@ -28,7 +28,7 @@ const COPY: Record<Lang, { tagline: string; emergency: string; app: string; appS
     appSub: "للأطباء والعائلات",
     groups: [
       { title: "للعائلات", items: [{ label: "أبلغ عن تغيّر", href: "/concern/?lang=ar" }, { label: "فحص الست دقائق", href: "/checkin/?lang=ar" }, { label: "تسجيل الدخول", href: "/signin/patient/?lang=ar" }] },
-      { title: "للأطباء", items: [{ label: "واجهة الطبيب", href: "/clinician/" }, { label: "تطبيق الهاتف", href: "/app/" }, { label: "تسجيل مشارك", href: "/clinician/enrol/" }] },
+      { title: "للأطباء", items: [{ label: "واجهة الطبيب", href: "/clinician/" }, { label: "تسجيل مشارك", href: "/clinician/enrol/" }] },
       { title: "MemBrain", items: [{ label: "كيف يعمل", href: "#how" }, { label: "الأدلة", href: "#evidence" }, { label: "شاهد العرض", href: "#demo" }] },
     ],
     lang: { label: "English", href: "/" },
