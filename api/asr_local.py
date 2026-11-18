@@ -95,18 +95,66 @@ def state() -> str:
     return "error" if _MODEL["err"] else "idle"
 
 
+MIXED = os.getenv("ASR_MIXED", "1") == "1"      # Gulf Arabic mixed with English, piece by piece
+SWITCH_P = float(os.getenv("ASR_SWITCH_P", "0.6"))   # confidence needed to leave the page's language for a piece
+MIN_PIECE_S = 0.6
+
+
+def _split(pcm) -> list[tuple[int, int]]:
+    """Speech pieces separated by short pauses (Silero VAD, as faster-whisper uses internally)."""
+    from faster_whisper.vad import VadOptions, get_speech_timestamps
+    ts = get_speech_timestamps(pcm, VadOptions(min_silence_duration_ms=350, speech_pad_ms=150, max_speech_duration_s=25))
+    return [(t["start"], t["end"]) for t in ts]
+
+
+def _pick(m, piece, page: str) -> str:
+    """Arabic or English for this piece. The page's language wins unless the other one is clearly more likely."""
+    other = "en" if page == "ar" else "ar"
+    try:
+        _, _, probs = m.detect_language(audio=piece)
+    except Exception:
+        return page
+    d = dict(probs)
+    p_page, p_other = d.get(page, 0.0), d.get(other, 0.0)
+    return other if p_other >= SWITCH_P and p_other > 2 * p_page else page
+
+
+def _decode(m, audio, language: str) -> str:
+    segs, _ = m.transcribe(audio, language=language, task="transcribe", beam_size=int(os.getenv("WHISPER_BEAM", "1")),
+                           vad_filter=True, condition_on_previous_text=False,
+                           max_new_tokens=int(os.getenv("WHISPER_MAX_NEW_TOKENS", "200")))
+    return " ".join(s.text.strip() for s in segs).strip()
+
+
 def whisper_text(pcm, lang: str) -> tuple[str, object, int]:
-    """Transcribe 16 kHz mono audio with our Whisper model. Blocking (the model decodes as its segments are read),
-    so run it in a worker thread. Returns (text, info, latency_ms)."""
+    """Transcribe 16 kHz mono audio with our Whisper model. Blocking, so run it in a worker thread.
+    Mixed speech: Whisper writes one language per 30-second window, so a sentence that switches between Gulf Arabic and
+    English came out translated into the page's language. Now the recording is split at short pauses, each piece's
+    language is detected (Arabic or English only; the page's language is the default), runs of the same language are
+    decoded together, and the pieces are joined in order. Returns (text, info, latency_ms)."""
+    page = "ar" if lang == "ar" else "en"
     m = _model()
     if not _RUN.acquire(timeout=BUSY_WAIT_S):
         raise HTTPException(503, "Speech recognition is busy. Please try again in a moment.", headers={"Retry-After": "10"})
     try:
         t = time.perf_counter()
-        segs, info = m.transcribe(pcm, language="ar" if lang == "ar" else "en", task="transcribe",
-                                  beam_size=int(os.getenv("WHISPER_BEAM", "1")), vad_filter=True, condition_on_previous_text=False,
-                                  max_new_tokens=int(os.getenv("WHISPER_MAX_NEW_TOKENS", "200")))
-        text = " ".join(s.text.strip() for s in segs).strip()
+        pieces = _split(pcm) if MIXED else []
+        if len(pieces) <= 1:
+            language = _pick(m, pcm, page) if MIXED else page
+            text, langs = _decode(m, pcm, language), [language]
+        else:
+            groups: list[list] = []          # [language, start, end], neighbours with the same language merged
+            for a, b in pieces:
+                piece = pcm[a:b]
+                language = _pick(m, piece, page) if (b - a) >= MIN_PIECE_S * 16000 else (groups[-1][0] if groups else page)
+                if groups and groups[-1][0] == language:
+                    groups[-1][2] = b
+                else:
+                    groups.append([language, a, b])
+            parts = [(g[0], _decode(m, pcm[g[1]:g[2]], g[0])) for g in groups]
+            text = " ".join(p for _, p in parts if p).strip()
+            langs = [g[0] for g in groups]
+        info = type("Info", (), {"language": "+".join(dict.fromkeys(langs)), "duration": len(pcm) / 16000})()
         return text, info, round((time.perf_counter() - t) * 1000)
     except HTTPException:
         raise

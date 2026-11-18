@@ -184,3 +184,35 @@ def test_a_failed_model_load_is_retried_instead_of_breaking_speech_until_restart
     import time
     time.sleep(0.25)
     assert isinstance(A._model(), _SlowModel) and A.state() == "ready" and calls["n"] == 2
+
+
+def test_mixed_arabic_english_is_decoded_piece_by_piece(monkeypatch):
+    """Pieces split at pauses keep their own language; the page's language is the default; same-language neighbours merge."""
+    import numpy as np
+    import api.asr_local as A
+
+    class Seg:
+        def __init__(self, text):
+            self.text = text
+
+    class FakeModel:
+        def detect_language(self, audio=None, **k):
+            en = float(audio.mean()) > 0          # stand-in: positive samples "sound English"
+            return ("en" if en else "ar"), 0.9, [("en", 0.9 if en else 0.05), ("ar", 0.05 if en else 0.9)]
+
+        def transcribe(self, audio, language=None, **k):
+            return [Seg(f"[{language}:{len(audio) // 16000}s]")], None
+
+    sec = 16000
+    pcm = np.concatenate([-np.ones(3 * sec), np.zeros(sec // 2), -np.ones(2 * sec), np.zeros(sec // 2), np.ones(3 * sec)]).astype("float32")
+    pieces = [(0, 3 * sec), (int(3.5 * sec), int(5.5 * sec)), (6 * sec, 9 * sec)]   # Arabic, Arabic, English
+    monkeypatch.setattr(A, "_model", lambda: FakeModel())
+    monkeypatch.setattr(A, "_split", lambda p: pieces)
+    text, info, _ = A.whisper_text(pcm, "ar")
+    assert text == "[ar:5s] [en:3s]" and info.language == "ar+en"   # two Arabic pieces merged, English kept as English
+    monkeypatch.setattr(A, "_split", lambda p: [(0, 3 * sec)])
+    text, info, _ = A.whisper_text(pcm[: 3 * sec], "ar")
+    assert info.language == "ar"                                     # plain Arabic stays Arabic
+    monkeypatch.setattr(A, "MIXED", False)
+    text, info, _ = A.whisper_text(pcm, "ar")
+    assert info.language == "ar"                                     # switch off with ASR_MIXED=0
