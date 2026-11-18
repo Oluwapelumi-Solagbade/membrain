@@ -45,7 +45,7 @@ def review_packet(pid: str, use_model: bool = True, who: Principal = Depends(pri
         else:
             _HITS.append(now)
             t = time.perf_counter()
-            raw = med42.complete(PK.messages(fs))
+            raw = med42.complete(PK.messages(fs), 1000)
             out["latency_ms"] = round((time.perf_counter() - t) * 1000)
             model, kept, removed = PK.verify(raw, fs) if raw else (None, 0, 0)
             if model:

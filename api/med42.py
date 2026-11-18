@@ -49,12 +49,12 @@ def load(spaces_module=None) -> bool:
         if spaces_module is not None:
             _generate = spaces_module.GPU(duration=int(os.getenv("MED42_GPU_SECONDS", "90")))(_generate)
 
-        def _complete(messages: list[dict], max_new: int = 700) -> str:
+        def _complete(messages: list[dict], max_new: int = 1000) -> str:
             # the answer is started with "{" so the model writes the JSON object straight away
             prompt = tk.apply_chat_template(messages, add_generation_prompt=True, tokenize=False) + "{"
             ids = tk(prompt, add_special_tokens=False, return_tensors="pt")["input_ids"]
             with _lock:
-                out = _generate(ids, min(max_new, 800))
+                out = _generate(ids, min(max_new, 1000))
             status["last_raw"] = ("{" + out)[:1500]   # for the staff-only engine check
             return "{" + out
 

@@ -94,3 +94,22 @@ def test_med42s_real_mistakes_on_the_live_space_are_caught():
     assert [s["text"] for s in pk["summary"]] == ["Delayed word recall fell from 5.0 to 4.0, a reliable decline."]
     assert [r["check"] for r in pk["rule_out"]] == ["blood_pressure", "glucose"]    # thyroid on BP and depression on PHQ 1/6 dropped
     assert removed == 3
+
+
+R1187 = ('{ "summary":[{"text":"Delayed word recall declined from 5.0 to 4, a reliable decline, and confirmed on repeat with an alternate form.","facts":["F3"]},'
+         '{"text":"Blood pressure is elevated at 151/90 mmHg.","facts":["F7"]}],\n'
+         '"rule_out":[{"check":"diabetes","why":"Elevated HbA1c may contribute to memory decline.","facts":["F8"]},'
+         '{"check":"hypertension","why":"Elevated blood pressure may contribute to memory decline.","facts":["F7"]},'
+         '{"check":"smoking","why":"Smoking may harm vascular health.","facts":["F9"]},'
+         '{"check":"depression","why":"Mild depressive symptoms.","facts":["F4"]},'
+         '{"check":"anxiety","why":"Mild anxiety symptoms.","facts:["F5"]}],\n'
+         '"ask":[{"q":"Has there been any change in sleep patterns or quality?","facts":["F6"]},{"q":"Has the patient exp')
+
+
+def test_broken_or_cut_off_answers_from_the_live_space_are_salvaged():
+    """Med42's second live answer (18 Nov): a missing quote in one item and the answer cut off mid-question."""
+    pk, kept, removed = PK.verify(R1187, _fs())
+    assert len(pk["summary"]) == 2
+    assert [r["check"] for r in pk["rule_out"]] == ["glucose", "blood_pressure"]         # names mapped to the list
+    assert [a["q"] for a in pk["ask"]] == ["Has there been any change in sleep patterns or quality?"]
+    assert removed == 4   # smoking, depression on PHQ 1/6, the broken item, the cut-off question

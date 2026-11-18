@@ -226,6 +226,38 @@ def _refs(v) -> list[str]:
     return out
 
 
+SECTION_KEYS = {"summary": ("summary",), "rule_out": ("rule_out", "rule out", "checks", "reversible_causes", "reversible causes"),
+                "ask": ("ask", "questions")}
+
+
+def _salvage(s: str, dec: json.JSONDecoder) -> dict | None:
+    out = {}
+    for name, keys in SECTION_KEYS.items():
+        m = re.search(r'"(?:' + "|".join(re.escape(k) for k in keys) + r')"\s*:\s*\[', s, re.I)
+        if not m:
+            continue
+        nxt = re.search(r'"(?:' + "|".join(re.escape(k) for ks in SECTION_KEYS.values() for k in ks) + r')"\s*:', s[m.end():], re.I)
+        body = s[m.end(): m.end() + nxt.start()] if nxt else s[m.end():]
+        items = []
+        for o in re.finditer(r"\{", body):
+            try:
+                obj, _ = dec.raw_decode(body[o.start():])
+            except ValueError:
+                items.append(None)   # a broken item: counted as removed
+                continue
+            if isinstance(obj, dict):
+                items.append(obj)
+        items += [x for x in re.findall(r'^\s*"([^"]{8,})"\s*,?\s*$', body, re.M)] if name != "rule_out" else []
+        out[name] = items
+    return out or None
+
+
+ALIASES = {"hypertension": "blood_pressure", "bp": "blood_pressure", "diabetes": "glucose", "hba1c": "glucose",
+           "b12": "b12_folate", "folate": "b12_folate", "tsh": "thyroid", "anaemia": "blood_count", "anemia": "blood_count",
+           "kidney": "renal", "medications": "medication", "mood": "depression", "hearing": "hearing_vision",
+           "vision": "hearing_vision", "sleep_apnoea": "sleep", "sleep_apnea": "sleep", "infection": "delirium"}
+
+
 def parse(raw: str | None) -> dict | None:
     """The first JSON object in the answer (code fences, text around it and key case tolerated), normalised."""
     if not raw:
@@ -238,10 +270,12 @@ def parse(raw: str | None) -> dict | None:
             obj, _ = dec.raw_decode(s[m.start():])
         except ValueError:
             continue
-        if isinstance(obj, dict):
+        if isinstance(obj, dict) and {str(k).lower() for k in obj} & {"summary", "rule_out", "ask", "questions", "checks"}:
             data = obj
             break
     if data is None:
+        data = _salvage(s, dec)   # broken or cut-off JSON: read each section, and each item, on its own
+    if not data:
         return None
     data = {str(k).strip().lower().replace(" ", "_").replace("-", "_"): v for k, v in data.items()}
     data["rule_out"] = data.get("rule_out") or data.get("checks") or data.get("reversible_causes") or []
@@ -251,13 +285,15 @@ def parse(raw: str | None) -> dict | None:
         summ = [{"text": summ, "facts": re.findall(r"F\d+", summ)}]
     norm = lambda items, key: [  # noqa: E731
         ({key: it, "facts": []} if isinstance(it, str) else {**it, key: it.get(key) or it.get("text") or it.get("question") or it.get("reason"),
-                                                            "facts": _refs(it.get("facts") or it.get("fact_ids") or it.get("refs"))})
-        for it in items if isinstance(it, (str, dict))]
+                                                            "facts": _refs(it.get("facts") or it.get("fact_ids") or it.get("refs"))}
+         if isinstance(it, dict) else None)
+        for it in items]
     data["summary"] = norm(summ, "text")
     data["ask"] = norm(data["ask"], "q")
-    data["rule_out"] = [{**it, "check": str(it.get("check") or it.get("key") or "").strip().lower(), "why": it.get("why") or it.get("reason"),
-                         "facts": _refs(it.get("facts") or it.get("fact_ids") or it.get("refs"))}
-                        for it in data["rule_out"] if isinstance(it, dict)]
+    data["rule_out"] = [({**it, "check": ALIASES.get(k := str(it.get("check") or it.get("key") or "").strip().lower().replace(" ", "_"), k),
+                          "why": it.get("why") or it.get("reason"),
+                          "facts": _refs(it.get("facts") or it.get("fact_ids") or it.get("refs"))} if isinstance(it, dict) else None)
+                        for it in data["rule_out"]]
     return data
 
 
