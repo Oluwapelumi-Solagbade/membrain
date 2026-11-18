@@ -7,6 +7,17 @@ import { serverBackend } from "./server";
 import type { Backend } from "./types";
 
 let chosen: Promise<Backend> | null = null;
+let serverOnly = false;
+
+/** The mobile app works against the live server only: it never falls back to the in-browser copy (where nothing is
+ *  saved). If the server cannot be reached, getBackend() rejects and the app shows a retry screen. */
+export function requireServer() {
+  serverOnly = true;
+}
+/** Forget the choice, so the next getBackend() probes again (the app's "Retry"). */
+export function resetBackend() {
+  chosen = null;
+}
 
 type Probe = "ok" | "no" | "retry";
 
@@ -50,13 +61,20 @@ async function pick(): Promise<Backend> {
   if (q.get("mode") === "browser") return localBackend;
   // Static hosting with no API at all (only if a build asks for it): skip probing, unless ?api=<url> names one.
   if (process.env.NEXT_PUBLIC_STATIC_ONLY === "1" && !q.get("api")) return localBackend;
-  const candidates = [q.get("api"), process.env.NEXT_PUBLIC_API_URL, ""].filter((x): x is string => x != null).map((x) => x.replace(/\/$/, ""));
+  // Inside the Android app the page itself is served from the phone (https://localhost): only the live server counts.
+  const sameOrigin = process.env.NEXT_PUBLIC_MOBILE === "1" ? null : "";
+  const candidates = [q.get("api"), process.env.NEXT_PUBLIC_API_URL, sameOrigin].filter((x): x is string => x != null).map((x) => x.replace(/\/$/, ""));
   for (const base of [...new Set(candidates)]) if (await reachable(base)) return serverBackend(base);
+  if (serverOnly) throw new Error("The MemBrain server could not be reached.");
   return localBackend;
 }
 
 export function getBackend(): Promise<Backend> {
-  return (chosen ??= pick());
+  chosen ??= pick();
+  chosen.catch(() => {
+    chosen = null; // a failed connection is retried on the next call, not remembered
+  });
+  return chosen;
 }
 
 export * from "./types";

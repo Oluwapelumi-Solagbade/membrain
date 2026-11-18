@@ -303,7 +303,7 @@ export function Intake({ lang: initialLang, followPid, staff, defaultReporter, o
         {error && <p className="mt-3 rounded-xl bg-lv-urgent-soft px-4 py-3 text-[14px] text-lv-urgent">{error}</p>}
       </div>
 
-      <div className="absolute inset-x-0 bottom-0 z-30 border-t border-line bg-white/95 px-4 pt-3 backdrop-blur" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 14px)" }}>
+      <div className="absolute inset-x-0 bottom-0 z-30 border-t border-line bg-white/95 px-4 pt-3 backdrop-blur" style={{ paddingBottom: "max(var(--mb-sab), 14px)" }}>
         {!result ? (
           <button type="button" onClick={read} disabled={text.trim().length < 3 || reading || rec !== "idle"} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-deep py-4 text-[16px] font-semibold text-white disabled:bg-[#9fb3aa]">
             {reading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />} {reading ? t.reading : t.read}

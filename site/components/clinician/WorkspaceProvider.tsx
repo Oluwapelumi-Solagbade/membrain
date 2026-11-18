@@ -5,6 +5,9 @@ import { getBackend, type AuditEntry, type Backend, type Case, type EnrolDone, t
 
 type Workspace = {
   ready: boolean;
+  /** When the cases were last read from the backend, and whether a read is under way (live refresh). */
+  syncedAt: number | null;
+  syncing: boolean;
   mode: "server" | "browser" | null;
   base: string | null;
   cases: Case[];
@@ -30,6 +33,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [cases, setCases] = useState<Case[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [syncedAt, setSyncedAt] = useState<number | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -39,6 +44,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         if (!live) return;
         setBackend(b);
         setCases(list);
+        setSyncedAt(Date.now());
       })
       .catch((e: unknown) => live && setError(e instanceof Error ? e.message : String(e)));
     return () => {
@@ -49,16 +55,50 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const run = useCallback(async (fn: (b: Backend) => Promise<unknown>) => {
     const b = await getBackend();
     setError(null);
+    setSyncing(true);
     try {
       await fn(b);
     } finally {
-      setCases(await b.cases());
+      try {
+        setCases(await b.cases());
+        setSyncedAt(Date.now());
+      } finally {
+        setSyncing(false);
+      }
     }
   }, []);
+
+  // Live: against the server, read the cases again every 20 seconds while the page is visible, and as soon as it
+  // becomes visible again, so what others add (a concern on the website, a check-in, the Telegram bot) appears here.
+  useEffect(() => {
+    if (backend?.mode !== "server") return;
+    let busy = false;
+    const tick = async () => {
+      if (busy || document.visibilityState !== "visible") return;
+      busy = true;
+      try {
+        setCases(await backend.cases());
+        setSyncedAt(Date.now());
+      } catch {
+        /* keep what is shown; the next tick tries again */
+      } finally {
+        busy = false;
+      }
+    };
+    const id = window.setInterval(tick, 20000);
+    const vis = () => document.visibilityState === "visible" && void tick();
+    document.addEventListener("visibilitychange", vis);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", vis);
+    };
+  }, [backend]);
 
   const value = useMemo<Workspace>(
     () => ({
       ready: !!backend,
+      syncedAt,
+      syncing,
       mode: backend?.mode ?? null,
       base: backend?.base ?? null,
       cases,
@@ -81,7 +121,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       },
       reidentify: async (pid, reason) => (await getBackend()).reidentify(pid, reason),
     }),
-    [backend, cases, error, query, run],
+    [backend, cases, error, query, run, syncedAt, syncing],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

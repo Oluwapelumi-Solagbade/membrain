@@ -23,7 +23,7 @@ async function shot(name, session, lang, steps = async () => {}) {
   }, [session, lang]);
   const page = await ctx.newPage();
   await page.goto(`${BASE}/app/?mode=browser`, { waitUntil: "networkidle" });
-  await page.waitForTimeout(2200); // the splash
+  await page.waitForTimeout(2600); // the splash
   await steps(page);
   await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" }); // the dev server's badge
   await page.waitForTimeout(500);
@@ -41,7 +41,7 @@ await shot("clinician-home", clinician, "en");
 await shot("clinician-alerts", clinician, "en", async (p) => p.getByRole("button", { name: "Alerts" }).click());
 await shot("clinician-map", clinician, "en", async (p) => p.getByRole("button", { name: "Map" }).click());
 await shot("intake", clinician, "en", async (p) => {
-  await p.getByRole("button", { name: "New", exact: true }).click();
+  await p.getByRole("button", { name: "Create", exact: true }).click();
   await p.getByText("New concern", { exact: true }).click();
   await p.locator("textarea").fill("Our helper says Dad left the gas on twice this month and asks the same question many times a day. My son now handles his bills. It has been getting worse for about a year.");
   await p.getByRole("button", { name: "Read it" }).click();

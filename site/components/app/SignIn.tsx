@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { ArrowRight, Loader2, ShieldCheck, Stethoscope, UsersRound } from "lucide-react";
-import { cx } from "./kit";
+import { cx, useStatusBar } from "./kit";
 import { Logo } from "../Logo";
 import { asset } from "@/lib/asset";
 import { demoAccounts, signInClinician, startPatient, verifyPatient, type Challenge, type DemoAccounts } from "@/lib/auth";
@@ -17,18 +17,19 @@ const T = {
     patient: "I'm a patient or family member", patientSub: "Sign in with your mobile number", staff: "I'm a clinician or coordinator", staffSub: "Sign in with your work account",
     phone: "Mobile number", phoneHint: "We send a 6-digit code. No password to remember.", send: "Send code", code: "Enter the code", codeSent: (p: string) => `Sent to ${p}`,
     demoCode: (c: string) => `Demo: no text message is sent. Your code is ${c}.`, fill: "Fill it in", verify: "Verify and continue",
-    email: "Work email", password: "Password", signIn: "Sign in", demo: "Demo accounts (synthetic)", use: "Use", back: "Back", disclaimer: "Prototype · synthetic data · MemBrain never diagnoses",
+    email: "Work email", password: "Password", signIn: "Sign in", demo: "Demo accounts (synthetic)", use: "Use", back: "Back", disclaimer: "Secure sign-in · MemBrain never diagnoses",
   },
   ar: {
     tag: "من «هناك شيء ليس على ما يرام» إلى الطبيب المناسب.", body: "فحص صوتي لصحة الدماغ بالعربية أو بالإنجليزية، وأسرة يُستمع إليها.",
     patient: "أنا مريض أو من أفراد الأسرة", patientSub: "سجّل الدخول برقم هاتفك", staff: "أنا طبيب أو منسق", staffSub: "سجّل الدخول بحساب العمل",
     phone: "رقم الهاتف", phoneHint: "نرسل رمزًا من ستة أرقام. لا حاجة إلى كلمة مرور.", send: "أرسل الرمز", code: "أدخل الرمز", codeSent: (p: string) => `أُرسل إلى ⁦${p}⁩`,
     demoCode: (c: string) => `تجريبي: لا تُرسل رسالة نصية. رمزك هو ⁦${c}⁩.`, fill: "أدخله تلقائيًا", verify: "تحقّق وتابِع",
-    email: "بريد العمل", password: "كلمة المرور", signIn: "تسجيل الدخول", demo: "حسابات تجريبية (وهمية)", use: "استخدم", back: "رجوع", disclaimer: "نموذج تجريبي · بيانات وهمية · MemBrain لا يشخّص",
+    email: "بريد العمل", password: "كلمة المرور", signIn: "تسجيل الدخول", demo: "حسابات تجريبية (وهمية)", use: "استخدم", back: "رجوع", disclaimer: "تسجيل دخول آمن · MemBrain لا يشخّص",
   },
 };
 
 export function Welcome({ lang, setLang, onSignedIn }: { lang: Lang; setLang: (l: Lang) => void; onSignedIn: () => void }) {
+  useStatusBar(true);
   const t = T[lang];
   const [mode, setMode] = useState<"choose" | "patient" | "staff">("choose");
   const [demo, setDemo] = useState<DemoAccounts | null>(null);
@@ -42,7 +43,7 @@ export function Welcome({ lang, setLang, onSignedIn }: { lang: Lang; setLang: (l
         <Image src={asset("/images/hero-family-top.webp")} alt="" fill priority sizes="520px" className="object-cover object-[60%_30%] opacity-45" />
         <div className="absolute inset-0 bg-gradient-to-b from-deep/30 via-deep/70 to-deep" />
       </div>
-      <div className="relative flex items-center justify-between px-5" style={{ paddingTop: "max(env(safe-area-inset-top), 18px)" }}>
+      <div className="relative flex items-center justify-between px-5" style={{ paddingTop: "calc(var(--mb-sat) + 14px)" }}>
         <Logo inverted size="md" />
         <div className="flex rounded-full bg-white/12 p-0.5 ring-1 ring-white/20">
           {(["en", "ar"] as Lang[]).map((l) => (
