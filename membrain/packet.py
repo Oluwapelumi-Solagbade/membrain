@@ -26,7 +26,7 @@ CHECKS = {
     "alcohol": "Alcohol use", "blood_pressure": "Blood pressure and vascular risk",
 }
 ROUTINE = ("thyroid", "b12_folate", "blood_count", "glucose", "renal", "medication")
-BLOCKED = IN.BLOCKED + ["prescribe", "start treatment", "mg", "donepezil", "memantine", "lecanemab", "rivastigmine", "galantamine"]
+BLOCKED = IN.BLOCKED + ["contribute to the decline", "contributing to the decline", "caused by", "due to smoking", "prescribe", "start treatment", "mg", "donepezil", "memantine", "lecanemab", "rivastigmine", "galantamine"]
 MAX_TEXT = 260
 
 
@@ -167,6 +167,36 @@ def messages(fs: list[dict]) -> list[dict]:
 
 def _clean(t: str) -> str:
     return re.sub(r"\s*[\[(]\s*F\d+(?:\s*,\s*F\d+)*\s*[\])]", "", t).strip()
+
+
+def contradicts(t: str, refs: list[str], by_id: dict) -> bool:
+    """A judgement in the sentence that the cited values do not support (same thresholds as the rules)."""
+    low = t.lower()
+    src = " ".join(by_id[r] for r in refs)
+    val = lambda pat: (lambda m: float(m.group(1)) if m else None)(re.search(pat, src))  # noqa: E731
+    normal = re.search(r"\b(normal|within (the )?normal|adequate|healthy|fine|unremarkable|good|controlled)\b", low)
+    high = re.search(r"\b(elevated|raised|high|abnormal|uncontrolled)\b", low)
+    sbp, a1c = val(r"Blood pressure (\d+)"), val(r"HbA1c ([\d.]+)")
+    sleep = val(r"Sleep [^:]*: ([\d.]+) hours")
+    phq, gad = val(r"PHQ-2 [^:]*: ([\d.]+)"), val(r"GAD-2 [^:]*: ([\d.]+)")
+    if sbp is not None and ("blood pressure" in low or "bp" in low.split()):
+        if normal and sbp >= 130 or high and sbp < 130:
+            return True
+    if a1c is not None and "hba1c" in low:
+        if normal and a1c >= 5.7 or high and a1c < 5.7:
+            return True
+    if sleep is not None and "sleep" in low:
+        if normal and sleep < 6 or re.search(r"\b(short|poor|reduced|insufficient)\b", low) and sleep >= 7:
+            return True
+    for v, words in ((phq, ("depress", "mood")), (gad, ("anxi",))):
+        if v is not None and v < 3 and any(w in low for w in words) and re.search(r"\b(mild|moderate|severe|significant) [a-z ]*(symptom|depress|anxi)", low) \
+                and not re.search(r"\bno (significant|clinically)", low):
+            return True
+    return False
+
+
+def _sentences(t: str) -> list[str]:
+    return [s.strip() for s in re.split(r"(?<=[.!?])\s+(?=[A-Z])", t) if s.strip()]
 
 
 def _blocked(t: str) -> bool:
@@ -312,15 +342,21 @@ def verify(raw: str, fs: list[dict]) -> tuple[dict | None, int, int]:
                 and (refs or not need_refs) and not _blocked(text) and _numbers_ok(text, refs, by_id))
 
     for it in data.get("summary") or []:
-        if isinstance(it, dict) and ok(it.get("text"), it.get("facts") or []):
-            out["summary"].append({"text": _clean(it["text"]), "facts": it["facts"]}); kept += 1
-        else:
+        if not isinstance(it, dict) or not isinstance(it.get("text"), str):
             removed += 1
+            continue
+        for sent in _sentences(it["text"]) if len(it["text"]) > MAX_TEXT else [it["text"]]:
+            refs = it.get("facts") or []
+            if ok(sent, refs) and not contradicts(sent, refs, by_id) and len(out["summary"]) < 4:
+                out["summary"].append({"text": _clean(sent), "facts": refs}); kept += 1
+            else:
+                removed += 1
     seen = set()
     for it in data.get("rule_out") or []:
         refs = (it.get("facts") or []) if isinstance(it, dict) else []
         grounded = isinstance(it, dict) and refs and all(r in by_id and supports(it.get("check"), by_id[r]) for r in refs)
-        if isinstance(it, dict) and it.get("check") in CHECKS and it["check"] not in seen and grounded and ok(it.get("why"), refs):
+        if isinstance(it, dict) and it.get("check") in CHECKS and it["check"] not in seen and grounded and ok(it.get("why"), refs) \
+                and not contradicts(it.get("why") or "", refs, by_id):
             seen.add(it["check"])
             out["rule_out"].append({"check": it["check"], "label": CHECKS[it["check"]], "why": _clean(it["why"]), "facts": it.get("facts") or []}); kept += 1
         else:
@@ -330,7 +366,7 @@ def verify(raw: str, fs: list[dict]) -> tuple[dict | None, int, int]:
             out["ask"].append({"q": _clean(it["q"]), "facts": it.get("facts") or []}); kept += 1
         else:
             removed += 1
-    if not out["summary"]:
+    if not kept:
         return None, kept, removed
     return out, kept, removed
 
@@ -339,4 +375,5 @@ def merge(model: dict, rules: dict) -> dict:
     """Model's summary and questions; checks = model's, then the routine ones it left out (never fewer than the rules)."""
     have = {r["check"] for r in model["rule_out"]}
     extra = [r for r in rules["rule_out"] if r["check"] not in have]
-    return {"summary": model["summary"], "rule_out": model["rule_out"] + extra, "ask": model["ask"] or rules["ask"], "gaps": rules["gaps"]}
+    return {"summary": model["summary"] or rules["summary"], "rule_out": model["rule_out"] + extra, "ask": model["ask"] or rules["ask"],
+            "gaps": rules["gaps"]}

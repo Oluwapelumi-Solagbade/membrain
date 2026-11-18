@@ -113,3 +113,32 @@ def test_broken_or_cut_off_answers_from_the_live_space_are_salvaged():
     assert [r["check"] for r in pk["rule_out"]] == ["glucose", "blood_pressure"]         # names mapped to the list
     assert [a["q"] for a in pk["ask"]] == ["Has there been any change in sleep patterns or quality?"]
     assert removed == 4   # smoking, depression on PHQ 1/6, the broken item, the cut-off question
+
+
+R1322_SUMMARY = ('{"summary":[{"text":"Significant memory decline noted with IQCODE increasing from 3.05 to 3.72, indicating a large or '
+                 'rapid decline from personal baseline. Reliable declines in word learning, delayed word recall, word generation, story '
+                 'recall, and everyday judgement observed. No significant depression or anxiety reported (PHQ-2 and GAD-2 both 1 of 6). '
+                 'Sleep is adequate at 7 hours a night. Blood pressure and HbA1c within normal limits. Family history of memory illness noted.", '
+                 '"facts":["F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12","F13","F14","F15"]}], "rule_out": [], "ask": []}')
+
+
+def test_long_summaries_are_checked_sentence_by_sentence_and_wrong_judgements_dropped():
+    """Med42's live answers (18 Nov): BP 138/84 and HbA1c 6.2% called normal; PHQ-2 of 1 called mild depressive symptoms."""
+    fs = _fs("MB-1322")
+    pk, kept, removed = PK.verify(R1322_SUMMARY, fs)
+    texts = [s["text"] for s in pk["summary"]]
+    assert not any("within normal limits" in t for t in texts) and len(texts) == 4 and removed >= 2
+    fs = _fs()
+    raw = ('{"summary":[{"text":"Mild depressive and anxiety symptoms reported with PHQ-2 and GAD-2 scores of 1.","facts":["F4","F5"]},'
+           '{"text":"Smoking is reported, which may contribute to the decline in memory scores.","facts":["F9"]},'
+           '{"text":"Blood pressure is elevated at 151/90 mmHg.","facts":["F7"]}]}')
+    pk, kept, removed = PK.verify(raw, fs)
+    assert [s["text"] for s in pk["summary"]] == ["Blood pressure is elevated at 151/90 mmHg."] and removed == 2
+
+
+def test_good_parts_are_kept_when_the_summary_fails():
+    raw = '{"summary":[{"text":"Unclear.","facts":[]}],"rule_out":[{"check":"blood_pressure","why":"Systolic 151.","facts":["F7"]}]}'
+    pk, kept, removed = PK.verify(raw, _fs())
+    assert pk and not pk["summary"] and kept == 1
+    rules = PK.rules_packet(_fs(), {"concern": {}})
+    assert PK.merge(pk, rules)["summary"] == rules["summary"]
