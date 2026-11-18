@@ -325,3 +325,20 @@ def test_frequency_and_severity_are_extracted_and_checked():
     c = {"reporter": "family", "domains": ["memory"], "narrative": ""}
     assert not I.verify_sentence("He forgets every day.", c)["ok"]                      # unconfirmed frequency is removed
     assert I.verify_sentence("He forgets every day.", dict(c, frequency="daily"))["ok"]
+
+
+def test_medgemma_never_sees_names_numbers_ids_or_phones(monkeypatch):
+    import api.navai as N
+    from membrain.deid import redact
+    N._SR_HITS.clear()
+    seen = {}
+    def fake(m, max_tokens=300, task="second_read"):
+        seen["text"] = m[-1]["content"]
+        return '{"items": [{"kind": "health", "key": "kidney", "quote": "kidneys are failing"}]}'
+    monkeypatch.setattr(N, "_llm", fake)
+    t = "My father Ahmed Al Mansoori, Emirates ID 784-1958-1234567-1, his kidneys are failing. Call 050 123 4567. اسمه محمد"
+    r = TestClient(app).post("/api/intake/second-read", json={"text": t, "lang": "en"}).json()
+    for secret in ("Ahmed", "Mansoori", "784-1958", "050 123 4567", "محمد"):
+        assert secret not in seen["text"]
+    assert r["items"] and r["deidentified"]["name_en"] == 1 and r["deidentified"]["emirates_id"] == 1
+    assert redact("أبوي صار ينسى الدوا وايد من شهرين")[1] == {}         # ordinary words untouched

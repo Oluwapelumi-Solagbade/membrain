@@ -245,16 +245,19 @@ def second_read(body: SecondReadIn, request: Request):
     if rules.get("fields") or rules.get("timeline") or rules.get("onset"):
         return {"engine": "rules", "items": [], "reason": "the rules already found facts"}
     _SR_DAY[day] = _SR_DAY.get(day, 0) + 1
+    from membrain.deid import redact
+    clean, removed_ids = redact(body.text)          # MedGemma never sees names, numbers, IDs, phones or e-mails
     t = time.perf_counter()
-    raw = _llm(second_read_messages(body.text, lang), 300, task="second_read")
+    raw = _llm(second_read_messages(clean, lang), 300, task="second_read")
     ms = round((time.perf_counter() - t) * 1000)
     if raw is None:
         return {"engine": "none", "items": [], "reason": "unavailable", "latency_ms": ms}
-    items, dropped = ground_second_read(raw, body.text, lang)
+    items, dropped = ground_second_read(raw, clean, lang)
     from api.main import audit
     audit("public", "second_read", "-", {"items": len(items), "dropped": dropped, "kinds": sorted({i["kind"] for i in items}),
-                                         "latency_ms": ms, "lang": lang})
-    return {"engine": os.getenv("MEDGEMMA_MODEL", "medgemma"), "items": items, "dropped": dropped, "latency_ms": ms}
+                                         "latency_ms": ms, "lang": lang, "deidentified": sum(removed_ids.values())})
+    return {"engine": os.getenv("MEDGEMMA_MODEL", "medgemma"), "items": items, "dropped": dropped, "latency_ms": ms,
+            "deidentified": removed_ids}
 
 
 @router.get("/referral/engine")
