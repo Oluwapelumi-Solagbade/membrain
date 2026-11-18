@@ -174,6 +174,8 @@ from api.family import router as family_router  # noqa: E402
 app.include_router(family_router)
 from api.moca import router as moca_router  # noqa: E402
 app.include_router(moca_router)
+from api.packet import router as packet_router  # noqa: E402
+app.include_router(packet_router)
 
 
 class Identity(BaseModel):

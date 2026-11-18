@@ -27,6 +27,7 @@ type Stats = {
   souq_route: { done: number; people: number; median_span: number | null; median_accuracy: number | null; repeat_pairs: number; icc_3_1: number | null };
   timing: { referrals: number; median_days_concern_to_referral: number | null; assessed: number; median_days_concern_to_assessment: number | null };
   segments: Record<"language" | "age" | "schooling", Seg[]>;
+  review_packet: { packets: number; by_med42: number; by_rules: number; items_kept: number; items_removed: number; removed_share: number | null; median_seconds: number | null };
   moca: {
     records: number; people: number; pairs: number; window_days: number; cut: number; min_pairs: number; below_cut: number;
     median_gap_days: number | null; spearman_total: number | null; spearman_delayed_recall: number | null; recall_pairs: number;
@@ -175,6 +176,14 @@ export function LiveView() {
               <Fact k="With at least one suggestion" v={`${s.second_reader.with_suggestions} of ${s.second_reader.reads}`} hint={`${s.second_reader.suggestions} suggestions shown, each quoting the person's words`} />
               <Fact k="Suggestions dropped (not in the person's words)" v={s.second_reader.dropped_ungrounded} hint="What MedGemma made up never reaches the screen" />
               <Fact k="Time to read (median)" v={s.second_reader.median_seconds == null ? "–" : `${s.second_reader.median_seconds} s`} />
+            </dl>
+          </Panel>
+
+          <Panel title="Review packets" icon={Activity} aside={<span className="text-[14px] text-body">Med42-v2-8B when switched on, otherwise the rules</span>}>
+            <dl className="divide-y divide-line">
+              <Fact k="Packets prepared" v={s.review_packet.packets} hint={`${s.review_packet.by_med42} by Med42, ${s.review_packet.by_rules} by the rules`} />
+              <Fact k="Med42 items removed by the fact check" v={`${s.review_packet.items_removed} of ${s.review_packet.items_kept + s.review_packet.items_removed}`} hint={s.review_packet.removed_share == null ? "" : `${pct(s.review_packet.removed_share)}: no cited fact, a number not in the facts, or a diagnosis`} />
+              <Fact k="Time to a packet (median)" v={s.review_packet.median_seconds == null ? "–" : `${s.review_packet.median_seconds} s`} />
             </dl>
           </Panel>
 

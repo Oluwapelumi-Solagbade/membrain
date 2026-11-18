@@ -23,6 +23,7 @@ import {
   X,
   MapPinned,
   Send,
+  ClipboardCheck,
 } from "lucide-react";
 import { Mark } from "../../Logo";
 import { LevelPill } from "../../ui";
@@ -38,6 +39,7 @@ import { Handover, handoverRows } from "./Handover";
 import { ReferralDraft } from "./ReferralDraft";
 import { FamilyMessage } from "./FamilyMessage";
 import { MocaPanel } from "./MocaPanel";
+import { ReviewPacket } from "./ReviewPacket";
 import { EDUCATION_LABEL, type Evaluation } from "@/lib/mb";
 import { dueOf, fmtDate, fmtTime, isIntakeOnly, levelOf } from "@/lib/workspace/derive";
 import { NAV } from "@/lib/workspace/navigator";
@@ -453,6 +455,11 @@ function CaseBody({ c }: { c: Case }) {
           </p>
         </Panel>
       )}
+
+      {/* Pre-read for the reviewing clinician: rules, or Med42 when switched on, every line tied to facts */}
+      <Panel title="Review packet" icon={ClipboardCheck} aside={<span className="text-[14px] text-body">Med42-v2-8B when switched on · fact-checked</span>}>
+        <ReviewPacket pid={p.id} />
+      </Panel>
 
       {/* Clinic MoCA: the reference standard, entered by the clinician (scores only) */}
       <Panel title="Clinic MoCA" icon={Stethoscope} aside={<span className="text-[14px] text-body">Given by a certified clinician · reference, not used for triage</span>}>

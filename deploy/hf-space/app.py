@@ -38,6 +38,12 @@ if ON_ZERO_GPU and os.getenv("MEDGEMMA_IN_SPACE") == "1":
     from api import medgemma_local
     print("MedGemma:", "loaded" if medgemma_local.load(spaces) else f"not loaded ({medgemma_local.status['error']})", flush=True)
 
+# Med42-v2-8B (M42, Abu Dhabi) for the clinician review packet: OFF unless the Space variable MED42_IN_SPACE=1.
+# The account behind HF_TOKEN must accept the model's licence first. If it fails, packets are built by the rules.
+if ON_ZERO_GPU and os.getenv("MED42_IN_SPACE") == "1":
+    from api import med42
+    print("Med42:", "loaded" if med42.load(spaces) else f"not loaded ({med42.status['error']})", flush=True)
+
 import uvicorn
 
 from api.main import app

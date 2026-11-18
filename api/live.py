@@ -184,6 +184,15 @@ def compute(db: dict) -> dict:
                      "suggestions": sum(r.get("items") or 0 for r in reads), "dropped_ungrounded": sum(r.get("dropped") or 0 for r in reads),
                      "median_seconds": round(median(rlat) / 1000, 1) if rlat else None}
 
+    packs = [a["detail"] for a in db["audit"] if a.get("action") == "review_packet_drafted"]
+    pm = [x for x in packs if x.get("engine") != "rules"]
+    plat = [x["latency_ms"] for x in pm if x.get("latency_ms") is not None]
+    pk_kept, pk_removed = sum(x.get("kept") or 0 for x in pm), sum(x.get("removed") or 0 for x in pm)
+    review_packet = {"packets": len(packs), "by_med42": len(pm), "by_rules": len(packs) - len(pm),
+                     "items_kept": pk_kept, "items_removed": pk_removed,
+                     "removed_share": round(pk_removed / (pk_kept + pk_removed), 3) if pk_kept + pk_removed else None,
+                     "median_seconds": round(median(plat) / 1000, 1) if plat else None}
+
     routes = [x for p in db["participants"].values() for x in p.get("exploratory", []) if x.get("task") == "souq_route"]
     route_pairs = []
     for p in db["participants"].values():
@@ -220,6 +229,7 @@ def compute(db: dict) -> dict:
         "letters": letters,
         "second_reader": second_reader,
         "souq_route": souq_route,
+        "review_packet": review_packet,
         "moca": __import__("api.moca", fromlist=["validation"]).validation(db),
         "segments": {k: rows(v) for k, v in seg.items()},
         "not_measurable_yet": ["sensitivity", "specificity"],
