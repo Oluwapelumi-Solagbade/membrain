@@ -65,3 +65,16 @@ def test_med42_never_sees_names_from_the_concern():
     d = {"participant": {"age": 70}, "concern": {"raised_by": "Family member", "in_their_words": "My father Ahmed Al Mansoori forgets, call 0501234567"}}
     text = " ".join(f["text"] for f in PK.facts(p, {}, d))
     assert "Mansoori" not in text and "0501234567" not in text
+
+
+def test_parser_tolerates_how_llama_models_write_json():
+    fs = _fs()
+    raw = ('Sure! Here is the packet:\n```json\n{"Summary": "Delayed word recall fell from 5.0 to 4 (F3).", '
+           '"Reversible causes": [{"key": "Blood_Pressure", "reason": "BP 151/90 is raised [F7]", "fact_ids": [7]}], '
+           '"Questions": ["Has anyone noticed changes in managing medicines?"]}\n```\nLet me know if you need more.')
+    pk, kept, removed = PK.verify(raw, fs)
+    assert pk and kept == 3 and removed == 0
+    assert pk["summary"][0]["text"] == "Delayed word recall fell from 5.0 to 4." and pk["summary"][0]["facts"] == ["F3"]
+    assert pk["rule_out"][0]["check"] == "blood_pressure" and pk["rule_out"][0]["why"] == "BP 151/90 is raised"
+    assert PK.verify('{"summary": [{"text": "x", "facts": ["F1"]}]} {"other": 1}', fs)[0]   # first object only
+    assert PK.verify("no json here", fs) == (None, 0, 0)

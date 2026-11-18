@@ -151,8 +151,13 @@ def messages(fs: list[dict]) -> list[dict]:
            '"ask":[{"q":"...","facts":["F3"]}]}. '
            f"summary: 2 or 3 sentences. rule_out: reversible causes worth checking, keys only from: {checks}. "
            "ask: up to 5 questions for the person and family at the visit. Every item cites the facts it rests on. "
-           "Use no number that is not in the cited facts.")
+           "Use no number that is not in the cited facts. Write facts as strings like \"F2\". Start your answer with { and "
+           "write nothing after the closing }.")
     return [{"role": "system", "content": sys}, {"role": "user", "content": "Facts:\n" + lines}]
+
+
+def _clean(t: str) -> str:
+    return re.sub(r"\s*[\[(]\s*F\d+(?:\s*,\s*F\d+)*\s*[\])]", "", t).strip()
 
 
 def _blocked(t: str) -> bool:
@@ -162,17 +167,61 @@ def _blocked(t: str) -> bool:
 
 def _numbers_ok(t: str, refs: list[str], by_id: dict) -> bool:
     src = " ".join(by_id[r] for r in refs)
+    t = re.sub(r"\bF\d+\b", "", t)   # fact labels written in the sentence are not numbers
     return all(n in src for n in re.findall(r"\d+(?:\.\d+)?", t))
+
+
+def _refs(v) -> list[str]:
+    """Fact references as the model writes them: "F2", 2, "2", "F2, F7" -> ["F2", ...]."""
+    if isinstance(v, (str, int)):
+        v = re.findall(r"\d+", str(v))
+    out = []
+    for r in v or []:
+        m = re.search(r"\d+", str(r))
+        if m:
+            out.append(f"F{int(m.group(0))}")
+    return out
+
+
+def parse(raw: str | None) -> dict | None:
+    """The first JSON object in the answer (code fences, text around it and key case tolerated), normalised."""
+    if not raw:
+        return None
+    s = re.sub(r"```(?:json)?", "", raw)
+    dec = json.JSONDecoder()
+    data = None
+    for m in re.finditer(r"\{", s):
+        try:
+            obj, _ = dec.raw_decode(s[m.start():])
+        except ValueError:
+            continue
+        if isinstance(obj, dict):
+            data = obj
+            break
+    if data is None:
+        return None
+    data = {str(k).strip().lower().replace(" ", "_").replace("-", "_"): v for k, v in data.items()}
+    data["rule_out"] = data.get("rule_out") or data.get("checks") or data.get("reversible_causes") or []
+    data["ask"] = data.get("ask") or data.get("questions") or []
+    summ = data.get("summary") or []
+    if isinstance(summ, str):
+        summ = [{"text": summ, "facts": re.findall(r"F\d+", summ)}]
+    norm = lambda items, key: [  # noqa: E731
+        ({key: it, "facts": []} if isinstance(it, str) else {**it, key: it.get(key) or it.get("text") or it.get("question") or it.get("reason"),
+                                                            "facts": _refs(it.get("facts") or it.get("fact_ids") or it.get("refs"))})
+        for it in items if isinstance(it, (str, dict))]
+    data["summary"] = norm(summ, "text")
+    data["ask"] = norm(data["ask"], "q")
+    data["rule_out"] = [{**it, "check": str(it.get("check") or it.get("key") or "").strip().lower(), "why": it.get("why") or it.get("reason"),
+                         "facts": _refs(it.get("facts") or it.get("fact_ids") or it.get("refs"))}
+                        for it in data["rule_out"] if isinstance(it, dict)]
+    return data
 
 
 def verify(raw: str, fs: list[dict]) -> tuple[dict | None, int, int]:
     """Keep only grounded items. Returns (packet or None, kept, removed)."""
-    m = re.search(r"\{.*\}", raw or "", re.S)
-    if not m:
-        return None, 0, 0
-    try:
-        data = json.loads(m.group(0))
-    except ValueError:
+    data = parse(raw)
+    if not data:
         return None, 0, 0
     by_id = {f["id"]: f["text"] for f in fs}
     kept = removed = 0
@@ -185,19 +234,19 @@ def verify(raw: str, fs: list[dict]) -> tuple[dict | None, int, int]:
 
     for it in data.get("summary") or []:
         if isinstance(it, dict) and ok(it.get("text"), it.get("facts") or []):
-            out["summary"].append({"text": it["text"].strip(), "facts": it["facts"]}); kept += 1
+            out["summary"].append({"text": _clean(it["text"]), "facts": it["facts"]}); kept += 1
         else:
             removed += 1
     seen = set()
     for it in data.get("rule_out") or []:
         if isinstance(it, dict) and it.get("check") in CHECKS and it["check"] not in seen and ok(it.get("why"), it.get("facts") or [], need_refs=False):
             seen.add(it["check"])
-            out["rule_out"].append({"check": it["check"], "label": CHECKS[it["check"]], "why": it["why"].strip(), "facts": it.get("facts") or []}); kept += 1
+            out["rule_out"].append({"check": it["check"], "label": CHECKS[it["check"]], "why": _clean(it["why"]), "facts": it.get("facts") or []}); kept += 1
         else:
             removed += 1
     for it in (data.get("ask") or [])[:6]:
         if isinstance(it, dict) and ok(it.get("q"), it.get("facts") or [], need_refs=False):
-            out["ask"].append({"q": it["q"].strip(), "facts": it.get("facts") or []}); kept += 1
+            out["ask"].append({"q": _clean(it["q"]), "facts": it.get("facts") or []}); kept += 1
         else:
             removed += 1
     if not out["summary"]:

@@ -16,8 +16,11 @@ PER_MIN = 4
 
 
 @router.get("/review-packet/engine")
-def engine():
-    return {"med42": med42.status, "remote": bool(__import__("os").getenv("MED42_URL")), "available": med42.available()}
+def engine(who: Principal = Depends(principal)):
+    st = dict(med42.status)
+    if who.role not in ("clinician", "coordinator"):
+        st.pop("last_raw", None)   # Med42's last answer is for staff only
+    return {"med42": st, "remote": bool(__import__("os").getenv("MED42_URL")), "available": med42.available()}
 
 
 @router.post("/participants/{pid}/review-packet")
