@@ -206,6 +206,7 @@ def compute(db: dict) -> dict:
 
     return {
         "store": store.status(),
+        "audit": __import__("api.main", fromlist=["verify_audit"]).verify_audit(db["audit"]),
         "people": len(people),
         "new_records": sum(1 for p, _ in people if not store.is_seed(p["id"])),
         "concerns": concerns, "reporters": reporters, "checkins": checkins, "family_questionnaires": informant,

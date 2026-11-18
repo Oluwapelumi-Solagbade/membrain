@@ -9,6 +9,7 @@ from __future__ import annotations
 import contextlib
 import copy
 import hashlib
+import json
 import os
 import secrets
 import pathlib
@@ -66,9 +67,27 @@ DB: dict = {"participants": {}, "tasks": {}, "audit": []}
 VAULT: dict = {}
 
 
+def _audit_hash(e: dict, prev: str) -> str:
+    body = json.dumps({k: e.get(k) for k in ("ts", "actor", "action", "target", "detail")}, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256((prev + body).encode("utf-8")).hexdigest()
+
+
 def audit(actor: str, action: str, target: str, detail: dict | None = None):
-    DB["audit"].append({"ts": datetime.now(timezone.utc).isoformat(), "actor": actor, "action": action,
-                        "target": target, "detail": detail or {}})
+    """Append-only and tamper-evident: each entry carries the SHA-256 of itself and of the entry before it, so changing
+    or deleting any earlier entry breaks the chain (GET /audit/verify says where)."""
+    prev = DB["audit"][-1].get("hash", "") if DB["audit"] else ""
+    e = {"ts": datetime.now(timezone.utc).isoformat(), "actor": actor, "action": action, "target": target,
+         "detail": json.loads(json.dumps(detail or {}, default=str)), "prev": prev}
+    e["hash"] = _audit_hash(e, prev)
+    DB["audit"].append(e)
+
+
+def verify_audit(entries: list[dict]) -> dict:
+    chained = [e for e in entries if "hash" in e]
+    for i, e in enumerate(chained):
+        if (i and e.get("prev") != chained[i - 1]["hash"]) or _audit_hash(e, e.get("prev", "")) != e["hash"]:
+            return {"ok": False, "entries": len(chained), "first_bad": i, "at": e.get("ts")}
+    return {"ok": True, "entries": len(chained), "first_bad": None, "last_hash": chained[-1]["hash"] if chained else None}
 
 
 from api.auth import CLAIMS, Principal, principal  # noqa: E402
@@ -458,6 +477,12 @@ def validation_summary(n: int = 1500, seed: int = 7, r: str = Depends(role)):
     from membrain.validation import analyse
     res = analyse(generate_cohort(min(n, 3000), seed))
     return {"synthetic": True, "assumptions": ASSUMPTIONS, "summary": res["summary"]}
+
+
+@app.get("/audit/verify")
+def audit_verify(r: str = Depends(role)):
+    need(r, "clinician", "coordinator")
+    return verify_audit(DB["audit"])
 
 
 @app.get("/audit")

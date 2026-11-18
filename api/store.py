@@ -28,6 +28,30 @@ log = logging.getLogger("membrain.store")
 
 VERSION = 1
 PATH_IN_REPO = "live/snapshot.json"
+PATH_ENC = "live/snapshot.enc"
+MAGIC = b"MBENC1"
+
+
+def _key() -> bytes | None:
+    """STORE_KEY (any long secret string) switches on encryption at rest: AES-256-GCM, key = SHA-256 of the secret."""
+    k = os.getenv("STORE_KEY")
+    if not k:
+        return None
+    import hashlib
+    return hashlib.sha256(k.encode("utf-8")).digest()
+
+
+def seal(data: bytes) -> bytes:
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    nonce = os.urandom(12)
+    return MAGIC + nonce + AESGCM(_key()).encrypt(nonce, data, MAGIC)
+
+
+def unseal(blob: bytes) -> bytes:
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    if not blob.startswith(MAGIC):
+        raise ValueError("not an encrypted MemBrain snapshot")
+    return AESGCM(_key()).decrypt(blob[len(MAGIC):len(MAGIC) + 12], blob[len(MAGIC) + 12:], MAGIC)
 SYNC_S = float(os.getenv("STORE_SYNC_S", "20"))
 AUDIT_CAP = int(os.getenv("STORE_AUDIT_CAP", "20000"))
 
@@ -126,9 +150,17 @@ def _read_remote() -> dict | None:
     if not _repo():
         return None
     from huggingface_hub import hf_hub_download
+    tok = _token() or os.getenv("HF_TOKEN")
+    if _key():   # encrypted copy first; fall back to an older plain copy (it is replaced at the next save)
+        try:
+            f = hf_hub_download(_repo(), PATH_ENC, repo_type="dataset", token=tok, force_download=True)
+            return json.loads(unseal(pathlib.Path(f).read_bytes()).decode("utf-8"))
+        except Exception as e:
+            if type(e).__name__ not in ("EntryNotFoundError", "RemoteEntryNotFoundError"):
+                _state["last_error"] = f"load: {type(e).__name__}"
+                return None
     try:
-        f = hf_hub_download(_repo(), PATH_IN_REPO, repo_type="dataset", token=_token() or os.getenv("HF_TOKEN"),
-                            force_download=True)
+        f = hf_hub_download(_repo(), PATH_IN_REPO, repo_type="dataset", token=tok, force_download=True)
         return json.loads(pathlib.Path(f).read_text("utf-8"))
     except Exception as e:  # first run (no file yet), no access, network: start empty and say why
         name = type(e).__name__
@@ -144,7 +176,8 @@ def load_into(db: dict) -> dict:
     src = f"dataset {_repo()}" if snap else None
     if snap is None and _local_path() and _local_path().exists():
         try:
-            snap, src = json.loads(_local_path().read_text("utf-8")), "local file"
+            raw = _local_path().read_bytes()
+            snap, src = json.loads(unseal(raw) if raw.startswith(MAGIC) else raw), "local file"
         except Exception:
             snap = None
     out = merge(db, snap) if snap else {"participants": 0, "sessions": 0}
@@ -159,6 +192,8 @@ def _save_now() -> None:
         return
     with _lock:
         data = json.dumps(copy.deepcopy(snapshot(db)), ensure_ascii=False, default=str).encode("utf-8")
+    if _key():
+        data = seal(data)
     if _local_path():
         _local_path().write_bytes(data)
     if _repo() and _token():
@@ -168,8 +203,14 @@ def _save_now() -> None:
             api.create_repo(_repo(), repo_type="dataset", private=True, exist_ok=True)
         except Exception:   # a token scoped to one existing dataset may not create repos; uploading still works
             pass
-        api.upload_file(path_or_fileobj=data, path_in_repo=PATH_IN_REPO, repo_id=_repo(), repo_type="dataset",
-                        commit_message="Live demo data snapshot")
+        api.upload_file(path_or_fileobj=data, path_in_repo=PATH_ENC if _key() else PATH_IN_REPO, repo_id=_repo(),
+                        repo_type="dataset", commit_message="Live demo data snapshot" + (" (encrypted)" if _key() else ""))
+        if _key() and not _state.get("plain_removed"):
+            try:   # once encrypted, remove the old readable copy from the dataset
+                api.delete_file(PATH_IN_REPO, repo_id=_repo(), repo_type="dataset", commit_message="Remove unencrypted snapshot")
+            except Exception:
+                pass
+            _state["plain_removed"] = True
     _state["last_saved"] = datetime.now(timezone.utc).isoformat()
     _state["last_error"] = None
 
@@ -200,5 +241,5 @@ def start() -> None:
 
 
 def status() -> dict:
-    return {"enabled": enabled(), "permanent": bool(_repo() and _token()), "repo": _repo(), "loaded_from": _state["loaded_from"],
+    return {"enabled": enabled(), "permanent": bool(_repo() and _token()), "encrypted": bool(_key()), "repo": _repo(), "loaded_from": _state["loaded_from"],
             "last_saved": _state["last_saved"], "last_error": _state["last_error"], "pending": _dirty.is_set()}

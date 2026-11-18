@@ -119,3 +119,37 @@ def test_souq_route_rejects_bad_input_and_other_peoples_records():
     assert c.post("/participants/MB-1041/exploratory", headers=CL, json=_route() | {"task": "something_else"}).status_code == 422
     assert c.post("/participants/MB-1041/exploratory", headers=CL, json=_route() | {"span": 42}).status_code == 422
     assert c.post("/participants/NOPE/exploratory", headers=CL, json=_route()).status_code == 404
+
+
+def test_audit_log_is_tamper_evident():
+    import copy as _copy
+    from api.main import verify_audit
+    _person_with_two_checkins("2026-08-01", "2026-08-20")
+    assert c.get("/audit/verify", headers=CL).json()["ok"]
+    log = _copy.deepcopy(DB["audit"])
+    i = len(log) // 2
+    log[i]["detail"] = {"level": "STABLE"}                 # someone edits an old entry
+    bad = verify_audit(log)
+    assert not bad["ok"] and bad["first_bad"] is not None
+    log = _copy.deepcopy(DB["audit"])
+    del log[i]                                              # someone deletes an entry
+    assert not verify_audit(log)["ok"]
+
+
+def test_saved_data_is_encrypted_when_a_key_is_set(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.delenv("STORE_REPO", raising=False)
+    monkeypatch.setenv("STORE_KEY", "a-long-random-secret-for-the-test")
+    pid = _person_with_two_checkins("2026-07-01", "2026-07-15")
+    store._save_now()
+    raw = (tmp_path / "snapshot.json").read_bytes()
+    assert raw.startswith(store.MAGIC) and pid.encode() not in raw and b"forgets" not in raw   # unreadable on disk
+    snap = json.loads(store.unseal(raw))
+    assert pid in snap["participants"]                                                     # readable with the key
+    monkeypatch.setenv("STORE_KEY", "the-wrong-key")
+    try:
+        store.unseal(raw)
+        assert False, "decrypted with the wrong key"
+    except Exception:
+        pass
+    assert store.status()["encrypted"]

@@ -14,7 +14,8 @@ import type { Level } from "@/lib/mb";
 
 type Seg = { group: string; people: number; checkins: number; scored: number; completion: number | null; flagged_share: number | null };
 type Stats = {
-  store: { enabled: boolean; permanent: boolean; repo: string | null; loaded_from: string | null; last_saved: string | null; last_error: string | null; pending: boolean };
+  audit: { ok: boolean; entries: number; first_bad: number | null };
+  store: { enabled: boolean; permanent: boolean; encrypted?: boolean; repo: string | null; loaded_from: string | null; last_saved: string | null; last_error: string | null; pending: boolean };
   people: number; new_records: number; concerns: number; reporters: Record<string, number>; checkins: number; family_questionnaires: number;
   completion: { scored: number; submitted: number; rate: number | null; not_scored: Record<string, number>; concern_then_checkin: { people: number; did_checkin: number } };
   reliability: { pairs: number; min_pairs: number; icc_3_1?: number; pearson_r?: number; mean_change_z?: number; median_days_apart?: number };
@@ -133,6 +134,8 @@ export function LiveView() {
             <Panel title="Where the data is kept" icon={Database}>
               <dl className="divide-y divide-line">
                 <Fact k="Saved permanently" v={s.store.permanent ? "Yes" : s.store.enabled ? "On this server only" : "No (memory only)"} hint={s.store.permanent ? "Private dataset; survives restarts and updates" : "Set STORE_REPO and STORE_TOKEN on the server"} />
+                <Fact k="Encrypted at rest" v={s.store.encrypted ? "Yes (AES-256-GCM)" : "No"} hint={s.store.encrypted ? "Unreadable without the server's key" : "Set STORE_KEY on the server"} />
+                <Fact k="Audit log" v={s.audit.ok ? "Intact" : "Changed!"} hint={s.audit.ok ? `${s.audit.entries} entries, each chained to the one before (SHA-256)` : `Entry ${s.audit.first_bad} does not match the chain`} />
                 <Fact k="Last saved" v={s.store.last_saved ? new Date(s.store.last_saved).toLocaleTimeString("en-GB") : s.store.pending ? "Saving shortly" : "–"} />
                 <Fact k="Restored at start from" v={s.store.loaded_from ?? "Nothing yet (fresh start)"} />
                 {s.store.last_error && <Fact k="Last problem" v={s.store.last_error} />}
