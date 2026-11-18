@@ -38,6 +38,8 @@ export type ConcernSummary = {
   date: string | null;
   in_their_words: string | null;
   onset: string | null;
+  how_often?: string | null;
+  how_much?: string | null;
   what_changed: string[];
   who_now_does_what: string[];
   red_flags_reported: string[];
@@ -64,7 +66,7 @@ export type Participant = Omit<Persona, "age" | "education" | "dialect" | "refer
     reporter?: Reporter;
     at?: string;
     engine?: string;
-    confirmed?: { narrative: string; domains: string[]; onset: string | null; timeline: [string, string][]; red_flags: string[]; confounders: string[] };
+    confirmed?: { narrative: string; domains: string[]; onset: string | null; frequency?: string | null; severity?: string | null; timeline: [string, string][]; red_flags: string[]; confounders: string[] };
   } | null;
   informant?: { type?: string; relation?: string; timeline?: unknown[] } | null;
   enrolled?: boolean;
@@ -89,6 +91,8 @@ export type ConcernIn = {
   narrative: string;
   domains: string[];
   onset: string | null;
+  frequency?: string | null;
+  severity?: string | null;
   timeline: [string, string][];
   red_flags: string[];
   confounders: string[];

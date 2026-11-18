@@ -659,6 +659,8 @@ class ConcernIn(BaseModel):
     narrative: str = Field(min_length=3, max_length=4000)
     domains: list[str] = Field(default_factory=list, max_length=len(_IK.DOMAINS))
     onset: str | None = Field(default=None, pattern="^(days|weeks|months|years)$")
+    frequency: str | None = Field(default=None, pattern="^(daily|weekly|sometimes|once)$")   # how often, in their words
+    severity: str | None = Field(default=None, pattern="^(marked|mild)$")                     # how much, in their words
     timeline: list[list[str]] = Field(default_factory=list, max_length=12)   # [activity, who took over]
     red_flags: list[str] = Field(default_factory=list, max_length=len(C.RED_FLAGS))
     confounders: list[str] = Field(default_factory=list, max_length=len(_IK.CONFOUNDERS))
@@ -746,10 +748,10 @@ def create_concern(body: ConcernIn) -> dict:
          "dialect": None, "language": body.lang, "languages": [body.lang], "entry_route": ENTRY_ROUTE[body.reporter], "context": {},
          "consent": {}, "referrals": [], "enrolled": False,
          "intake": {"reporter": body.reporter, "at": body.date,
-                    "confirmed": {"narrative": body.narrative, "domains": body.domains, "onset": body.onset,
+                    "confirmed": {"narrative": body.narrative, "domains": body.domains, "onset": body.onset, "frequency": body.frequency, "severity": body.severity,
                                   "timeline": body.timeline, "red_flags": body.red_flags, "confounders": body.confounders}},
          "sessions": [{"session_id": f"{pid}-intake", "date": body.date, "type": "intake", "channel": body.channel,
-                       "concern": body.narrative, "onset": body.onset, "red_flags": body.red_flags,
+                       "concern": body.narrative, "onset": body.onset, "frequency": body.frequency, "severity": body.severity, "red_flags": body.red_flags,
                        "reported_concern": {"reporter": body.reporter, "domains": body.domains, "activities_taken_over": acts}}]}
     DB["participants"][pid] = p
     _sync_tasks(p, evaluate(p, p["sessions"]))
@@ -777,12 +779,12 @@ def add_follow_up(p: dict, body: ConcernIn, actor: str) -> dict:
     sid = f"{p['id']}-intake" + (f"-{n + 1}" if n else "")
     acts = sorted({a for a, _ in body.timeline})
     p["sessions"].append({"session_id": sid, "date": body.date, "type": "intake", "channel": body.channel,
-                          "concern": body.narrative, "onset": body.onset, "red_flags": body.red_flags,
+                          "concern": body.narrative, "onset": body.onset, "frequency": body.frequency, "severity": body.severity, "red_flags": body.red_flags,
                           "reported_concern": {"reporter": body.reporter, "domains": body.domains, "activities_taken_over": acts,
                                                "timeline": body.timeline, "confounders": body.confounders}})
     if not p.get("intake"):   # the first concern on a record that started with a check-in
         p["intake"] = {"reporter": body.reporter, "at": body.date,
-                       "confirmed": {"narrative": body.narrative, "domains": body.domains, "onset": body.onset,
+                       "confirmed": {"narrative": body.narrative, "domains": body.domains, "onset": body.onset, "frequency": body.frequency, "severity": body.severity,
                                      "timeline": body.timeline, "red_flags": body.red_flags, "confounders": body.confounders}}
     ev = evaluate(p, p["sessions"])
     _sync_tasks(p, ev)

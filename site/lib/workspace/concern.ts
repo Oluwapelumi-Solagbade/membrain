@@ -31,6 +31,8 @@ export function concernSummary(p: Participant): ConcernSummary {
   let text: string | null = c.narrative || (ikS.concern as string | undefined) || null;
   if (text === "routine programme screening") text = null;
   const onset = c.onset ?? (ikS.onset as string | undefined) ?? null;
+  const freq = (c as { frequency?: string | null }).frequency ?? (ikS.frequency as string | undefined) ?? null;
+  const sev = (c as { severity?: string | null }).severity ?? (ikS.severity as string | undefined) ?? null;
   const inf = p.informant ?? null;
   const who = (c.timeline ?? []).length
     ? (c.timeline ?? []).map(([a, w]) => `${IL.ACTIVITIES[a] ?? a}: now ${IL.WHO[w] ?? w}`)
@@ -40,6 +42,7 @@ export function concernSummary(p: Participant): ConcernSummary {
   const missing: string[] = [];
   if (!text) missing.push(!route || route === "programme" ? "No specific concern (routine programme screening)" : "The concern in the reporter's own words");
   if (!onset || onset === "none") missing.push("When the change started");
+  if (text && !freq) missing.push("How often it happens");
   if (!inf) missing.push("An informant account (family member or household helper)");
   if (!sessions.some((s) => s.iqcode != null || (s as { faq?: number | null }).faq != null) && (p as { pending_iqcode?: number | null }).pending_iqcode == null)
     missing.push("Family questionnaire (FAQ or IQCODE-16)");
@@ -51,6 +54,8 @@ export function concernSummary(p: Participant): ConcernSummary {
     date: (ik.at ?? (ikS.date as string | undefined) ?? "").slice(0, 10) || null,
     in_their_words: text,
     onset: onset ? IL.ONSET[onset] ?? null : null,
+    how_often: freq ? (IL as unknown as { FREQUENCY: Record<string, string> }).FREQUENCY[freq] ?? null : null,
+    how_much: sev ? (IL as unknown as { SEVERITY: Record<string, string> }).SEVERITY[sev] ?? null : null,
     what_changed: (c.domains?.length ? c.domains : rc.domains ?? []).map((d) => IL.DOMAINS[d] ?? d),
     who_now_does_what: who,
     red_flags_reported: ((ikS.red_flags as string[] | undefined) ?? []).map((f) => RED_FLAGS[f] ?? f),

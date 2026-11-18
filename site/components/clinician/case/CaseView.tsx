@@ -369,6 +369,8 @@ function CaseBody({ c }: { c: Case }) {
           {(
             [
               ["When it started", c.concern.onset ?? "Not said"],
+              ["How often", c.concern.how_often ?? "Not said"],
+              ["How much", c.concern.how_much ?? "Not said"],
               ["What has changed", c.concern.what_changed.join(", ") || "None recorded"],
               ["Who now does what", c.concern.who_now_does_what.join("; ") || "None recorded"],
               ["Urgent signs reported", c.concern.red_flags_reported.join("; ") || "None"],

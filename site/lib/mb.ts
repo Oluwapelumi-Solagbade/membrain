@@ -29,6 +29,8 @@ export type IntakeResult = {
   fields: IntakeField[];
   onset: { value: string; label: string; confidence: number; spans: Span[] } | null;
   timeline: { activity: string; activity_label: string; who_took_over: string; who_label: string; confidence: number; spans: Span[] }[];
+  frequency?: { value: string; label: string; confidence: number; spans: Span[] } | null;
+  severity?: { value: string; label: string; confidence: number; spans: Span[] } | null;
   urgent: boolean;
 };
 

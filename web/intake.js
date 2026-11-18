@@ -72,6 +72,21 @@
       }
       return best ? { value: best[0], label: X.ONSET[best[0]], confidence: 0.8, spans: [span(idx, best[1], best[2])] } : null;
     }
+    // --- frequency and severity (same phrases and rules as membrain/intake.py)
+    const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    function phraseHits(norm, lex, lang) {
+      const hits = [];
+      for (const [value, byLang] of Object.entries(lex)) for (const ph of (byLang[lang] || [])) {
+        const rx = lang === "en" ? new RegExp("(?<![a-z])" + esc(ph) + "(?![a-z])", "g") : new RegExp("(?<![\\u0621-\\u064a])(?:[وف])?" + esc(ph) + "(?![\\u0621-\\u064a])", "g");
+        for (const m of norm.matchAll(rx)) hits.push([m.index, m.index + m[0].length, value]);
+      }
+      return hits.filter((h) => !hits.some((o) => o[0] <= h[0] && h[1] <= o[1] && (o[1] - o[0]) > (h[1] - h[0])));
+    }
+    function graded(norm, idx, lang, lex, rank, labels) {
+      const hits = phraseHits(norm, lex, lang); if (!hits.length) return null;
+      let best = hits[0]; for (const h of hits) if (rank[h[2]] > rank[best[2]] || (rank[h[2]] === rank[best[2]] && h[0] < best[0])) best = h;
+      return { value: best[2], label: labels[best[2]], confidence: 0.7, spans: [span(idx, best[0], best[1])] };
+    }
     function* sentences(norm) { let s = 0; const t = norm + "."; for (let i = 0; i < t.length; i++) if (X.SENT.includes(t[i])) { if (i > s) yield [s, i]; s = i + 1; } }
     function timeline(norm, idx, lang) {
       const out = [];
@@ -92,8 +107,37 @@
       }
       return out;
     }
+    // Mixed Arabic-English text: read with both word lists and merge (same rules as membrain/intake.py)
+    function isMixed(text) {
+      let ar = 0; for (const ch of text) if (ch >= "\u0600" && ch <= "\u06ff") ar++;
+      return ar >= 3 && (text.match(/[A-Za-z]{2,}/g) || []).length >= 2;
+    }
+    function merge(a, b, text) {
+      const out = { ...a }; const fields = a.fields.map((f) => ({ ...f })); const pos = new Map(fields.map((f, i) => [f.kind + "|" + f.key, i]));
+      for (const f of b.fields) {
+        const k = f.kind + "|" + f.key;
+        if (!pos.has(k)) { pos.set(k, fields.length); fields.push({ ...f }); continue; }
+        const g = fields[pos.get(k)];
+        const uniq = new Map(); for (const sp of [...g.spans, ...f.spans]) uniq.set(sp[0] + ":" + sp[1], [sp[0], sp[1]]);
+        const spans = [...uniq.values()].sort((x, y) => x[0] - y[0] || x[1] - y[1]);
+        g.confidence = Math.max(g.confidence, f.confidence); g.needs_confirmation = g.confidence < X.REVIEW_BELOW;
+        g.spans = spans; g.evidence = spans.map(([s0, e0]) => text.slice(s0, e0));
+      }
+      out.fields = fields;
+      if (b.onset && (!a.onset || RANK[b.onset.value] > RANK[a.onset.value])) out.onset = b.onset;
+      const seen = new Set(a.timeline.map((t) => t.activity + "|" + t.who_took_over));
+      out.timeline = [...a.timeline, ...b.timeline.filter((t) => !seen.has(t.activity + "|" + t.who_took_over))];
+      if (b.frequency && (!a.frequency || X.FREQ_RANK[b.frequency.value] > X.FREQ_RANK[a.frequency.value])) out.frequency = b.frequency;
+      if (b.severity && (!a.severity || X.SEV_RANK[b.severity.value] > X.SEV_RANK[a.severity.value])) out.severity = b.severity;
+      out.urgent = fields.some((f) => f.kind === "red_flag");
+      return out;
+    }
     function extract(text, lang) {
-      lang = lang || detectLang(text); const [norm, idx] = normalise(text); const fields = [];
+      lang = lang || detectLang(text); const one = extractOne(text, lang);
+      return (lang === "ar" || lang === "en") && isMixed(text) ? merge(one, extractOne(text, lang === "ar" ? "en" : "ar"), text) : one;
+    }
+    function extractOne(text, lang) {
+      const [norm, idx] = normalise(text); const fields = [];
       const LAB = { domain: X.DOMAINS, red_flag: X.RED_FLAGS, confounder: X.CONFOUNDERS };
       for (const [kind, groups] of Object.entries(X.LEX)) for (const [key, lx] of Object.entries(groups)) {
         const hits = [];
@@ -105,7 +149,8 @@
         const conf = confidence(ns, nw);
         fields.push({ kind, key, label: LAB[kind][key], confidence: conf, needs_confirmation: conf < X.REVIEW_BELOW, spans, evidence: spans.map(([s, e]) => text.slice(s, e)) });
       }
-      const out = { engine: "rules", version: X.INTAKE_VERSION, lang, fields, onset: onset(norm, idx, lang), timeline: timeline(norm, idx, lang) };
+      const out = { engine: "rules", version: X.INTAKE_VERSION, lang, fields, onset: onset(norm, idx, lang), timeline: timeline(norm, idx, lang),
+        frequency: graded(norm, idx, lang, X.FREQ_LEX, X.FREQ_RANK, X.FREQUENCY), severity: graded(norm, idx, lang, X.SEV_LEX, X.SEV_RANK, X.SEVERITY) };
       out.urgent = fields.some((f) => f.kind === "red_flag"); return out;
     }
     function summaryKeys(r) {
@@ -118,7 +163,8 @@
     const join = (xs) => (xs.length === 1 ? xs[0] : xs.slice(0, -1).join(", ") + " and " + xs[xs.length - 1]);
     function confirmedItems(c) {
       const s = new Set(); (c.domains || []).forEach((k) => s.add("dom:" + k)); (c.red_flags || []).forEach((k) => s.add("rf:" + k)); (c.confounders || []).forEach((k) => s.add("cf:" + k));
-      if (c.onset) s.add("on:" + c.onset); (c.timeline || []).forEach(([a, w]) => { s.add("act:" + a); s.add("who:" + w); });
+      if (c.onset) s.add("on:" + c.onset); if (c.frequency) s.add("fr:" + c.frequency); if (c.severity) s.add("sv:" + c.severity);
+      (c.timeline || []).forEach(([a, w]) => { s.add("act:" + a); s.add("who:" + w); });
       if ((c.red_flags || []).length || (c.checkin || {}).level === "URGENT") s.add("urgent"); if (c.checkin) s.add("checkin"); s.add("rep:" + (c.reporter || "family")); return s;
     }
     function draft(c) {
@@ -127,6 +173,11 @@
       if ((c.red_flags || []).length) out.push({ text: "Urgent: " + repLower() + " reports " + join(c.red_flags.map((k) => X.DRAFT_RF[k])) + ". Please assess urgently; cognitive testing was not started.", sources: c.red_flags.map((k) => "rf:" + k) });
       if ((c.domains || []).length) { const on = c.onset ? " " + X.ONSET[c.onset] : "";
         out.push({ text: `${X.DRAFT_REPORTER[c.reporter] || X.DRAFT_REPORTER.family} reports changes in ${join(c.domains.map((k) => X.DRAFT_DOMAIN[k]))}${on}.`, sources: [...c.domains.map((k) => "dom:" + k), ...(c.onset ? ["on:" + c.onset] : [])] }); }
+      if (c.frequency || c.severity) {
+        const bits = [...(c.frequency ? [`it happens ${X.FREQUENCY[c.frequency]}`] : []), ...(c.severity ? [`the reporter describes it as ${X.SEVERITY[c.severity]}`] : [])];
+        const t = bits.join("; ");
+        out.push({ text: t[0].toUpperCase() + t.slice(1) + ".", sources: [...(c.frequency ? ["fr:" + c.frequency] : []), ...(c.severity ? ["sv:" + c.severity] : [])] });
+      }
       const q = (c.quotes || []).filter(Boolean).slice(0, 2);
       if (q.length) out.push({ text: "In their words: " + q.map((x) => `“${x}”`).join("; ") + ".", sources: ["quote"] });
       if ((c.timeline || []).length) out.push({ text: "Activities others have taken over: " + c.timeline.map(([a, w]) => `${X.DRAFT_ACT[a]} (now ${X.DRAFT_WHO[w]})`).join("; ") + ".", sources: c.timeline.map(([a]) => "act:" + a) });

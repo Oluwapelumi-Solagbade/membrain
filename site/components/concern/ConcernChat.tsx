@@ -158,6 +158,15 @@ function healthFactors(text: string, lang: Lang): { found: string[]; urgent: boo
   return { found, urgent: found.length > 0 && (HEALTH_URGENT.en.test(text) || HEALTH_URGENT.ar.test(text)) };
 }
 
+const FREQ_LABEL: Record<Lang, Record<string, string>> = {
+  en: { daily: "Every day or nearly every day", weekly: "Several times a week", sometimes: "Now and then", once: "Once so far" },
+  ar: { daily: "كل يوم أو شبه يومي", weekly: "عدة مرات في الأسبوع", sometimes: "بين فترة وأخرى", once: "مرة واحدة حتى الآن" },
+};
+const SEV_LABEL: Record<Lang, Record<string, string>> = {
+  en: { marked: "A lot, or much worse", mild: "A little" },
+  ar: { marked: "كثيرًا، أو أسوأ بكثير", mild: "قليلًا" },
+};
+
 export function ConcernChat() {
   const params = useSearchParams();
   const [lang, setLang] = useState<Lang>(params.get("lang") === "ar" ? "ar" : "en");
@@ -254,6 +263,8 @@ export function ConcernChat() {
       const next: Record<string, boolean> = {};
       r.fields.forEach((f) => (next[`${f.kind}:${f.key}`] = f.kind === "red_flag" || !f.needs_confirmation));
       if (r.onset) next.onset = true;
+      if (r.frequency) next.freq = true;
+      if (r.severity) next.sev = true;
       r.timeline.forEach((_, i) => (next[`tl:${i}`] = true));
       setResult(r);
       setOk(next);
@@ -333,6 +344,8 @@ export function ConcernChat() {
       narrative,
       domains: result.fields.filter((f) => f.kind === "domain" && ok[`domain:${f.key}`]).map((f) => f.key),
       onset: result.onset && ok.onset ? result.onset.value : null,
+      frequency: result.frequency && ok.freq ? result.frequency.value : null,
+      severity: result.severity && ok.sev ? result.severity.value : null,
       timeline: result.timeline.filter((_, i) => ok[`tl:${i}`]).map((x) => [x.activity, x.who_took_over] as [string, string]),
       red_flags: flags,
       confounders: result.fields.filter((f) => f.kind === "confounder" && ok[`confounder:${f.key}`]).map((f) => f.key),
@@ -589,6 +602,16 @@ export function ConcernChat() {
             <FactRow t={t} locked={frozen} checked={!!ok.onset} onToggle={() => toggle("onset")} title={label(ONSET, result.onset.value, lang, result.onset.label)} quote={narrative.slice(...result.onset.spans[0])} />
           </Section>
         )}
+        {result.frequency && (!frozen || ok.freq) && (
+          <Section title={t.often}>
+            <FactRow t={t} locked={frozen} checked={!!ok.freq} onToggle={() => toggle("freq")} title={FREQ_LABEL[lang][result.frequency.value] ?? result.frequency.label} quote={narrative.slice(...result.frequency.spans[0])} />
+          </Section>
+        )}
+        {result.severity && (!frozen || ok.sev) && (
+          <Section title={t.much}>
+            <FactRow t={t} locked={frozen} checked={!!ok.sev} onToggle={() => toggle("sev")} title={SEV_LABEL[lang][result.severity.value] ?? result.severity.label} quote={narrative.slice(...result.severity.spans[0])} />
+          </Section>
+        )}
         {result.timeline.length > 0 && (
           <Section title={t.who}>
             {result.timeline.map((x, i) =>
@@ -649,6 +672,7 @@ export function ConcernChat() {
       [t.raisedBy, reporter === "self" ? t.selfSeen : REPORTER_LABEL[lang][reporter ?? "family"]],
       [t.changed, dChanged.join(lang === "ar" ? "، " : ", ") || t.none],
       [t.started, result.onset && ok.onset ? label(ONSET, result.onset.value, lang, result.onset.label) : t.none],
+      [t.often, result.frequency && ok.freq ? FREQ_LABEL[lang][result.frequency.value] ?? result.frequency.label : t.none],
       [t.who, dWho.join(lang === "ar" ? "، " : "; ") || t.none],
       [t.urgent, redFlags.map((f) => label(RED_FLAG, f.key, lang, f.label)).join(lang === "ar" ? "، " : "; ") || t.none],
       [t.missing, t.missingItems.join(lang === "ar" ? "، " : "; ")],

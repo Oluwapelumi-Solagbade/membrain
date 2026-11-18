@@ -306,3 +306,22 @@ def test_second_reader_arabic_quote_is_grounded_after_normalisation(monkeypatch)
     items, dropped = N.ground_second_read('{"items": [{"kind": "health", "key": "blood_sugar", "quote": "السكري"}]}',
                                           "أبوي عنده السكرى من زمان", "ar")   # ى / ي spelt differently
     assert items and items[0]["label"] == "السكر / السكري" and dropped == 0
+
+
+def test_mixed_arabic_english_concern_is_read_in_both_languages():
+    t = "أبوي صار ينسى الدوا وايد، ويعيد نفس السؤال كل يوم من شهرين، and last week he got lost on the way to the mosque"
+    r = I.extract_rules(t, "ar")
+    k = I.summary_keys(r)
+    assert k["domains"] == ["memory", "orientation"] and k["onset"] == "months"
+    assert r["frequency"]["value"] == "daily" and r["severity"]["value"] == "marked"
+    assert any("got lost" in e for f in r["fields"] for e in f["evidence"])
+    assert I.summary_keys(I.extract_rules("My mother ما تتذكر appointments, got lost أمس in the mall"))["domains"] == ["memory", "orientation"]
+
+
+def test_frequency_and_severity_are_extracted_and_checked():
+    r = I.extract_rules("He repeats himself sometimes, but not a lot", "en")
+    assert r["frequency"]["value"] == "sometimes" and r["severity"]["value"] == "mild"    # "not a lot" is mild, not "a lot"
+    assert I.extract_rules("Once he forgot the stove", "en")["frequency"] is None          # "once" meaning "when"
+    c = {"reporter": "family", "domains": ["memory"], "narrative": ""}
+    assert not I.verify_sentence("He forgets every day.", c)["ok"]                      # unconfirmed frequency is removed
+    assert I.verify_sentence("He forgets every day.", dict(c, frequency="daily"))["ok"]

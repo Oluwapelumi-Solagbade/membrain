@@ -312,6 +312,55 @@ def _onset(norm: str, idx: list[int], lang: str):
     return {"value": best[0], "label": ONSET[best[0]], "confidence": 0.8, "spans": [_span(idx, best[1], best[2])]}
 
 
+# --- frequency and severity (the 5th concern dimension) ----------------------------------------------
+# Phrases are in NORMALISED form (ة->ه, أ->ا, ى->ي, no tashkeel). A longer phrase inside the text wins over a shorter one
+# it contains ("not a lot" is mild, not "a lot"); among frequencies the most frequent mention wins.
+FREQUENCY = {"daily": "every day or nearly every day", "weekly": "several times a week", "sometimes": "now and then", "once": "once so far"}
+SEVERITY = {"marked": "marked (a lot, or much worse)", "mild": "mild (a little)"}
+FREQ_LEX = {
+    "daily": {"en": ["every day", "everyday", "daily", "all the time", "constantly", "every morning", "every night", "every evening",
+                     "several times a day", "many times a day", "every few hours", "most days"],
+              "ar": ["كل يوم", "يوميا", "دايم", "دايما", "دائما", "طول الوقت", "طول اليوم", "كل شوي", "كل صبح", "كل صباح", "كل ليله",
+                     "اكثر من مره في اليوم", "عده مرات في اليوم", "اغلب الايام"]},
+    "weekly": {"en": ["every week", "weekly", "few times a week", "several times a week", "once a week", "twice a week", "most weeks"],
+               "ar": ["كل اسبوع", "اسبوعيا", "مرتين في الاسبوع", "مره في الاسبوع", "كم مره في الاسبوع"]},
+    "sometimes": {"en": ["sometimes", "now and then", "occasionally", "from time to time", "once in a while", "on and off", "every now and then"],
+                  "ar": ["احيانا", "بعض الاحيان", "بين فتره وفتره", "من وقت لوقت", "مرات"]},
+    "once": {"en": ["only once", "just once", "one time", "a single time", "happened once"],
+             "ar": ["مره وحده", "مره واحده", "مره بس"]},
+}
+SEV_LEX = {
+    "marked": {"en": ["a lot", "a great deal", "very bad", "really bad", "much worse", "a lot worse", "severe", "severely", "badly",
+                      "completely", "totally", "so much", "very much", "all the time"],
+               "ar": ["وايد", "كثير", "بشكل كبير", "جدا", "بقوه", "تماما", "كليا", "مره كثير", "بزياده"]},
+    "mild": {"en": ["a little", "a bit", "slightly", "mild", "mildly", "not much", "not a lot", "minor", "a little bit"],
+             "ar": ["شوي", "شويه", "شوية", "قليل", "بسيط", "خفيف", "نوعا ما", "مو وايد", "مو كثير"]},
+}
+FREQ_RANK = {"daily": 3, "weekly": 2, "sometimes": 1, "once": 0}
+SEV_RANK = {"marked": 1, "mild": 0}
+
+
+def _phrase_hits(norm: str, lex: dict, lang: str) -> list[tuple[int, int, str]]:
+    hits = []
+    for value, by_lang in lex.items():
+        for ph in by_lang.get(lang, []):
+            if lang == "en":
+                rx = re.compile(r"(?<![a-z])" + re.escape(ph) + r"(?![a-z])")
+            else:   # optional و / ف prefix, Arabic letters must not continue the word
+                rx = re.compile(r"(?<![\u0621-\u064a])(?:[وف])?" + re.escape(ph) + r"(?![\u0621-\u064a])")
+            hits += [(m.start(), m.end(), value) for m in rx.finditer(norm)]
+    # drop a hit that lies inside a longer one ("a lot" inside "not a lot")
+    return [h for h in hits if not any(o[0] <= h[0] and h[1] <= o[1] and (o[1] - o[0]) > (h[1] - h[0]) for o in hits)]
+
+
+def _graded(norm: str, idx: list[int], lang: str, lex: dict, rank: dict, labels: dict):
+    hits = _phrase_hits(norm, lex, lang)
+    if not hits:
+        return None
+    best = max(hits, key=lambda h: (rank[h[2]], -h[0]))
+    return {"value": best[2], "label": labels[best[2]], "confidence": 0.7, "spans": [_span(idx, best[0], best[1])]}
+
+
 # --- timeline (who took over which activity) ------------------------------------------------------------
 def _sentences(norm: str):
     s = 0
@@ -355,8 +404,53 @@ def _timeline(norm: str, idx: list[int], lang: str):
 
 
 # --- main extractor ------------------------------------------------------------------------------------
+def _is_mixed(text: str) -> bool:
+    """Gulf Arabic mixed with English (code-switching): some Arabic letters and at least two English words."""
+    ar = sum(1 for c in text if "\u0600" <= c <= "\u06ff")
+    return ar >= 3 and len(re.findall(r"[A-Za-z]{2,}", text)) >= 2
+
+
+def _merge(a: dict, b: dict, text: str) -> dict:
+    """Union of what the Arabic and the English reading found (same rules in web/intake.js)."""
+    out = dict(a)
+    fields = [dict(f) for f in a["fields"]]
+    pos = {(f["kind"], f["key"]): i for i, f in enumerate(fields)}
+    for f in b["fields"]:
+        k = (f["kind"], f["key"])
+        if k not in pos:
+            pos[k] = len(fields)
+            fields.append(dict(f))
+            continue
+        g = fields[pos[k]]
+        spans = sorted({(s0, e0) for s0, e0 in g["spans"] + f["spans"]})
+        g["confidence"] = max(g["confidence"], f["confidence"])
+        g["needs_confirmation"] = g["confidence"] < REVIEW_BELOW
+        g["spans"] = [[s0, e0] for s0, e0 in spans]
+        g["evidence"] = [text[s0:e0] for s0, e0 in spans]
+    out["fields"] = fields
+    if b["onset"] and (not a["onset"] or _RANK[b["onset"]["value"]] > _RANK[a["onset"]["value"]]):
+        out["onset"] = b["onset"]
+    seen = {(t["activity"], t["who_took_over"]) for t in a["timeline"]}
+    out["timeline"] = a["timeline"] + [t for t in b["timeline"] if (t["activity"], t["who_took_over"]) not in seen]
+    if b["frequency"] and (not a["frequency"] or FREQ_RANK[b["frequency"]["value"]] > FREQ_RANK[a["frequency"]["value"]]):
+        out["frequency"] = b["frequency"]
+    if b["severity"] and (not a["severity"] or SEV_RANK[b["severity"]["value"]] > SEV_RANK[a["severity"]["value"]]):
+        out["severity"] = b["severity"]
+    out["urgent"] = any(f["kind"] == "red_flag" for f in fields)
+    return out
+
+
 def extract_rules(text: str, lang: str | None = None) -> dict:
+    """Mixed Arabic-English text is read with both languages' word lists and the findings merged, so the English half of
+    'أبوي صار ينسى الدوا وايد ... and last week he got lost on the way to the mosque' is not ignored."""
     lang = lang or _detect_lang(text)
+    one = _extract_one(text, lang)
+    if lang in ("ar", "en") and _is_mixed(text):
+        return _merge(one, _extract_one(text, "en" if lang == "ar" else "ar"), text)
+    return one
+
+
+def _extract_one(text: str, lang: str) -> dict:
     norm, idx = normalise(text)
     fields = []
     for kind, groups in LEX.items():
@@ -382,7 +476,9 @@ def extract_rules(text: str, lang: str | None = None) -> dict:
                            "needs_confirmation": conf < REVIEW_BELOW, "spans": spans,
                            "evidence": [text[s:e] for s, e in spans]})
     out = {"engine": "rules", "version": INTAKE_VERSION, "lang": lang, "fields": fields,
-           "onset": _onset(norm, idx, lang), "timeline": _timeline(norm, idx, lang)}
+           "onset": _onset(norm, idx, lang), "timeline": _timeline(norm, idx, lang),
+           "frequency": _graded(norm, idx, lang, FREQ_LEX, FREQ_RANK, FREQUENCY),
+           "severity": _graded(norm, idx, lang, SEV_LEX, SEV_RANK, SEVERITY)}
     out["urgent"] = any(f["kind"] == "red_flag" for f in fields)
     return out
 
@@ -581,6 +677,9 @@ VOCAB = {
     "rf:safety_risk": ["safety", "wander", "unsafe", "gas", "stove"],
     "cf:new_medication": ["medication", "medicine", "tablets"], "cf:recent_illness": ["illness", "infection", "fever", "hospital"],
     "cf:hearing": ["hearing"], "cf:bereavement": ["bereave", "passed away", "died", "death"],
+    "fr:daily": ["every day", "daily", "each day", "all the time"], "fr:weekly": ["every week", "weekly", "times a week"],
+    "fr:sometimes": ["sometimes", "occasionally", "now and then", "from time to time"],
+    "sv:marked": ["a lot", "severe", "much worse", "significant"], "sv:mild": ["mild", "slight", "a little"],
     "on:days": ["days$"], "on:weeks": ["weeks$"], "on:months": ["months$"], "on:years": ["year$", "years$"],
     "act:money": ["money", "bills"], "act:medicines": ["medicines", "medication"], "act:cooking": ["cooking"], "act:shopping": ["shopping"],
     "act:driving": ["driving"], "act:phone": ["phone"], "act:appointments": ["appointments"], "act:household": ["household"],
@@ -601,6 +700,10 @@ def confirmed_items(c: dict) -> set:
         {"cf:" + k for k in c.get("confounders", [])}
     if c.get("onset"):
         s.add("on:" + c["onset"])
+    if c.get("frequency"):
+        s.add("fr:" + c["frequency"])
+    if c.get("severity"):
+        s.add("sv:" + c["severity"])
     for a, w in c.get("timeline", []):
         s |= {"act:" + a, "who:" + w}
     if c.get("red_flags") or (c.get("checkin") or {}).get("level") == "URGENT":
@@ -622,6 +725,11 @@ def draft_referral(c: dict) -> list[dict]:
         who = DRAFT_REPORTER.get(c.get("reporter"), DRAFT_REPORTER["family"])
         out.append({"text": f"{who} reports changes in {_join([DRAFT_DOMAIN[k] for k in c['domains']])}{on}.",
                     "sources": ["dom:" + k for k in c["domains"]] + (["on:" + c["onset"]] if c.get("onset") else [])})
+    if c.get("frequency") or c.get("severity"):
+        bits = ([f"it happens {FREQUENCY[c['frequency']]}"] if c.get("frequency") else []) + \
+               ([f"the reporter describes it as {SEVERITY[c['severity']]}"] if c.get("severity") else [])
+        out.append({"text": bits[0][0].upper() + "; ".join(bits)[1:] + ".",
+                    "sources": (["fr:" + c["frequency"]] if c.get("frequency") else []) + (["sv:" + c["severity"]] if c.get("severity") else [])})
     q = [x for x in c.get("quotes", []) if x][:2]
     if q:
         out.append({"text": "In their words: " + "; ".join(f"“{x}”" for x in q) + ".", "sources": ["quote"]})
@@ -736,6 +844,10 @@ def llm_draft_messages(c: dict) -> list[dict]:
         lines.append("Changes noticed in: " + ", ".join(DRAFT_DOMAIN.get(k, k) for k in c["domains"]))
     if c.get("onset"):
         lines.append("When it started: " + ONSET.get(c["onset"], c["onset"]))
+    if c.get("frequency"):
+        lines.append("How often: " + FREQUENCY.get(c["frequency"], c["frequency"]))
+    if c.get("severity"):
+        lines.append("How much: " + SEVERITY.get(c["severity"], c["severity"]))
     for a, w in c.get("timeline") or []:
         lines.append(f"Task taken over by someone else: {DRAFT_ACT.get(a, a)} (now done by {DRAFT_WHO.get(w, w)})")
     if c.get("red_flags"):

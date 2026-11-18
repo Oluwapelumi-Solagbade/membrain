@@ -33,6 +33,7 @@ def concern_summary(p: dict) -> dict:
     if text == "routine programme screening":
         text = None
     onset = c.get("onset") or ik_s.get("onset")
+    freq, sev = c.get("frequency") or ik_s.get("frequency"), c.get("severity") or ik_s.get("severity")
     inf = p.get("informant")
     if c.get("timeline"):
         who = [f"{IN.ACTIVITIES.get(a, a)}: now {IN.WHO.get(w, w)}" for a, w in c["timeline"]]
@@ -45,6 +46,8 @@ def concern_summary(p: dict) -> dict:
                        else "The concern in the reporter's own words")
     if not onset or onset == "none":
         missing.append("When the change started")
+    if text and not freq:
+        missing.append("How often it happens")
     if not inf:
         missing.append("An informant account (family member or household helper)")
     if not any(s.get("iqcode") is not None or s.get("faq") is not None for s in sessions) and p.get("pending_iqcode") is None:
@@ -57,6 +60,7 @@ def concern_summary(p: dict) -> dict:
     return {
         "raised_by": raised_by, "date": (ik.get("at") or ik_s.get("date") or "")[:10] or None,
         "in_their_words": text, "onset": IN.ONSET.get(onset) if onset else None,
+        "how_often": IN.FREQUENCY.get(freq) if freq else None, "how_much": IN.SEVERITY.get(sev) if sev else None,
         "what_changed": [IN.DOMAINS.get(d, d) for d in c.get("domains") or rc.get("domains") or []],
         "who_now_does_what": who,
         "red_flags_reported": [C.RED_FLAGS.get(f, f) for f in ik_s.get("red_flags") or []],

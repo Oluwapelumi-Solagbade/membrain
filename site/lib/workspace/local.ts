@@ -186,11 +186,11 @@ export const localBackend: Backend = {
       intake: {
         reporter: body.reporter,
         at: body.date,
-        confirmed: { narrative: body.narrative, domains: body.domains, onset: body.onset, timeline: body.timeline, red_flags: body.red_flags, confounders: body.confounders },
+        confirmed: { narrative: body.narrative, domains: body.domains, onset: body.onset, frequency: body.frequency ?? null, severity: body.severity ?? null, timeline: body.timeline, red_flags: body.red_flags, confounders: body.confounders },
       },
       sessions: [
         {
-          session_id: `${pid}-intake`, date: body.date, type: "intake", channel: "app", concern: body.narrative, onset: body.onset, red_flags: body.red_flags,
+          session_id: `${pid}-intake`, date: body.date, type: "intake", channel: "app", concern: body.narrative, onset: body.onset, frequency: body.frequency ?? null, severity: body.severity ?? null, red_flags: body.red_flags,
           reported_concern: { reporter: body.reporter, domains: body.domains, activities_taken_over: acts },
         },
       ],
@@ -210,7 +210,7 @@ export const localBackend: Backend = {
     const acts = [...new Set(body.timeline.map(([a]) => a))].sort();
     (s.sessions[pid] ??= []).push({
       session_id: `${pid}-intake` + (n ? `-${n + 1}` : ""), date: body.date, type: "intake", channel: body.channel ?? "app",
-      concern: body.narrative, onset: body.onset, red_flags: body.red_flags,
+      concern: body.narrative, onset: body.onset, frequency: body.frequency ?? null, severity: body.severity ?? null, red_flags: body.red_flags,
       reported_concern: { reporter: body.reporter, domains: body.domains, activities_taken_over: acts, timeline: body.timeline, confounders: body.confounders },
     });
     const after = participants(s).find((x) => x.id === pid)!;
