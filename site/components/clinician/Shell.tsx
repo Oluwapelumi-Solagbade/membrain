@@ -8,7 +8,7 @@ import { Logo, Mark } from "../Logo";
 import { LevelPill } from "../ui";
 import { Avatar, usePopover } from "./parts";
 import { useWorkspace } from "./WorkspaceProvider";
-import { signOut, useSession } from "@/lib/auth";
+import { hospitalLabel, signOut, useSession } from "@/lib/auth";
 import { caseHref, fmtDate, isActive, isIntakeOnly, isWaiting, levelOf, matchesQuery, dueOf } from "@/lib/workspace/derive";
 import { STALLED, STATE_LABEL } from "@/lib/workspace/navigator";
 
@@ -93,7 +93,8 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
 function useMe() {
   const { session } = useSession();
   const u = session?.user;
-  return { name: u?.name ?? "Signed in", title: u?.title ?? (u?.role === "coordinator" ? "Programme coordinator" : "Clinician"), email: u?.email ?? "", demo: session?.mode === "browser" };
+  const where = u?.hospital_name ? hospitalLabel(u.hospital_name) : u?.role === "coordinator" ? "All hospitals" : null;
+  return { name: u?.name ?? "Signed in", title: where ?? u?.title ?? (u?.role === "coordinator" ? "Programme coordinator" : "Clinician"), email: u?.email ?? "", demo: session?.mode === "browser" };
 }
 // Letters only: "Layla (coordinator)" is "LC", not "L(".
 const initials = (n: string) =>

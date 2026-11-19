@@ -65,6 +65,11 @@ export function serverBackend(base: string): Backend {
       return r;
     },
     reidentify: (pid: string, reason: string) => post<VaultEntry>(`/participants/${encodeURIComponent(pid)}/reidentify`, { reason }),
+    assignHospital: async (pid: string, hospitalId: string) => {
+      const r = await post<Case>(`/participants/${encodeURIComponent(pid)}/hospital`, { hospital_id: hospitalId });
+      notifyWorkspaceSync({ action: "assignHospital", pid });
+      return r;
+    },
     setProfile: async (pid: string, body: ProfileIn) => {
       const r = await call<Case>(base, `/participants/${encodeURIComponent(pid)}/profile`, { method: "PATCH", body: JSON.stringify(body) });
       notifyWorkspaceSync({ action: "setProfile", pid });

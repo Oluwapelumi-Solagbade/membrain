@@ -7,8 +7,9 @@ import { config, getEngine, type Level, type Persona, type Session } from "../mb
 import { concernSummary } from "./concern";
 import { FAQ_ITEMS, INFORMANT_MESSAGE } from "./informant";
 import { preventionPlan, riskContext } from "./prevention";
-import { nav } from "./navigator";
+import { NAV, nav } from "./navigator";
 import { notifyWorkspaceSync } from "./sync";
+import { canSee, currentSession } from "../auth";
 import type { AuditEntry, Backend, Case, CheckinResult, ConcernIn, EnrolDone, EnrolIn, InformantDone, InformantIn, VaultEntry, Participant, ProfileIn, Referral, ReferralIn, ReferralState, SessionIn, Task, TaskAction } from "./types";
 
 const KEY = "membrain.workspace.v2";
@@ -20,6 +21,7 @@ const REPORTS_PER_PERSON = 60; // as api/main.py
 const ROUTE_REPORTER: Record<EnrolIn["concern"]["route"], string> = { programme: "coordinator", primary_care: "professional", family: "family", household_helper: "helper", self: "self" };
 
 type State = {
+  hospitals: Record<string, string>; // participant -> hospital, once someone was taken on or moved here
   concerns: Participant[];
   referrals: Record<string, Referral[]>; // a participant's full referral list, once it has changed
   tasks: Record<string, Task>; // tasks that have been acted on
@@ -31,7 +33,7 @@ type State = {
 };
 
 const MESSAGES = (programmeData as unknown as { messages: Record<string, [string, string]> }).messages;
-const empty = (): State => ({ concerns: [], referrals: {}, tasks: {}, sessions: {}, profiles: {}, enrolled: [], vault: {}, audit: [] });
+const empty = (): State => ({ hospitals: {}, concerns: [], referrals: {}, tasks: {}, sessions: {}, profiles: {}, enrolled: [], vault: {}, audit: [] });
 
 function load(): State {
   try {
@@ -71,8 +73,11 @@ function participants(s: State): Participant[] {
     ...(s.profiles[p.id] ?? {}),
     sessions: [...p.sessions, ...clone(s.sessions[p.id] ?? [])],
     referrals: s.referrals[p.id] ?? p.referrals ?? [],
+    ...(s.hospitals[p.id] ? { assigned_hospital: { id: s.hospitals[p.id], name: NAV.directory.find((x) => x.id === s.hospitals[p.id])?.name ?? null } } : {}),
   }));
 }
+
+const me = () => currentSession()?.user ?? null;
 
 function buildCase(p: Participant, s: State): Case {
   const E = getEngine();
@@ -133,7 +138,24 @@ export const localBackend: Backend = {
 
   async cases() {
     const s = state();
-    return participants(s).map((p) => buildCase(p, s));
+    const u = me();   // as the server does: a clinician sees their own hospital's patients and those no hospital has yet
+    return participants(s).filter((p) => !u || canSee(u, p)).map((p) => buildCase(p, s));
+  },
+
+  async assignHospital(pid: string, hospitalId: string) {
+    const s = clone(state());
+    const p = participants(s).find((x) => x.id === pid);
+    const u = me();
+    if (!p) throw new Error("Participant not found");
+    if (!NAV.directory.some((x) => x.id === hospitalId)) throw new Error("Unknown hospital");
+    if (u?.role === "clinician" && u.hospital_id) {
+      if (hospitalId !== u.hospital_id) throw new Error("A clinician can take someone on only for their own hospital.");
+      if (!canSee(u, p)) throw new Error("This person is under another hospital.");
+    }
+    s.hospitals[pid] = hospitalId;
+    audit(s, u?.id ?? "clinician", "hospital_assigned", pid, { to: hospitalId });
+    commit(s);
+    return buildCase(participants(s).find((x) => x.id === pid)!, s);
   },
 
   async act(taskId: string, action: TaskAction, note = "", referralTo: string | null = null) {
@@ -281,7 +303,11 @@ export const localBackend: Backend = {
     const p = {
       id, display_name: { en: "Enrolled participant", ar: "مشارك مسجّل" }, age: body.age, age_band: body.age < 60 ? "50-59" : body.age < 70 ? "60-69" : "70-75",
       sex: body.sex, education: body.education, dialect: body.dialect, language: body.language, languages: [body.language], story: "", context: ctx, consent,
-      referrals: [], enrolled: true, entry_route: body.concern.route, emirate: body.emirate ?? undefined, funding: body.funding ?? undefined,
+      referrals: [], enrolled: true, entry_route: body.concern.route,
+      assigned_hospital: (() => {
+        const hid = me()?.role === "clinician" ? me()?.hospital_id : null;   // a clinician enrols into their own hospital
+        return hid ? { id: hid, name: NAV.directory.find((x) => x.id === hid)?.name ?? null } : null;
+      })(), emirate: body.emirate ?? undefined, funding: body.funding ?? undefined,
       prevention: { en: preventionPlan(ctx, "en"), ar: preventionPlan(ctx, "ar") }, risk_context: riskContext(ctx, body.education),
       pending_iqcode: body.iqcode, informant: prof && helperOk ? { ...prof } : null,
       genomics: body.apoe && consent.genomics ? { apoe: body.apoe, source: "Existing result entered at enrolment", date: body.date, counselling: "not_offered" } : null,

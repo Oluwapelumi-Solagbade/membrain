@@ -96,3 +96,43 @@ def test_a_new_number_gets_its_own_record_or_claims_a_concern():
     assert patient("+971 52 222 3333", claim={"pid": pid, "token": tok})["user"]["pid"] == pid
     # Signing in again with the same number returns to the same record.
     assert patient("0522223333")["user"]["pid"] == pid
+
+
+def staff(email):
+    r = c.post("/auth/clinician/login", json={"email": email, "password": A._demo_password()})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_each_hospital_sees_only_its_own_patients():
+    abu_dhabi, al_ain = staff("dr.demo@membrain.ae"), staff("dr.alain@membrain.ae")
+    coord = staff("coordinator@membrain.ae")
+    assert abu_dhabi["user"]["hospital_id"] == "SVC-01" and al_ain["user"]["hospital_id"] == "SVC-02"
+    seen = lambda s: {x["participant"]["id"] for x in c.get("/cases", headers=bearer(s["token"])).json()}  # noqa: E731
+    ad, aa, co = seen(abu_dhabi), seen(al_ain), seen(coord)
+    assert "MB-1041" in ad and "MB-1041" not in aa          # Fatima is under the Abu Dhabi memory clinic
+    assert "MB-1187" in aa and "MB-1187" not in ad          # Ahmed is under Al Ain
+    assert {"MB-1041", "MB-1187", "MB-1409"} <= co          # the programme coordinator sees every hospital
+    h = bearer(al_ain["token"])
+    for path in ("/cases/MB-1041", "/participants/MB-1041/dossier", "/participants/MB-1041/evaluation",
+                 "/participants/MB-1041/moca", "/participants/MB-1041/family-message/suggest"):
+        assert c.get(path, headers=h).status_code == 403, path
+    assert c.post("/participants/MB-1041/review-packet?use_model=false", headers=h).status_code == 403
+    assert c.post("/participants/MB-1041/referrals", headers=h, json={"pathway": "memory_clinic", "reason": "x", "date": "2026-11-19"}).status_code == 403
+    assert all(t["participant_id"] not in ad - aa for t in c.get("/queue", headers=h).json())
+    assert all(ref["participant_id"] != "MB-1041" for ref in c.get("/referrals", headers=h).json())
+    assert c.get("/cases/MB-1041", headers=bearer(abu_dhabi["token"])).status_code == 200
+
+
+def test_a_case_no_hospital_has_taken_on_can_be_claimed_once():
+    abu_dhabi, al_ain = staff("dr.demo@membrain.ae"), staff("dr.alain@membrain.ae")
+    pid = patient("0551234987")["user"]["pid"]                       # a new record, under no hospital yet
+    assert c.get(f"/cases/{pid}", headers=bearer(al_ain["token"])).status_code == 200
+    assert c.post(f"/participants/{pid}/hospital", json={"hospital_id": "SVC-01"}, headers=bearer(al_ain["token"])).status_code == 403
+    r = c.post(f"/participants/{pid}/hospital", json={"hospital_id": "SVC-02"}, headers=bearer(al_ain["token"]))
+    assert r.status_code == 200 and r.json()["participant"]["assigned_hospital"]["id"] == "SVC-02"
+    assert c.get(f"/cases/{pid}", headers=bearer(abu_dhabi["token"])).status_code == 403
+    assert c.post(f"/participants/{pid}/hospital", json={"hospital_id": "SVC-01"}, headers=bearer(abu_dhabi["token"])).status_code == 403
+    coord = staff("coordinator@membrain.ae")                            # only the coordinator moves someone between hospitals
+    assert c.post(f"/participants/{pid}/hospital", json={"hospital_id": "SVC-01"}, headers=bearer(coord["token"])).status_code == 200
+    assert c.get(f"/cases/{pid}", headers=bearer(abu_dhabi["token"])).status_code == 200

@@ -8,7 +8,7 @@ import { ArrowRight, Loader2, ShieldCheck, Stethoscope, UsersRound } from "lucid
 import { cx, useStatusBar } from "./kit";
 import { Logo } from "../Logo";
 import { asset } from "@/lib/asset";
-import { demoAccounts, signInClinician, startPatient, verifyPatient, type Challenge, type DemoAccounts } from "@/lib/auth";
+import { demoAccounts, hospitalLabel, signInClinician, startPatient, verifyPatient, type Challenge, type DemoAccounts } from "@/lib/auth";
 import type { Lang } from "@/lib/mb";
 
 const T = {
@@ -17,14 +17,14 @@ const T = {
     patient: "I'm a patient or family member", patientSub: "Sign in with your mobile number", staff: "I'm a clinician or coordinator", staffSub: "Sign in with your work account",
     phone: "Mobile number", phoneHint: "We send a 6-digit code. No password to remember.", send: "Send code", code: "Enter the code", codeSent: (p: string) => `Sent to ${p}`,
     demoCode: (c: string) => `Demo: no text message is sent. Your code is ${c}.`, fill: "Fill it in", verify: "Verify and continue",
-    email: "Work email", password: "Password", signIn: "Sign in", demo: "Demo accounts (synthetic)", use: "Use", back: "Back", disclaimer: "Secure sign-in · MemBrain never diagnoses",
+    email: "Work email", password: "Password", signIn: "Sign in", demo: "Demo accounts (synthetic)", use: "Use", allHospitals: "All hospitals (coordinator)", back: "Back", disclaimer: "Secure sign-in · MemBrain never diagnoses",
   },
   ar: {
     tag: "من «هناك شيء ليس على ما يرام» إلى الطبيب المناسب.", body: "فحص صوتي لصحة الدماغ بالعربية أو بالإنجليزية، وأسرة يُستمع إليها.",
     patient: "أنا مريض أو من أفراد الأسرة", patientSub: "سجّل الدخول برقم هاتفك", staff: "أنا طبيب أو منسق", staffSub: "سجّل الدخول بحساب العمل",
     phone: "رقم الهاتف", phoneHint: "نرسل رمزًا من ستة أرقام. لا حاجة إلى كلمة مرور.", send: "أرسل الرمز", code: "أدخل الرمز", codeSent: (p: string) => `أُرسل إلى ⁦${p}⁩`,
     demoCode: (c: string) => `تجريبي: لا تُرسل رسالة نصية. رمزك هو ⁦${c}⁩.`, fill: "أدخله تلقائيًا", verify: "تحقّق وتابِع",
-    email: "بريد العمل", password: "كلمة المرور", signIn: "تسجيل الدخول", demo: "حسابات تجريبية (وهمية)", use: "استخدم", back: "رجوع", disclaimer: "تسجيل دخول آمن · MemBrain لا يشخّص",
+    email: "بريد العمل", password: "كلمة المرور", signIn: "تسجيل الدخول", demo: "حسابات تجريبية (وهمية)", use: "استخدم", allHospitals: "كل المستشفيات (المنسّقة)", back: "رجوع", disclaimer: "تسجيل دخول آمن · MemBrain لا يشخّص",
   },
 };
 
@@ -198,7 +198,7 @@ function StaffForm({ lang, demo, onBack, onDone }: { lang: Lang; demo: DemoAccou
           <p className="text-[11.5px] font-semibold uppercase tracking-[0.12em] text-white/60">{t.demo}</p>
           {demo.clinicians.map((c) => (
             <button key={c.email} type="button" onClick={() => { setEmail(c.email); setPassword(c.password); void go(c.email, c.password); }} className="mt-2 flex w-full items-center justify-between rounded-xl bg-white/10 px-3 py-2.5 text-start">
-              <span><span className="block text-[14px] font-semibold">{c.name}</span><span className="block text-[12px] text-white/60" dir="ltr">{c.email}</span></span>
+              <span className="min-w-0"><span className="block text-[14px] font-semibold">{c.name}</span><span className="block truncate text-[12px] text-white/70">{c.hospital_name ? hospitalLabel(c.hospital_name) : t.allHospitals}</span><span className="block text-[12px] text-white/50" dir="ltr">{c.email}</span></span>
               <span className="text-[13px] font-semibold text-sand">{t.use} →</span>
             </button>
           ))}

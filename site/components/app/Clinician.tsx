@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  Activity, AlertTriangle, BellRing, CalendarClock, CheckCircle2, ChevronRight, ClipboardCheck, ClipboardList, Clock3, Copy,
+  Activity, AlertTriangle, BellRing, Building2, CalendarClock, CheckCircle2, ChevronRight, ClipboardCheck, ClipboardList, Clock3, Copy,
   FileText, FlaskConical, HeartPulse, Home, Lock, Map as MapIcon, MessageSquarePlus, Mic, MoreHorizontal, Route, Search, Send, Share2,
   ShieldCheck, Sparkles, Stethoscope, UserPlus, X,
 } from "lucide-react";
@@ -16,7 +16,7 @@ import { useWorkspace } from "../clinician/WorkspaceProvider";
 import programmeData from "@/lib/generated/programme-data.json";
 import { ACTIVITY, DOMAIN, label } from "@/lib/labels";
 import { LEVEL_LABEL, type Level } from "@/lib/mb";
-import { useSession } from "@/lib/auth";
+import { hospitalLabel, useSession } from "@/lib/auth";
 import { dueOf, fmtDate, isActive, isIntakeOnly, levelOf, ORDER, profileLine, TODAY } from "@/lib/workspace/derive";
 import { NAV, nav } from "@/lib/workspace/navigator";
 import type { Case, VaultEntry } from "@/lib/workspace/types";
@@ -131,7 +131,7 @@ export function ClinicianHome({ onOpen, onTab, onProfile }: { onOpen: (id: strin
         <h1 className="mt-1 text-[28px] font-semibold leading-[1.15] tracking-[-0.03em]">
           {s.active.length ? <>{s.active.length} {s.active.length === 1 ? "person needs" : "people need"} you</> : "All clear today"}
         </h1>
-        <p className="mt-1 text-[13.5px] text-white/60">{session?.user.org ?? "Brain-health programme"}</p>
+        <p className="mt-1 text-[13.5px] text-white/60">{session?.user.hospital_name ? hospitalLabel(session.user.hospital_name) : session?.user.role === "coordinator" ? "All hospitals" : session?.user.org ?? "Brain-health programme"}</p>
         <div className="mt-5 grid grid-cols-3 gap-2">
           {([["Urgent", s.urgent.length, "#ff8fa3", "alerts"], ["Overdue", s.overdue.length, "#ffd08a", "alerts"], ["Open referrals", s.openRefs, "#9fe0b8", "reports"]] as [string, number, string, string][]).map(([l, n, col, to]) => (
             <button key={l} type="button" onClick={() => { tap(); onTab(to); }} className="rounded-2xl bg-white/10 px-3 py-3 text-start ring-1 ring-white/12 backdrop-blur transition-colors active:bg-white/15">
@@ -537,7 +537,8 @@ function timeline(c: Case): Event[] {
 }
 
 export function CaseScreen({ id, onBack, onFollow }: { id: string; onBack: () => void; onFollow: (id: string) => void }) {
-  const { byId, act, reidentify, ready, syncing, refresh } = useWorkspace();
+  const { byId, act, reidentify, assignHospital, ready, syncing, refresh } = useWorkspace();
+  const { session } = useSession();
   const toast = useToast();
   const c = byId(id);
   const [tab, setTab] = useState<"overview" | "timeline" | "plan">("overview");
@@ -551,7 +552,7 @@ export function CaseScreen({ id, onBack, onFollow }: { id: string; onBack: () =>
   const [busy, setBusy] = useState(false);
   if (!c) {
     return ready ? (
-      <Screen title={id} onBack={onBack} bottomPad={false}><Empty icon={ClipboardList} title="Case not found" sub="It may have been removed, or is not visible to you." /></Screen>
+      <Screen title={id} onBack={onBack} bottomPad={false}><Empty icon={ClipboardList} title="Case not found" sub="This person may be under another hospital, which only its own clinicians can see." /></Screen>
     ) : <Screen title={id} onBack={onBack}><div className="space-y-3 px-5 pt-4"><Skeleton className="h-40" /><Skeleton className="h-24" /></div></Screen>;
   }
   const p = c.participant;
@@ -569,6 +570,19 @@ export function CaseScreen({ id, onBack, onFollow }: { id: string; onBack: () =>
       setMore(false);
       setDismiss(false);
       setNote("");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Could not save", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const hospital = typeof p.assigned_hospital === "object" ? p.assigned_hospital?.name : p.assigned_hospital;
+  const takeOn = async () => {
+    if (!session?.user.hospital_id) return;
+    setBusy(true);
+    try {
+      await assignHospital(p.id, session.user.hospital_id);
+      toast("Taken on by your hospital");
     } catch (e) {
       toast(e instanceof Error ? e.message : "Could not save", "error");
     } finally {
@@ -612,6 +626,19 @@ export function CaseScreen({ id, onBack, onFollow }: { id: string; onBack: () =>
 
         {tab === "overview" && (
           <div className="space-y-3 px-4 pt-4">
+            {hospital ? (
+              <div className="flex items-center gap-2.5 px-1 text-[13px] text-muted"><Building2 size={15} className="shrink-0 text-leaf" /><span className="truncate">Under {hospitalLabel(hospital)}</span></div>
+            ) : (
+              <Card className="border border-dashed border-[#d9b36a] bg-[#fdf6e7] p-4">
+                <p className="flex items-center gap-2 text-[14.5px] font-semibold"><Building2 size={16} className="text-[#a87a22]" />No hospital has taken this person on yet</p>
+                <p className="mt-1 text-[13px] leading-snug text-muted">Every clinician can see them until one hospital does. After that, only that hospital&apos;s clinicians can.</p>
+                {session?.user.hospital_id && (
+                  <button type="button" disabled={busy} onClick={takeOn} className="mt-3 h-11 w-full rounded-xl bg-deep text-[14.5px] font-semibold text-white disabled:opacity-60">
+                    Take on for {hospitalLabel(session.user.hospital_name)}
+                  </button>
+                )}
+              </Card>
+            )}
             <Card className="p-4">
               <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-muted">Why this level</p>
               <ul className="mt-2.5 space-y-2">

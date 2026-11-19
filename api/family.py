@@ -89,6 +89,8 @@ def _staff(who: Principal):
 @router.get("/participants/{pid}/family-message/suggest")
 def suggest_message(pid: str, who: Principal = Depends(principal)):
     _staff(who)
+    from api.main import own
+    own(who, pid)
     from api.main import DB, _task_for
     from membrain.triage import evaluate
     p = DB["participants"].get(pid)
@@ -101,6 +103,8 @@ def suggest_message(pid: str, who: Principal = Depends(principal)):
 @router.post("/participants/{pid}/family-message")
 def approve_message(pid: str, body: FamilyMessageIn, who: Principal = Depends(principal)):
     _staff(who)
+    from api.main import own
+    own(who, pid)
     from api.main import DB, audit
     p = DB["participants"].get(pid)
     if not p:

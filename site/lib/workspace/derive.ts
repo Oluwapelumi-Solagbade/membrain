@@ -112,15 +112,16 @@ export function facilityOf(c: Case): { id?: string | null; name?: string | null;
   const t = c.task;
   const p = c.participant;
   const cz = c.concern;
+  // the record's own hospital first: it is what decides who sees the case, and it changes when someone is taken on
   const name =
-    t?.hospital_name ??
+    (typeof p.assigned_hospital === "object" ? p.assigned_hospital?.name : p.assigned_hospital) ??
     (typeof cz.assigned_hospital === "object" ? cz.assigned_hospital?.name : cz.assigned_hospital) ??
-    (typeof p.assigned_hospital === "object" ? p.assigned_hospital?.name : p.assigned_hospital);
+    t?.hospital_name;
   if (!name) return null;
   const id =
-    t?.hospital_id ??
+    (typeof p.assigned_hospital === "object" ? p.assigned_hospital?.id : null) ??
     (typeof cz.assigned_hospital === "object" ? cz.assigned_hospital?.id : null) ??
-    (typeof p.assigned_hospital === "object" ? p.assigned_hospital?.id : null);
+    t?.hospital_id;
   const area = t?.area ?? cz.area ?? p.area ?? null;
   const emirate = t?.emirate ?? cz.emirate ?? p.emirate ?? null;
   return { id, name, area, emirate };

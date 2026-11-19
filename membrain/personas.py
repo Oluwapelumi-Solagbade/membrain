@@ -102,10 +102,15 @@ def personas() -> list[dict]:
         "MB-1510": ("thiqa", "Abu Dhabi", ["ar"], "household_helper",
                     [("audiology", "SVC-08", "routine", [])]),
     }
-    from .navigator import advance, new_referral
+    # The hospital each person is under: their clinician there sees them, clinicians at other hospitals do not.
+    hospital = {"MB-1041": "SVC-01", "MB-1187": "SVC-02", "MB-1203": "SVC-01", "MB-1322": "SVC-01",
+                "MB-1409": "SVC-14", "MB-1455": "SVC-02", "MB-1510": "SVC-01"}
+    from .navigator import advance, directory, new_referral
+    names = {s["id"]: s["name"] for s in directory()}
     for p in P:
         funding, emirate, langs, entry, refs = nav[p["id"]]
-        p.update({"funding": funding, "emirate": emirate, "languages": langs, "entry_route": entry, "referrals": []})
+        p.update({"funding": funding, "emirate": emirate, "languages": langs, "entry_route": entry, "referrals": [],
+                  "assigned_hospital": {"id": hospital[p["id"]], "name": names[hospital[p["id"]]]}})
         from .triage import evaluate as _evaluate
         from .navigator import concern_date as _concern_date
         first = _concern_date(p, _evaluate(p, p["sessions"])["history"]) if refs else None

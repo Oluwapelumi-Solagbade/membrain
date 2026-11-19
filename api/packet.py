@@ -27,7 +27,8 @@ def engine(who: Principal = Depends(principal)):
 def review_packet(pid: str, use_model: bool = True, who: Principal = Depends(principal)):
     if who.role not in ("clinician", "coordinator"):
         raise HTTPException(401 if who.role == "anonymous" else 403, "Please sign in as a clinician.")
-    from api.main import DB, audit
+    from api.main import DB, audit, own
+    own(who, pid)
     from membrain.dossier import build_dossier
     from membrain.triage import evaluate
     p = DB["participants"].get(pid)

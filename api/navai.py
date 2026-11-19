@@ -90,6 +90,12 @@ def _clinician(who: Principal) -> None:
         raise HTTPException(401 if who.role == "anonymous" else 403, "Please sign in as a clinician.")
 
 
+def _theirs(who: Principal, pid: str) -> None:
+    """A clinician drafts letters only for their own hospital's patients."""
+    from api.main import own
+    own(who, pid)
+
+
 def draft(c: dict) -> dict:
     t = time.perf_counter()
     raw = I.strip_thinking(_llm(I.llm_draft_messages(c), 400, task="draft") or "")[0]
@@ -127,6 +133,7 @@ def referral_draft(body: DraftIn, who: Principal = Depends(principal)):
 def referral_draft_for_case(pid: str, who: Principal = Depends(principal)):
     """Draft from the case itself: demographics, longitudinal check-ins, confirmed concern, and Lancet 2024 risk markers."""
     _clinician(who)
+    _theirs(who, pid)
     from api.main import DB
     from membrain.triage import evaluate
     p = DB["participants"].get(pid)
@@ -199,6 +206,7 @@ def approve_letter(pid: str, body: ApproveIn, who: Principal = Depends(principal
     """The clinician approves the letter (as drafted or after editing). Only measures are kept, not the text:
     how much of the draft survived, so 'the AI helps' becomes a number on the Live data page."""
     _clinician(who)
+    _theirs(who, pid)
     from api.main import DB, audit
     if pid not in DB["participants"]:
         raise HTTPException(404)

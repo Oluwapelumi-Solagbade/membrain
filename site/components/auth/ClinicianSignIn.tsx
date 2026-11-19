@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Building2, Eye, EyeOff, FlaskConical, Loader2, Lock, Mail, MapPin, ShieldCheck } from "lucide-react";
 import { LevelPill } from "../ui";
-import { demoAccounts, homeFor, signInClinician, useSession, type DemoAccounts } from "@/lib/auth";
+import { demoAccounts, homeFor, hospitalLabel, signInClinician, useSession, type DemoAccounts } from "@/lib/auth";
 import { Alert, AuthShell, Divider, Field, input, safeNext } from "./AuthShell";
 
 function QueueCard() {
@@ -156,7 +156,8 @@ export function ClinicianSignIn() {
               >
                 <span className="min-w-0">
                   <span className="block truncate text-[14.5px] font-medium">{d.name}</span>
-                  <span className="block truncate text-[12.5px] text-muted">{d.email}</span>
+                  <span className="block truncate text-[12.5px] text-muted">{d.hospital_name ? hospitalLabel(d.hospital_name) : "All hospitals (programme coordinator)"}</span>
+                  <span className="block truncate text-[12px] text-muted/80">{d.email}</span>
                 </span>
                 <span className="shrink-0 text-[13px] font-semibold text-deep">Use →</span>
               </button>

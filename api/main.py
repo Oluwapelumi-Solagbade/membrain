@@ -116,11 +116,27 @@ def need(r: str, *allowed: str):
 
 
 def own(p: Principal, pid: str):
-    """A participant may act on their own record only; clinicians and coordinators on any."""
+    """A participant may act on their own record only; a clinician on their own hospital's patients (and the ones no
+    hospital has taken on yet); the programme coordinator on any."""
     if p.role == "anonymous":
         raise HTTPException(401, "Please sign in.")
     if not p.may_touch(pid):
-        raise HTTPException(403, "This is not your record.")
+        raise HTTPException(403, "This person is under another hospital." if p.role == "clinician" else "This is not your record.")
+
+
+def visible(who: Principal) -> list[dict]:
+    """The records this caller may see: for a clinician, their hospital's (see Principal.sees)."""
+    return [p for p in DB["participants"].values() if who.sees(p)]
+
+
+def _staff_record(who: Principal, pid: str, *roles: str) -> dict:
+    """The record for a staff endpoint: signed in with one of the roles, the record exists, and it is theirs to see."""
+    need(who.role, *roles)
+    p = DB["participants"].get(pid)
+    if not p:
+        raise HTTPException(404)
+    own(who, pid)
+    return p
 
 
 def new_participant() -> str:
@@ -238,6 +254,7 @@ class Enrol(BaseModel):
     context: dict = Field(default_factory=dict)
     emirate: str | None = Field(None, max_length=40)
     funding: str | None = Field(None, max_length=40)
+    hospital_id: str | None = Field(None, max_length=40)   # the coordinator's choice; a clinician enrols into their own
     iqcode: float | None = Field(None, ge=1, le=5)   # IQCODE-16 average, if an informant completed it today
     apoe: str | None = Field(None, pattern="^e[234]/e[234]$")   # an existing result, imported only with genomics consent
     date: str | None = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
@@ -348,6 +365,8 @@ def enrol(body: Enrol, who: Principal = Depends(principal)):
     if not consent.get("family_history", True):
         ctx["family_history_dementia"] = None
     age = float(body.age)
+    hid = who.hospital_id if who.role == "clinician" and who.hospital_id else body.hospital_id
+    hosp = _hospital(hid) if hid else None
     prof = body.informant_profile
     helper_ok = prof is None or prof.type != "household_helper" or prof.consented
     p = {"id": pid, "display_name": {"en": "Enrolled participant", "ar": "مشارك مسجّل"}, "age": age,
@@ -360,6 +379,7 @@ def enrol(body: Enrol, who: Principal = Depends(principal)):
          "informant": _informant_record(prof) if prof and helper_ok else None,
          "genomics": {"apoe": body.apoe, "source": "Existing result entered at enrolment", "date": today, "counselling": "not_offered"}
          if body.apoe and consent.get("genomics") else None,
+         "assigned_hospital": hosp,
          "programme": body.programme, "consent_version": body.consent_version, "enrolled_by": body.enrolled_by,
          "enrolled_at": datetime.now(timezone.utc).isoformat()}
     cz = body.concern or EnrolConcern()
@@ -393,12 +413,44 @@ def reidentify(pid: str, reason: dict, who: Principal = Depends(principal)):
     signed-in account."""
     r = who.actor
     need(who.role, "clinician", "coordinator")
+    own(who, pid)
     if not reason.get("reason"):
         raise HTTPException(422, "a reason is required to re-identify")
     if pid not in VAULT:
         raise HTTPException(404, "no identity on file")
     audit(r, "reidentify", pid, {"reason": reason["reason"]})
     return VAULT[pid]
+
+
+def _hospital(hid: str) -> dict:
+    s = next((x for x in NAV.directory() if x["id"] == hid), None)
+    if not s:
+        raise HTTPException(422, "unknown hospital")
+    return {"id": s["id"], "name": s["name"]}
+
+
+class HospitalIn(BaseModel):
+    hospital_id: str = Field(max_length=40)
+
+
+@app.post("/participants/{pid}/hospital")
+def assign_hospital(pid: str, body: HospitalIn, who: Principal = Depends(principal)):
+    """Put someone under a hospital. A clinician can take on a person no hospital has yet, for their own hospital;
+    the programme coordinator can assign or move anyone. Open reviews move with the person."""
+    p = _staff_record(who, pid, "clinician", "coordinator")
+    from api.auth import hospital_of
+    if who.role == "clinician" and who.hospital_id and not who.legacy:
+        if body.hospital_id != who.hospital_id:
+            raise HTTPException(403, "A clinician can take someone on only for their own hospital.")
+        if hospital_of(p) not in (None, who.hospital_id):
+            raise HTTPException(403, "This person is under another hospital.")
+    before = hospital_of(p)
+    p["assigned_hospital"] = _hospital(body.hospital_id)
+    for t in DB["tasks"].values():
+        if t["participant_id"] == pid and t["status"] != "closed":
+            t["hospital_id"], t["hospital_name"] = p["assigned_hospital"]["id"], p["assigned_hospital"]["name"]
+    audit(who.actor, "hospital_assigned", pid, {"from": before, "to": body.hospital_id})
+    return _case(p)
 
 
 @app.patch("/participants/{pid}/consent")
@@ -519,10 +571,10 @@ def set_profile(pid: str, body: Profile, who: Principal = Depends(principal)):
 
 
 @app.get("/participants")
-def list_participants(r: str = Depends(role)):
-    need(r, "clinician", "coordinator")
+def list_participants(who: Principal = Depends(principal)):
+    need(who.role, "clinician", "coordinator")
     out = []
-    for p in DB["participants"].values():
+    for p in visible(who):
         ev = evaluate(p, p["sessions"]) if p["sessions"] else {"latest": None}
         out.append({"id": p["id"], "age": p["age"], "education": p["education"], "dialect": p.get("dialect"),
                     "sessions": len(p["sessions"]), "level": ev["latest"]["level"] if ev["latest"] else "ENROLLED"})
@@ -530,49 +582,42 @@ def list_participants(r: str = Depends(role)):
 
 
 @app.get("/participants/{pid}/evaluation")
-def get_eval(pid: str, r: str = Depends(role)):
-    need(r, "clinician")
-    p = DB["participants"].get(pid)
-    if not p:
-        raise HTTPException(404)
-    audit(r, "view_evaluation", pid)
+def get_eval(pid: str, who: Principal = Depends(principal)):
+    p = _staff_record(who, pid, "clinician")
+    audit(who.actor, "view_evaluation", pid)
     return evaluate(p, p["sessions"])
 
 
 @app.get("/participants/{pid}/dossier")
-def dossier(pid: str, r: str = Depends(role)):
-    need(r, "clinician")
-    p = DB["participants"].get(pid)
-    if not p:
-        raise HTTPException(404)
-    audit(r, "view_dossier", pid)
+def dossier(pid: str, who: Principal = Depends(principal)):
+    p = _staff_record(who, pid, "clinician")
+    audit(who.actor, "view_dossier", pid)
     return build_dossier(p, evaluate(p, p["sessions"]))
 
 
 @app.get("/participants/{pid}/fhir")
-def fhir_bundle(pid: str, r: str = Depends(role)):
-    need(r, "clinician")
-    p = DB["participants"].get(pid)
-    if not p:
-        raise HTTPException(404)
+def fhir_bundle(pid: str, who: Principal = Depends(principal)):
+    p = _staff_record(who, pid, "clinician")
     ev = evaluate(p, p["sessions"])
-    audit(r, "export_fhir", pid)
+    audit(who.actor, "export_fhir", pid)
     return bundle(p, p["sessions"], ev["history"])
 
 
 @app.get("/queue")
-def queue(r: str = Depends(role)):
-    need(r, "clinician")
-    ts = [t for t in DB["tasks"].values() if t["status"] == "open"]
+def queue(who: Principal = Depends(principal)):
+    need(who.role, "clinician")
+    ts = [t for t in DB["tasks"].values() if t["status"] == "open" and who.sees(DB["participants"].get(t["participant_id"]))]
     return sorted(ts, key=lambda t: (-LEVELS.index(t["level"]), t["created"]))
 
 
 @app.post("/tasks/{task_id}/action")
-def task_action(task_id: str, body: Action, r: str = Depends(role)):
-    need(r, "clinician")
+def task_action(task_id: str, body: Action, who: Principal = Depends(principal)):
+    need(who.role, "clinician")
+    r = who.actor
     t = DB["tasks"].get(task_id)
     if not t:
         raise HTTPException(404)
+    own(who, t["participant_id"])
     if body.action == "dismiss" and not body.note:
         raise HTTPException(422, "dismissal requires a reason")
     t["actions"].append(body.model_dump() | {"ts": datetime.now(timezone.utc).isoformat()})
@@ -597,9 +642,14 @@ def audit_verify(r: str = Depends(role)):
 
 
 @app.get("/audit")
-def get_audit(r: str = Depends(role)):
-    need(r, "clinician", "coordinator")
-    return copy.deepcopy(DB["audit"][-200:])
+def get_audit(who: Principal = Depends(principal)):
+    need(who.role, "clinician", "coordinator")
+    log = DB["audit"]
+    if who.role == "clinician" and who.hospital_id and not who.legacy:
+        # a hospital's clinician sees what they did and what happened to their own hospital's patients
+        mine = {p["id"] for p in visible(who)}
+        log = [e for e in log if e.get("actor") == who.user_id or str(e.get("target", "")).split(":")[0] in mine]
+    return copy.deepcopy(log[-200:])
 
 
 @app.post("/demo/reset")
@@ -617,20 +667,15 @@ def get_directory():
 
 
 @app.get("/participants/{pid}/services")
-def services_for(pid: str, pathway: str, r: str = Depends(role)):
-    need(r, "clinician", "coordinator")
-    p = DB["participants"].get(pid)
-    if not p:
-        raise HTTPException(404)
+def services_for(pid: str, pathway: str, who: Principal = Depends(principal)):
+    p = _staff_record(who, pid, "clinician", "coordinator")
     return NAV.match_services(pathway, p)
 
 
 @app.post("/participants/{pid}/referrals")
-def create_referral(pid: str, body: ReferralIn, r: str = Depends(role)):
-    need(r, "clinician")
-    p = DB["participants"].get(pid)
-    if not p:
-        raise HTTPException(404)
+def create_referral(pid: str, body: ReferralIn, who: Principal = Depends(principal)):
+    p = _staff_record(who, pid, "clinician")
+    r = who.actor
     if body.pathway not in NAV.PATHWAYS:
         raise HTTPException(422, "unknown pathway")
     refs = p.setdefault("referrals", [])
@@ -645,9 +690,10 @@ def create_referral(pid: str, body: ReferralIn, r: str = Depends(role)):
 
 
 @app.post("/referrals/{rid}/status")
-def referral_status(rid: str, body: ReferralStatus, r: str = Depends(role)):
-    need(r, "clinician", "coordinator")
-    for p in DB["participants"].values():
+def referral_status(rid: str, body: ReferralStatus, who: Principal = Depends(principal)):
+    need(who.role, "clinician", "coordinator")
+    r = who.actor
+    for p in visible(who):
         for ref in p.get("referrals", []):
             if ref["id"] == rid:
                 try:
@@ -660,17 +706,17 @@ def referral_status(rid: str, body: ReferralStatus, r: str = Depends(role)):
 
 
 @app.get("/referrals")
-def list_referrals(unresolved_only: bool = False, r: str = Depends(role)):
-    need(r, "clinician", "coordinator")
-    out = [ref for p in DB["participants"].values() for ref in p.get("referrals", [])]
+def list_referrals(unresolved_only: bool = False, who: Principal = Depends(principal)):
+    need(who.role, "clinician", "coordinator")
+    out = [ref for p in visible(who) for ref in p.get("referrals", [])]
     return [x for x in out if NAV.is_unresolved(x)] if unresolved_only else out
 
 
 @app.get("/referrals/{rid}/next-steps")
-def next_steps(rid: str, lang: str = "en", r: str = Depends(role)):
-    need(r, "clinician", "coordinator")
+def next_steps(rid: str, lang: str = "en", who: Principal = Depends(principal)):
+    need(who.role, "clinician", "coordinator")
     svc = {s["id"]: s for s in NAV.directory()}
-    for p in DB["participants"].values():
+    for p in visible(who):
         for ref in p.get("referrals", []):
             if ref["id"] == rid:
                 return NAV.next_steps_pack(ref, svc.get(ref.get("service_id")), lang)
@@ -678,11 +724,12 @@ def next_steps(rid: str, lang: str = "en", r: str = Depends(role)):
 
 
 @app.get("/programme/metrics")
-def metrics(r: str = Depends(role)):
-    need(r, "clinician", "coordinator")
-    refs = [ref for p in DB["participants"].values() for ref in p.get("referrals", [])]
+def metrics(who: Principal = Depends(principal)):
+    need(who.role, "clinician", "coordinator")
+    mine = visible(who)
+    refs = [ref for p in mine for ref in p.get("referrals", [])]
     people = {p["id"]: {"language": p.get("language"), "funding": p.get("funding"), "sex": p.get("sex"), "age_band": p.get("age_band")}
-              for p in DB["participants"].values()}
+              for p in mine}
     return NAV.programme_metrics(refs, people)
 
 
@@ -693,20 +740,17 @@ from membrain import genomics as GX  # noqa: E402
 
 
 @app.get("/participants/{pid}/genomics")
-def get_genomics(pid: str, r: str = Depends(role)):
-    need(r, "clinician")
-    p = DB["participants"].get(pid)
-    if not p:
-        raise HTTPException(404)
-    audit(r, "view_genomics", pid)
+def get_genomics(pid: str, who: Principal = Depends(principal)):
+    p = _staff_record(who, pid, "clinician")
+    audit(who.actor, "view_genomics", pid)
     return GX.genomic_context(p)
 
 
 @app.post("/participants/{pid}/genomics/counselling")
-def genomics_counselling(pid: str, body: dict, r: str = Depends(role)):
-    need(r, "clinician")
-    p = DB["participants"].get(pid)
-    if not p or not p.get("genomics"):
+def genomics_counselling(pid: str, body: dict, who: Principal = Depends(principal)):
+    p = _staff_record(who, pid, "clinician")
+    r = who.actor
+    if not p.get("genomics"):
         raise HTTPException(404)
     try:
         p["genomics"]["counselling"] = GX.advance_counselling(p["genomics"].get("counselling", "not_offered"), body.get("state", ""))
@@ -759,12 +803,13 @@ def _case(p: dict, full: bool = False) -> dict:
 
 @app.get("/cases")
 def list_cases(who: Principal = Depends(principal)):
-    """Every case for clinicians and coordinators; a signed-in participant gets only their own."""
+    """A clinician's hospital's cases (and those not yet taken on), every case for the coordinator; a signed-in
+    participant gets only their own."""
     if who.role == "participant" and not who.legacy:
         p = DB["participants"].get(who.pid or "")
         return [_case(p)] if p else []
     need(who.role, "clinician", "coordinator")
-    return [_case(p) for p in DB["participants"].values()]
+    return [_case(p) for p in visible(who)]
 
 
 @app.get("/cases/{pid}")

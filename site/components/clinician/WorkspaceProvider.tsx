@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useSession } from "@/lib/auth";
 import { getBackend, type AuditEntry, type Backend, type Case, type EnrolDone, type EnrolIn, type ReferralIn, type ReferralState, type TaskAction, type VaultEntry } from "@/lib/workspace/backend";
 
 type Workspace = {
@@ -24,12 +25,20 @@ type Workspace = {
   reset: () => Promise<void>;
   enrol: (body: EnrolIn) => Promise<EnrolDone>;
   reidentify: (pid: string, reason: string) => Promise<VaultEntry>;
+  assignHospital: (pid: string, hospitalId: string) => Promise<void>;
 };
 
 const Ctx = createContext<Workspace | null>(null);
 
-/** Loads cases on mount, reloads on route changes, window focus, custom sync events, and live polling. */
+/** One workspace per signed-in person: signing in as another clinician starts afresh, so one hospital's list is
+ *  never shown, even for a moment, under another hospital's account. */
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
+  const { session } = useSession();
+  return <Workspace_ key={session?.user.id ?? "signed-out"}>{children}</Workspace_>;
+}
+
+/** Loads cases on mount, reloads on route changes, window focus, custom sync events, and live polling. */
+function Workspace_({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [backend, setBackend] = useState<Backend | null>(null);
@@ -148,6 +157,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         return out!;
       },
       reidentify: async (pid, reason) => (await getBackend()).reidentify(pid, reason),
+      assignHospital: (pid, hospitalId) => run(async (b) => void (await b.assignHospital(pid, hospitalId))),
     }),
     [backend, cases, error, fetchCases, query, run, syncedAt, syncing],
   );

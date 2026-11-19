@@ -42,6 +42,7 @@ import { btnClass, downloadText, Loading, Panel } from "../parts";
 import { ReferralCard } from "../ReferralCard";
 import { TaskActions } from "../TaskActions";
 import { useWorkspace } from "../WorkspaceProvider";
+import { hospitalLabel, useSession } from "@/lib/auth";
 import { fhirBundle } from "./fhir";
 import { ReferralForm } from "./ReferralForm";
 import { ReportsOverTime } from "./Reports";
@@ -127,7 +128,7 @@ export function CaseView() {
     return (
       <div className="rounded-2xl border border-[#ebece8] bg-white px-6 py-10 text-center">
         <p className="font-serif text-[26px] font-semibold">No case {id ? `“${id}”` : "selected"}</p>
-        <p className="mt-2 text-[15px] text-body">It may have been removed when the demo data was reset.</p>
+        <p className="mt-2 text-[15px] text-body">This person may be under another hospital, which only its own clinicians can see, or the demo data was reset.</p>
         <div className="mt-5 flex justify-center gap-3">
           <button type="button" onClick={() => void refresh()} className={btnClass.secondary}>
             <RotateCcw size={16} /> Refresh cases
@@ -140,6 +141,36 @@ export function CaseView() {
     );
   }
   return <CaseBody key={c.participant.id} c={c} />;
+}
+
+/** A case no hospital has taken on yet: every clinician can see it until one hospital takes it on. */
+function TakeOn({ pid }: { pid: string }) {
+  const { assignHospital } = useWorkspace();
+  const { session } = useSession();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const hid = session?.user.hospital_id;
+  return (
+    <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-[#d9b36a] bg-[#fdf6e7] px-4 py-3">
+      <div className="flex items-center gap-2.5">
+        <Building2 size={18} className="shrink-0 text-[#a87a22]" />
+        <div>
+          <p className="text-[14.5px] font-semibold text-ink">No hospital has taken this person on yet</p>
+          <p className="text-[13px] text-muted">{err ?? "Every clinician can see them until one hospital does. After that, only that hospital's clinicians can."}</p>
+        </div>
+      </div>
+      {hid && (
+        <button type="button" disabled={busy}
+          onClick={async () => {
+            setBusy(true); setErr(null);
+            try { await assignHospital(pid, hid); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+          }}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-deep px-3.5 py-2 text-[13.5px] font-semibold text-white disabled:opacity-60">
+          {busy ? "Saving…" : `Take on for ${hospitalLabel(session?.user.hospital_name)}`}
+        </button>
+      )}
+    </div>
+  );
 }
 
 function CaseBody({ c }: { c: Case }) {
@@ -320,6 +351,8 @@ function CaseBody({ c }: { c: Case }) {
             </div>
           )}
         </div>
+
+        {!fac?.name && <TakeOn pid={p.id} />}
 
         {fac?.name && (
           <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-leaf/30 bg-leaf/5 px-4 py-3">

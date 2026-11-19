@@ -207,6 +207,8 @@ export interface Backend {
   enrol(body: EnrolIn): Promise<EnrolDone>;
   reidentify(pid: string, reason: string): Promise<VaultEntry>;
   setProfile(pid: string, body: ProfileIn): Promise<Case>;
+  /** Put someone under a hospital: a clinician takes on a case no hospital has yet; the coordinator can move anyone. */
+  assignHospital(pid: string, hospitalId: string): Promise<Case>;
   submitSession(pid: string, body: SessionIn): Promise<CheckinResult>;
   reset(): Promise<void>;
 }

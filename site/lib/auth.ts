@@ -5,15 +5,20 @@
 
 import { useSyncExternalStore } from "react";
 import { getBackend } from "./workspace/backend";
+import { NAV } from "./workspace/navigator";
 
 export type Role = "clinician" | "coordinator" | "participant";
-export type User = { id: string; role: Role; name?: string | null; email?: string; title?: string; org?: string; pid?: string; phone?: string };
+export type User = {
+  id: string; role: Role; name?: string | null; email?: string; title?: string; org?: string; pid?: string; phone?: string;
+  /** The hospital a clinician works for: they see its patients only. None for the programme coordinator, who sees all. */
+  hospital_id?: string | null; hospital_name?: string | null;
+};
 export type AuthSession = { token: string; user: User; exp: number; mode: "server" | "browser" };
 export type Challenge = { challenge_id: string; sent_to: string; expires_in: number; demo_code?: string; known: boolean };
 export type DemoAccounts = {
   enabled: boolean;
   otp_on_screen?: boolean;
-  clinicians?: { email: string; name: string; role: Role; password: string }[];
+  clinicians?: { email: string; name: string; role: Role; password: string; title?: string; hospital_id?: string | null; hospital_name?: string | null }[];
   patients?: { phone: string; name: string; name_ar?: string; pid: string }[];
 };
 
@@ -100,10 +105,7 @@ const LOCAL_PASSWORD = "membrain-demo-2026";
 const LOCAL: DemoAccounts = {
   enabled: true,
   otp_on_screen: true,
-  clinicians: [
-    { email: "dr.demo@membrain.ae", name: "Dr. Demo", role: "clinician", password: LOCAL_PASSWORD },
-    { email: "coordinator@membrain.ae", name: "Layla (coordinator)", role: "coordinator", password: LOCAL_PASSWORD },
-  ],
+  clinicians: [],
   patients: (
     [
       ["MB-1041", "Fatima", "فاطمة"], ["MB-1187", "Ahmed", "أحمد"], ["MB-1203", "Mariam", "مريم"], ["MB-1322", "Khalid", "خالد"],
@@ -111,10 +113,33 @@ const LOCAL: DemoAccounts = {
     ] as const
   ).map(([pid, name, name_ar]) => ({ pid, name, name_ar, phone: "+97150000" + pid.slice(-4) })),
 };
-const LOCAL_USERS: Record<string, User> = {
-  "dr.demo@membrain.ae": { id: "u-clin-1", role: "clinician", name: "Dr. Demo", email: "dr.demo@membrain.ae", title: "Consultant, memory clinic", org: "Demo memory clinic, Abu Dhabi" },
-  "coordinator@membrain.ae": { id: "u-coord-1", role: "coordinator", name: "Layla (coordinator)", email: "coordinator@membrain.ae", title: "Programme coordinator", org: "Healthy ageing programme" },
-};
+// One clinician per hospital with demo patients, and the coordinator across hospitals (as api/auth.py DEMO_CLINICIANS).
+const H = (id: string) => NAV.directory.find((s) => s.id === id)?.name ?? id;
+const LOCAL_USERS: Record<string, User> = Object.fromEntries(
+  (
+    [
+      ["u-clin-1", "dr.demo@membrain.ae", "Dr. Demo", "Consultant, memory clinic", "SVC-01"],
+      ["u-clin-2", "dr.alain@membrain.ae", "Dr. Hessa", "Consultant geriatrician", "SVC-02"],
+      ["u-clin-3", "dr.dubai@membrain.ae", "Dr. Omar", "Consultant neurologist", "SVC-14"],
+    ] as const
+  )
+    .map(([id, email, name, title, hid]): User => ({ id, role: "clinician", name, email, title, org: H(hid), hospital_id: hid, hospital_name: H(hid) }))
+    .concat({ id: "u-coord-1", role: "coordinator", name: "Layla (coordinator)", email: "coordinator@membrain.ae", title: "Programme coordinator", org: "Healthy ageing programme, all hospitals", hospital_id: null, hospital_name: null })
+    .map((u) => [u.email!, u]),
+);
+LOCAL.clinicians = Object.values(LOCAL_USERS).map((u) => ({ email: u.email!, name: u.name!, role: u.role, password: LOCAL_PASSWORD, title: u.title, hospital_id: u.hospital_id, hospital_name: u.hospital_name }));
+
+/** A hospital's name as the screens show it (the directory marks its entries "(synthetic)"). */
+export const hospitalLabel = (name?: string | null) => (name ?? "").replace(/\s*\(synthetic\)\s*$/i, "");
+
+/** Whether the signed-in person may see a record: a clinician their own hospital's and those no hospital has yet. */
+export function canSee(u: User | null | undefined, p: { id: string; assigned_hospital?: unknown }): boolean {
+  if (!u) return false;
+  if (u.role === "coordinator") return true;
+  if (u.role === "participant") return u.pid === p.id;
+  const h = p.assigned_hospital && typeof p.assigned_hospital === "object" ? (p.assigned_hospital as { id?: string | null }).id ?? null : null;
+  return !u.hospital_id || !h || h === u.hospital_id;
+}
 const localCodes = new Map<string, { phone: string; code: string; exp: number; tries: number }>();
 
 export function normalisePhone(raw: string): string | null {

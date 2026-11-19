@@ -240,5 +240,7 @@ def compute(db: dict) -> dict:
 def live_stats(who: Principal = Depends(principal)):
     if who.role not in ("clinician", "coordinator"):
         raise HTTPException(401 if who.role == "anonymous" else 403, "Please sign in as a clinician or coordinator.")
-    from api.main import DB
-    return compute(DB)
+    from api.main import DB, visible
+    mine = {p["id"]: p for p in visible(who)}   # a hospital's clinician gets their own hospital's numbers
+    return compute({**DB, "participants": mine,
+                    "tasks": {k: t for k, t in DB.get("tasks", {}).items() if t.get("participant_id") in mine}})

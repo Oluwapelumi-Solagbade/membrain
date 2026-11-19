@@ -9,7 +9,8 @@ health system's identity provider (UAE PASS for patients, hospital SSO for clini
 token in an httpOnly cookie.
 
 Environment:
-  DEMO_ACCOUNTS=1 (default)  seed the synthetic demo accounts (clinician, coordinator, the seven demo patients)
+  DEMO_ACCOUNTS=1 (default)  seed the synthetic demo accounts (a clinician at each of three hospitals, the coordinator,
+                              the seven demo patients)
   CLINICIAN_DEMO_PASSWORD     the demo clinicians' password (see .env.example)
   DEMO_OTP=1 (default)        return the patient's one-time code in the response, because no SMS is sent
   ALLOW_ROLE_HEADER=1         accept the old X-Role header instead of a token (tests and the old prototype only)
@@ -45,20 +46,46 @@ def _demo_password() -> str:
 
 
 # ---------------------------------------------------------------------------------------------------- stores
+def hospital_of(p: dict | None) -> str | None:
+    """The hospital a record belongs to (the service directory id), or None while nobody has taken it on."""
+    h = (p or {}).get("assigned_hospital")
+    return (h.get("id") or None) if isinstance(h, dict) else None
+
+
 @dataclass
 class Principal:
     role: str                    # clinician | coordinator | participant | anonymous
     user_id: str | None = None
     pid: str | None = None       # a participant's own record
     name: str | None = None
+    hospital_id: str | None = None   # a clinician works for one hospital and sees only its patients
     legacy: bool = False         # authorised by the X-Role header (tests, old prototype)
 
     @property
     def actor(self) -> str:
         return self.user_id or self.role
 
+    def sees(self, p: dict | None) -> bool:
+        """Whether this caller may see a record. A clinician sees their own hospital's patients, and the ones no
+        hospital has taken on yet (so a new concern is never missed); the programme coordinator sees every
+        hospital; a participant sees only their own record."""
+        if p is None:
+            return False
+        if self.legacy or self.role == "coordinator":
+            return True
+        if self.role == "clinician":
+            h = hospital_of(p)
+            return not self.hospital_id or h is None or h == self.hospital_id
+        return self.role == "participant" and self.pid == p.get("id")
+
     def may_touch(self, pid: str) -> bool:
-        return self.legacy or self.role in ("clinician", "coordinator") or (self.role == "participant" and self.pid == pid)
+        if self.legacy or self.role == "coordinator":
+            return True
+        if self.role == "clinician":
+            from api.main import DB   # late: api.main imports this module
+            p = DB["participants"].get(pid)
+            return p is None or self.sees(p)   # an unknown id falls through to a 404
+        return self.role == "participant" and self.pid == pid
 
 
 USERS: dict[str, dict] = {}          # clinicians and coordinators, by lower-case email
@@ -97,15 +124,32 @@ def demo_phone(pid: str) -> str:
     return "+97150000" + re.sub(r"\D", "", pid)[-4:]
 
 
+# One demo clinician per hospital that has demo patients (membrain/personas.py), plus the programme coordinator, who
+# works across hospitals. The hospital is a service directory id (membrain/navigator.py).
+DEMO_CLINICIANS = [
+    ("u-clin-1", "dr.demo@membrain.ae", "Dr. Demo", "Consultant, memory clinic", "SVC-01"),
+    ("u-clin-2", "dr.alain@membrain.ae", "Dr. Hessa", "Consultant geriatrician", "SVC-02"),
+    ("u-clin-3", "dr.dubai@membrain.ae", "Dr. Omar", "Consultant neurologist", "SVC-14"),
+]
+
+
+def hospital_name(hid: str | None) -> str | None:
+    from membrain.navigator import directory
+    return next((s["name"] for s in directory() if s["id"] == hid), None)
+
+
 def seed() -> None:
     USERS.clear(); PHONES.clear()
     if not _on("DEMO_ACCOUNTS"):
         return
     pw = hash_password(_demo_password())
-    for u in ({"id": "u-clin-1", "email": "dr.demo@membrain.ae", "name": "Dr. Demo", "role": "clinician",
-               "title": "Consultant, memory clinic", "org": "Demo memory clinic, Abu Dhabi"},
-              {"id": "u-coord-1", "email": "coordinator@membrain.ae", "name": "Layla (coordinator)", "role": "coordinator",
-               "title": "Programme coordinator", "org": "Healthy ageing programme"}):
+    users = [{"id": uid, "email": email, "name": name, "role": "clinician", "title": title,
+              "org": hospital_name(hid), "hospital_id": hid, "hospital_name": hospital_name(hid)}
+             for uid, email, name, title, hid in DEMO_CLINICIANS]
+    users.append({"id": "u-coord-1", "email": "coordinator@membrain.ae", "name": "Layla (coordinator)", "role": "coordinator",
+                  "title": "Programme coordinator", "org": "Healthy ageing programme, all hospitals", "hospital_id": None,
+                  "hospital_name": None})
+    for u in users:
         USERS[u["email"]] = u | {"password": pw}
     for pid in DEMO_PATIENTS:
         PHONES[demo_phone(pid)] = pid
@@ -165,7 +209,7 @@ def principal(authorization: str | None = Header(None), x_role: str | None = Hea
         if not s or s["exp"] < time.time():
             raise HTTPException(401, "Your session has ended. Please sign in again.")
         u = s["user"]
-        return Principal(role=u["role"], user_id=u["id"], pid=u.get("pid"), name=u.get("name"))
+        return Principal(role=u["role"], user_id=u["id"], pid=u.get("pid"), name=u.get("name"), hospital_id=u.get("hospital_id"))
     if _on("ALLOW_ROLE_HEADER", "0") and x_role:
         if x_role not in ("participant", "clinician", "coordinator"):
             raise HTTPException(403, "unknown role")
@@ -286,5 +330,7 @@ def demo_accounts():
     if not _on("DEMO_ACCOUNTS"):
         return {"enabled": False}
     return {"enabled": True, "otp_on_screen": _on("DEMO_OTP"),
-            "clinicians": [{"email": u["email"], "name": u["name"], "role": u["role"], "password": _demo_password()} for u in USERS.values()],
+            "clinicians": [{"email": u["email"], "name": u["name"], "role": u["role"], "password": _demo_password(),
+                            "hospital_id": u.get("hospital_id"), "hospital_name": u.get("hospital_name"), "title": u.get("title")}
+                           for u in USERS.values()],
             "patients": [{"phone": demo_phone(pid), "name": n, "name_ar": DEMO_PATIENTS_AR[pid], "pid": pid} for pid, n in DEMO_PATIENTS.items()]}

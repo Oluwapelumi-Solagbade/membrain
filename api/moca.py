@@ -93,6 +93,8 @@ def _staff(who: Principal):
 @router.get("/participants/{pid}/moca")
 def list_moca(pid: str, who: Principal = Depends(principal)):
     _staff(who)
+    from api.main import own
+    own(who, pid)
     from api.main import DB
     p = DB["participants"].get(pid)
     if not p:
@@ -106,7 +108,8 @@ def list_moca(pid: str, who: Principal = Depends(principal)):
 def add_moca(pid: str, body: MocaIn, who: Principal = Depends(principal)):
     if who.role != "clinician":
         raise HTTPException(401 if who.role == "anonymous" else 403, "Only a clinician can record a MoCA.")
-    from api.main import DB, audit
+    from api.main import DB, audit, own
+    own(who, pid)
     p = DB["participants"].get(pid)
     if not p:
         raise HTTPException(404)
