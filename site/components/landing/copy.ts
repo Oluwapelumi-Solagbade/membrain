@@ -115,7 +115,6 @@ export const LANDING = {
     ],
 
     closeTitle: "Worried about someone? Start with what you have noticed.",
-    closeEcho: { text: "هل أنت قلق على أحد؟ ابدأ بما لاحظته.", lang: "ar" as Lang },
     closeCta: "Raise a concern",
     closeOther: { label: "ابدأ بالعربية", href: "/concern/?lang=ar", lang: "ar" as Lang },
 
@@ -284,7 +283,6 @@ export const LANDING = {
     ],
 
     closeTitle: "هل أنت قلق على أحد؟ ابدأ بما لاحظته.",
-    closeEcho: { text: "Worried about someone? Start with what you have noticed.", lang: "en" as Lang },
     closeCta: "أبلغ عن تغيّر",
     closeOther: { label: "Start in English", href: "/concern/", lang: "en" as Lang },
 

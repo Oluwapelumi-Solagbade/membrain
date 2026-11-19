@@ -261,9 +261,6 @@ export function Landing({ lang }: { lang: Lang }) {
           <div className="mx-auto flex max-w-[1320px] flex-col items-start justify-between gap-6 px-4 py-14 sm:px-6 lg:flex-row lg:items-center">
             <div className="max-w-[620px]">
               <h2 className="font-serif text-[30px] font-semibold leading-tight tracking-[-0.015em] text-white text-balance sm:text-[38px]">{t.closeTitle}</h2>
-              <p lang={t.closeEcho.lang} dir={t.closeEcho.lang === "ar" ? "rtl" : "ltr"} className="mt-2 w-fit text-[19px] text-white/80">
-                {t.closeEcho.text}
-              </p>
             </div>
             <div className="flex shrink-0 flex-wrap gap-3">
               <Link href={t.concernHref} className="inline-flex items-center gap-2 rounded-xl bg-sand px-5 py-3.5 text-[15px] font-semibold text-deep transition-colors hover:bg-[#e8bd7c]">
