@@ -279,6 +279,18 @@ function Picker({ cases, initialLang }: { cases: Case[]; initialLang: Lang }) {
 
 /* ── The check-in itself ── */
 
+const SCENARIOS_AR: Record<string, string> = {
+  A: "أَنْتَ تَطْبُخُ وَشَمِمْتَ رَائِحَةَ دُخَانٍ مِنَ المَطْبَخِ. مَاذَا تَفْعَلُ؟",
+  B: "أَنْتَ فِي مَرْكَزِ تَسَوُّقٍ وَلَا تَجِدُ الشَّخْصَ الَّذِي جِئْتَ مَعَهُ. مَاذَا تَفْعَلُ؟",
+  C: "وَصَلَكَ اتِّصَالٌ يَقُولُ إِنَّكَ رَبِحْتَ مَالًا، وَيَطْلُبُونَ رَقْمَ بِطَاقَتِكَ البَنْكِيَّةِ. مَاذَا تَفْعَلُ؟",
+};
+
+const CATEGORIES_AR: Record<string, string> = {
+  A: "الحَيَوَانَات",
+  B: "الفَوَاكِهِ وَالخُضْرَاوَات",
+  C: "أَشْيَاءَ تَشْتَرِيهَا مِنَ السُّوق",
+};
+
 function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLang: Lang }) {
   const p = c.participant;
   const { session: me } = useSession();
@@ -307,8 +319,8 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
   const name = nameOf(p, lang);
   const words = ITEMS.WORD_LISTS[form][lang];
   const story = ITEMS.STORIES[form][lang];
-  const scenario = ITEMS.JUDGEMENT[form][lang];
-  const category = ITEMS.FLUENCY[form].category[lang];
+  const scenario = lang === "ar" ? SCENARIOS_AR[form] ?? ITEMS.JUDGEMENT[form][lang] : ITEMS.JUDGEMENT[form][lang];
+  const category = lang === "ar" ? CATEGORIES_AR[form] ?? ITEMS.FLUENCY[form].category[lang] : ITEMS.FLUENCY[form].category[lang];
 
   // Speech recognition: the best engine the server offers.
   useEffect(() => {
