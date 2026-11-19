@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import io
 import os
+import re
 import threading
 import time
 
@@ -108,8 +109,11 @@ def _split(pcm) -> list[tuple[int, int]]:
 
 
 def _pick(m, piece, page: str) -> str:
-    """Arabic or English for this piece. The page's language wins unless the other one is clearly more likely."""
-    other = "en" if page == "ar" else "ar"
+    """Arabic or English for this piece. When on the English page, always stay English.
+    When on the Arabic page, only switch to English if English is clearly detected."""
+    if page == "en":
+        return "en"
+    other = "en"
     try:
         _, _, probs = m.detect_language(audio=piece)
     except Exception:
@@ -138,6 +142,25 @@ def whisper_text(pcm, lang: str) -> tuple[str, object, int]:
         raise HTTPException(503, "Speech recognition is busy. Please try again in a moment.", headers={"Retry-After": "10"})
     try:
         t = time.perf_counter()
+        if page == "en":
+            # On English pages/tasks, strictly transcribe in English. Never switch to Arabic.
+            text = _decode(m, pcm, "en")
+            # If an Arabic-specialized model mistakenly generated Arabic characters, fallback to Azure if available
+            if re.search(r"[\u0600-\u06FF]", text) and os.getenv("AZURE_SPEECH_KEY"):
+                try:
+                    az = _azure(pcm, "en")
+                    if az.get("text"):
+                        return az["text"], type("Info", (), {"language": "en", "duration": len(pcm) / 16000})(), az.get("latency_ms", 0)
+                except Exception:
+                    pass
+            # Filter out any stray Arabic tokens that leaked into English output
+            if re.search(r"[\u0600-\u06FF]", text):
+                cleaned = " ".join(w for w in text.split() if not re.search(r"[\u0600-\u06FF]", w)).strip()
+                if cleaned:
+                    text = cleaned
+            info = type("Info", (), {"language": "en", "duration": len(pcm) / 16000})()
+            return text, info, round((time.perf_counter() - t) * 1000)
+
         pieces = _split(pcm) if MIXED else []
         if len(pieces) <= 1:
             language = _pick(m, pcm, page) if MIXED else page

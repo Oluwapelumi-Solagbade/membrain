@@ -522,7 +522,21 @@ export function ConcernChat() {
         const res = await fetch(base + "/api/asr/transcribe", { method: "POST", body: fd });
         if (res.ok) {
           const j = (await res.json()) as { text?: string };
-          if (j.text && j.text.trim()) setDraft(before + j.text.trim());
+          let txt = (j.text || "").trim();
+          if (lang === "en") {
+            txt = txt
+              .split(/\s+/)
+              .filter((w) => !/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(w))
+              .join(" ")
+              .trim();
+          } else if (lang === "ar") {
+            txt = txt
+              .split(/\s+/)
+              .filter((w) => !/[A-Za-z]/.test(w))
+              .join(" ")
+              .trim();
+          }
+          if (txt) setDraft(before + txt);
           else setMicNote(t.micNothing);
         } else {
           setMicNote(t.micFailed);
@@ -590,7 +604,15 @@ export function ConcernChat() {
     rec.onresult = (e) => {
       let said = "";
       for (let i = 0; i < e.results.length; i++) said += e.results[i][0].transcript;
-      setDraft(before + said);
+      let clean = said.trim();
+      if (lang === "en") {
+        clean = clean
+          .split(/\s+/)
+          .filter((w) => !/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(w))
+          .join(" ")
+          .trim();
+      }
+      if (clean) setDraft(before + clean);
     };
     rec.onend = () => setListening(false);
     try {

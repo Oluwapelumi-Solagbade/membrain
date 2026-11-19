@@ -156,6 +156,17 @@ export function arabicOnly(text: string): string {
     .trim();
 }
 
+/** In English mode only English/Latin words count: an Arabic recogniser (or server model fine-tune) must never
+ *  write Arabic script into an English exercise or concern text box. */
+export function englishOnly(text: string): string {
+  return text
+    .split(/\s+/)
+    .filter((w) => w && !/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(w))
+    .join(" ")
+    .replace(/\s+([.,;:?!])/g, "$1")
+    .trim();
+}
+
 /** Says the text; resolves when it has finished. Resolves `false` when the device plainly could not say it
  * (no voice for the language, or speech blocked), so the screen can show the text instead. */
 export async function speak(text: string, lang: Lang, slow = false): Promise<boolean> {
@@ -334,7 +345,7 @@ export class Recorder {
   }
 
   private keep(text: string): string {
-    return this.lang === "ar" ? arabicOnly(text) : text;
+    return this.lang === "ar" ? arabicOnly(text) : englishOnly(text);
   }
 
   private browser(lang: Lang) {
