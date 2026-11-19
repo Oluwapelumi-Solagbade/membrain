@@ -139,9 +139,14 @@ def _sync_tasks(p: dict, ev: dict):
     if latest and latest["level"] in ("CLINICIAN_REVIEW", "URGENT") and not latest.get("carried"):
         key = f"{p['id']}:{latest['session_id']}"
         if key not in DB["tasks"]:
+            hosp = p.get("assigned_hospital") or {}
             DB["tasks"][key] = {"id": key, "participant_id": p["id"], "level": latest["level"], "status": "open",
                                 "created": latest["date"], "review_target_days": C.REVIEW_TARGET_DAYS[latest["level"]],
-                                "reasons": latest["reasons"], "actions": []}
+                                "reasons": latest["reasons"], "actions": [],
+                                "hospital_id": hosp.get("id"), "hospital_name": hosp.get("name"),
+                                "emirate": p.get("emirate"), "area": p.get("area"),
+                                "phone": p.get("phone") or (p.get("identity") or {}).get("phone"),
+                                "email": p.get("email") or (p.get("identity") or {}).get("email")}
 
 
 def _seed():
@@ -797,6 +802,14 @@ class ConcernIn(BaseModel):
     confounders: list[str] = Field(default_factory=list, max_length=len(_IK.CONFOUNDERS))
     date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
     channel: str = Field("app", pattern="^(app|telegram|phone)$")   # where it was raised; channels are never pooled
+    phone: str | None = Field(default=None, max_length=60)
+    email: str | None = Field(default=None, max_length=120)
+    emirate: str | None = Field(default=None, max_length=40)
+    area: str | None = Field(default=None, max_length=100)
+    hospital_id: str | None = Field(default=None, max_length=40)
+    hospital_name: str | None = Field(default=None, max_length=150)
+    latitude: float | None = None
+    longitude: float | None = None
 
     @field_validator("domains")
     @classmethod
@@ -875,10 +888,15 @@ def create_concern(body: ConcernIn) -> dict:
         if pid not in DB["participants"]:
             break
     acts = sorted({a for a, _ in body.timeline})
+    hosp = {"id": body.hospital_id, "name": body.hospital_name} if body.hospital_id else None
+    loc = {"latitude": body.latitude, "longitude": body.longitude, "emirate": body.emirate, "area": body.area} if (body.latitude or body.emirate) else None
     p = {"id": pid, "display_name": {"en": "New concern", "ar": "قلق جديد"}, "age": None, "education": None, "sex": "U",
          "dialect": None, "language": body.lang, "languages": [body.lang], "entry_route": ENTRY_ROUTE[body.reporter], "context": {},
          "consent": {}, "referrals": [], "enrolled": False,
-         "intake": {"reporter": body.reporter, "at": body.date,
+         "phone": body.phone, "email": body.email, "emirate": body.emirate, "area": body.area,
+         "assigned_hospital": hosp, "location": loc,
+         "intake": {"reporter": body.reporter, "at": body.date, "phone": body.phone, "email": body.email,
+                    "emirate": body.emirate, "area": body.area, "assigned_hospital": hosp,
                     "confirmed": {"narrative": body.narrative, "domains": body.domains, "onset": body.onset, "frequency": body.frequency, "severity": body.severity,
                                   "timeline": body.timeline, "red_flags": body.red_flags, "confounders": body.confounders}},
          "sessions": [{"session_id": f"{pid}-intake", "date": body.date, "type": "intake", "channel": body.channel,

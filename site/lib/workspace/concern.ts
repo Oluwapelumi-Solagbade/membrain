@@ -63,5 +63,10 @@ export function concernSummary(p: Participant): ConcernSummary {
     informant: inf ? { type: inf.type, relation: inf.relation } : null,
     attribution: `Reported by: ${raisedBy}. This is their account, not a clinical finding, until a clinician confirms it.`,
     missing,
+    phone: p.phone ?? null,
+    email: p.email ?? null,
+    emirate: p.emirate ?? null,
+    area: p.area ?? null,
+    assigned_hospital: p.assigned_hospital ?? null,
   };
 }

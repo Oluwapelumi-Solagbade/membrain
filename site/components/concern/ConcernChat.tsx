@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowUp, Check, Lock, Mic, Phone, RotateCcw, ShieldAlert, Square, Stethoscope, Volume2 } from "lucide-react";
+import { ArrowLeft, ArrowUp, Building2, Check, Lock, Mail, MapPin, Mic, Navigation, Phone, RotateCcw, Send, ShieldAlert, Square, Stethoscope, Volume2 } from "lucide-react";
 import { LogoMark, Mark } from "../Logo";
 import { Narrative } from "../Narrative";
 import { config, getEngine, getIntake, LEVEL_TONE, REPORTER_LABEL, type Evaluation, type IntakeResult, type Lang, type Reporter, type Span } from "@/lib/mb";
@@ -12,9 +12,12 @@ import { APP_HOME, appCaseHref, inApp } from "@/lib/app";
 import { rememberClaim } from "@/lib/auth";
 import { speak as speakAloud, stopSpeaking } from "@/lib/voice";
 import { getBackend } from "@/lib/workspace/backend";
+import { notifyWorkspaceSync } from "@/lib/workspace/sync";
+import { NAV, UAE_AREAS, findNearbyHospitals, distanceKm, type Service } from "@/lib/workspace/navigator";
+import type { ConcernIn } from "@/lib/workspace/types";
 import { COPY, EXAMPLES, REPORTERS, type Copy } from "./copy";
 
-type Step = "who" | "describe" | "thinking" | "review" | "outcome";
+type Step = "who" | "describe" | "thinking" | "review" | "routing" | "outcome";
 
 /* ── Speech: dictation in, read-back out. Both are optional and fail quietly. ── */
 
@@ -199,6 +202,83 @@ export function ConcernChat() {
   const [ok, setOk] = useState<Record<string, boolean>>({});
   const [outcome, setOutcome] = useState<Evaluation | null>(null);
   const [caseId, setCaseId] = useState<string | null>(null);
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [selectedAreaId, setSelectedAreaId] = useState("dxb-downtown");
+  const [userCoords, setUserCoords] = useState<{ lat: number; lon: number } | null>({ lat: 25.1972, lon: 55.2744 });
+  const [locating, setLocating] = useState(false);
+  const [selectedHospitalId, setSelectedHospitalId] = useState<string>("SVC-14");
+  const [contactError, setContactError] = useState<string | null>(null);
+  const currentArea = useMemo(() => {
+    return UAE_AREAS.find((a) => a.id === selectedAreaId) ?? UAE_AREAS[0];
+  }, [selectedAreaId]);
+
+  const coords = userCoords ?? { lat: currentArea.lat, lon: currentArea.lon };
+
+  const nearbyHospitals = useMemo(() => {
+    return findNearbyHospitals(coords.lat, coords.lon);
+  }, [coords.lat, coords.lon]);
+
+  const recommendedHospital = nearbyHospitals[0];
+  const assignedHospital = useMemo(() => {
+    const found = NAV.directory.find((s: Service) => s.id === selectedHospitalId);
+    return found ?? recommendedHospital ?? NAV.directory[0];
+  }, [selectedHospitalId, recommendedHospital]);
+
+  const detectLocation = () => {
+    if (typeof window === "undefined" || !("geolocation" in navigator)) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false);
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        setUserCoords({ lat, lon });
+        let closestArea = UAE_AREAS[0];
+        let minDist = Infinity;
+        for (const a of UAE_AREAS) {
+          const d = distanceKm(lat, lon, a.lat, a.lon);
+          if (d < minDist) {
+            minDist = d;
+            closestArea = a;
+          }
+        }
+        setSelectedAreaId(closestArea.id);
+        const nearby = findNearbyHospitals(lat, lon);
+        if (nearby.length > 0) {
+          setSelectedHospitalId(nearby[0].id);
+        }
+      },
+      () => setLocating(false),
+      { timeout: 10000, enableHighAccuracy: true },
+    );
+  };
+
+  const handleAreaChange = (areaId: string) => {
+    setSelectedAreaId(areaId);
+    const area = UAE_AREAS.find((a) => a.id === areaId);
+    if (area) {
+      setUserCoords({ lat: area.lat, lon: area.lon });
+      const nearby = findNearbyHospitals(area.lat, area.lon);
+      if (nearby.length > 0) {
+        setSelectedHospitalId(nearby[0].id);
+      }
+    }
+  };
+
+  const submitWithRouting = () => {
+    if (!phone.trim()) {
+      setContactError(t.phoneRequired);
+      return;
+    }
+    if (email.trim() && !email.includes("@")) {
+      setContactError(t.emailRequired);
+      return;
+    }
+    setContactError(null);
+    confirm();
+  };
+
   const [listening, setListening] = useState(false);
   const [reading, setReading] = useState(false);
   const recRef = useRef<Recognition | null>(null);
@@ -229,6 +309,7 @@ export function ConcernChat() {
   }, []);
 
   const switchLang = (l: Lang) => {
+    stopListening();
     setLang(l);
     try {
       const u = new URL(window.location.href);
@@ -298,8 +379,7 @@ export function ConcernChat() {
     }
   }
 
-  const tryExample = (i: number) => {
-    const ex = EXAMPLES[i];
+  const tryExample = (ex: (typeof EXAMPLES)[number]) => {
     if (!reporter) setReporter(ex.reporter);
     send(ex.text);
   };
@@ -317,8 +397,7 @@ export function ConcernChat() {
     const flags = result.fields.filter((f) => f.kind === "red_flag").map((f) => f.key);
     const session = {
       session_id: "concern-intake",
-      // A new concern sits on the demo's fixed day; a follow-up takes today's date so it always comes after the earlier report.
-      date: forPid ? new Date().toISOString().slice(0, 10) : "2026-11-14",
+      date: new Date().toISOString().slice(0, 10),
       type: "intake" as const,
       channel: "app",
       concern: narrative,
@@ -332,7 +411,7 @@ export function ConcernChat() {
     const ev = getEngine().evaluate({ id: "new", age: 65, education: "secondary" }, [session]).latest;
     // Hand the confirmed facts to the workspace: the MemBrain server when it answers, otherwise this browser.
     // The server's own triage decides the outcome shown; the in-browser result is the fallback.
-    const body = {
+    const body: ConcernIn = {
       reporter: reporter ?? "family",
       lang: narrativeLang,
       narrative,
@@ -344,6 +423,15 @@ export function ConcernChat() {
       red_flags: flags,
       confounders: result.fields.filter((f) => f.kind === "confounder" && ok[`confounder:${f.key}`]).map((f) => f.key),
       date: session.date,
+      channel: "app",
+      phone: phone.trim() || undefined,
+      email: email.trim() || undefined,
+      emirate: currentArea.emirate,
+      area: currentArea.name[lang],
+      hospital_id: assignedHospital?.id,
+      hospital_name: assignedHospital?.name,
+      latitude: coords.lat,
+      longitude: coords.lon,
     };
     if (forPid) {
       setSaveError(null);
@@ -352,6 +440,7 @@ export function ConcernChat() {
       Promise.all([added, new Promise((r) => window.setTimeout(r, 900))])
         .then(([c]) => {
           setCaseId(c.participant.id);
+          notifyWorkspaceSync({ action: "followUpConcern", pid: c.participant.id });
           setOutcome(c.latest);
           setStep("outcome");
         })
@@ -365,6 +454,7 @@ export function ConcernChat() {
       .then((b) => b.raiseConcern(body))
       .then((c) => {
         setCaseId(c.participant.id);
+        notifyWorkspaceSync({ action: "raiseConcern", pid: c.participant.id });
         const claim = (c as { claim_token?: string }).claim_token;
         if (claim) rememberClaim(c.participant.id, claim);
         return c.latest ?? ev;
@@ -389,6 +479,9 @@ export function ConcernChat() {
     setOk({});
     setOutcome(null);
     setCaseId(null);
+    setPhone("");
+    setEmail("");
+    setContactError(null);
   };
 
   function stopListening() {
@@ -533,7 +626,7 @@ export function ConcernChat() {
 
   /* ── Pieces of the conversation ── */
 
-  const frozen = step === "outcome" || (step === "thinking" && !!result);
+  const frozen = step === "outcome" || step === "routing" || (step === "thinking" && !!result);
   const redFlags = result?.fields.filter((f) => f.kind === "red_flag") ?? [];
   const domains = result?.fields.filter((f) => f.kind === "domain") ?? [];
   const confounders = result?.fields.filter((f) => f.kind === "confounder") ?? [];
@@ -664,6 +757,9 @@ export function ConcernChat() {
     const dChanged = result.fields.filter((f) => f.kind === "domain" && ok[`domain:${f.key}`]).map((f) => label(DOMAIN, f.key, lang, f.label));
     const dWho = result.timeline.filter((_, i) => ok[`tl:${i}`]).map((x) => `${label(ACTIVITY, x.activity, lang, x.activity_label)}: ${label(WHO, x.who_took_over, lang, x.who_label)}`);
     const rows: [string, string][] = [
+      [t.assignedHospitalLabel, assignedHospital?.name || ""],
+      [t.phoneLabel, phone.trim() || t.none],
+      ...(email.trim() ? [[t.emailLabel, email.trim()]] as [string, string][] : []),
       [t.raisedBy, reporter === "self" ? t.selfSeen : REPORTER_LABEL[lang][reporter ?? "family"]],
       [t.changed, dChanged.join(lang === "ar" ? "، " : ", ") || t.none],
       [t.started, result.onset && ok.onset ? label(ONSET, result.onset.value, lang, result.onset.label) : t.none],
@@ -723,6 +819,41 @@ export function ConcernChat() {
         )}
         {!follow && outcome.level === "BASELINE" && <p>{t.routineOutcomeBody}</p>}
 
+        <div className="mt-4 rounded-xl border border-leaf/30 bg-leaf/5 p-4">
+          <div className="flex items-start gap-3">
+            <Building2 size={22} className="mt-0.5 shrink-0 text-leaf" />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold text-deep text-[15px]">
+                  {assignedHospital?.name}
+                </span>
+                <span className="rounded-full bg-leaf/15 px-2.5 py-0.5 text-[12px] font-medium text-leaf">
+                  {currentArea.name[lang]} · {currentArea.emirate}
+                </span>
+              </div>
+              <p className="mt-1 text-[13.5px] leading-snug text-body">
+                {assignedHospital?.notes ?? assignedHospital?.area}
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-lg bg-white px-3 py-2 text-[13px] border border-line">
+                <span className="font-semibold text-deep flex items-center gap-1.5">
+                  <Stethoscope size={14} className="text-leaf" />
+                  {t.reviewCommitment}
+                </span>
+                {phone && (
+                  <span className="text-muted flex items-center gap-1">
+                    <Phone size={13} /> {phone}
+                  </span>
+                )}
+                {email && (
+                  <span className="text-muted flex items-center gap-1">
+                    <Mail size={13} /> {email}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="mt-4 rounded-xl border border-line">
           <p className="flex items-center gap-2 border-b border-line px-3.5 py-2.5 text-[13px] font-semibold">
             <Stethoscope size={15} className="text-leaf" /> {t.seen}
@@ -743,6 +874,159 @@ export function ConcernChat() {
     );
   })();
 
+  const routingCard = (step === "routing" || (step === "outcome" && !outcome)) && (
+    <BotRow wide>
+      <div className="flex items-start gap-2.5">
+        <Building2 size={20} className="mt-0.5 shrink-0 text-leaf" />
+        <div>
+          <p className="font-semibold text-deep text-[16px]">{t.routingTitle}</p>
+          <p className="mt-0.5 text-[14px] leading-snug text-muted">{t.routingSubtitle}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-4">
+        {/* Location & Area picker */}
+        <div className="rounded-xl border border-line bg-mist p-3.5 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label htmlFor="area-select" className="text-[13px] font-semibold text-deep flex items-center gap-1.5">
+              <MapPin size={15} className="text-leaf" /> {t.selectArea}
+            </label>
+            <button
+              type="button"
+              onClick={detectLocation}
+              disabled={locating}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-line px-2.5 py-1 text-[12.5px] font-medium text-deep hover:bg-paper transition-colors disabled:opacity-60 shadow-sm"
+            >
+              <Navigation size={13} className={locating ? "animate-spin text-leaf" : "text-leaf"} />
+              {locating ? t.detectingLocation : t.detectLocation}
+            </button>
+          </div>
+
+          <select
+            id="area-select"
+            value={selectedAreaId}
+            onChange={(e) => handleAreaChange(e.target.value)}
+            className="w-full rounded-lg border border-line bg-white px-3 py-2 text-[14.5px] font-medium text-ink focus:border-leaf focus:outline-none"
+          >
+            {UAE_AREAS.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name[lang]} ({a.emirate})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Recommended & Selectable Hospitals */}
+        <div className="space-y-2">
+          <label className="text-[13px] font-semibold text-deep flex items-center gap-1.5">
+            <Building2 size={15} className="text-leaf" /> {t.chooseHospital}
+          </label>
+          <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+            {nearbyHospitals.map((s, idx) => {
+              const isSelected = selectedHospitalId === s.id;
+              const isFirst = idx === 0;
+              return (
+                <div
+                  key={s.id}
+                  onClick={() => setSelectedHospitalId(s.id)}
+                  className={`cursor-pointer rounded-xl border p-3 transition-colors ${
+                    isSelected
+                      ? "border-deep bg-deep/5 shadow-sm"
+                      : "border-line bg-white hover:border-leaf/50"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-[14.5px] text-ink">
+                          {s.name}
+                        </span>
+                        {isFirst && (
+                          <span className="rounded bg-leaf/15 px-2 py-0.5 text-[11px] font-semibold text-leaf">
+                            {t.nearestHospital}
+                          </span>
+                        )}
+                        <span className="text-[12px] font-medium text-muted">
+                          {t.distanceAway(s.distanceKm)}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[13px] text-muted line-clamp-1">
+                        {s.notes ?? s.area} · {s.emirate}
+                      </p>
+                    </div>
+                    <span
+                      className={`mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                        isSelected ? "border-deep bg-deep text-white" : "border-line bg-white"
+                      }`}
+                    >
+                      {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Contact details */}
+        <div className="rounded-xl border border-line bg-white p-3.5 space-y-3">
+          <div>
+            <p className="text-[14px] font-semibold text-deep">{t.contactTitle}</p>
+            <p className="text-[12.5px] text-muted">{t.contactSubtitle}</p>
+          </div>
+
+          {contactError && (
+            <p role="alert" className="rounded-lg bg-lv-urgent-soft px-3 py-2 text-[13px] text-lv-urgent">
+              {contactError}
+            </p>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label htmlFor="user-phone" className="block text-[12.5px] font-medium text-body mb-1">
+                {t.phoneLabel} <span className="text-lv-urgent">*</span>
+              </label>
+              <input
+                id="user-phone"
+                type="tel"
+                dir="ltr"
+                value={phone}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  if (contactError) setContactError(null);
+                }}
+                placeholder={t.phonePlaceholder}
+                className="w-full rounded-lg border border-line px-3 py-2 text-[14px] outline-none focus:border-leaf"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="user-email" className="block text-[12.5px] font-medium text-body mb-1">
+                {t.emailLabel}
+              </label>
+              <input
+                id="user-email"
+                type="email"
+                dir="ltr"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (contactError) setContactError(null);
+                }}
+                placeholder={t.emailPlaceholder}
+                className="w-full rounded-lg border border-line px-3 py-2 text-[14px] outline-none focus:border-leaf"
+              />
+            </div>
+          </div>
+
+          <p className="flex items-center gap-1.5 text-[12px] text-muted">
+            <Lock size={12} className="shrink-0 text-leaf" /> {t.contactAssurance}
+          </p>
+        </div>
+      </div>
+    </BotRow>
+  );
+
   /* ── Composer: what you can do right now ── */
 
   let composer: ReactNode = null;
@@ -762,8 +1046,8 @@ export function ConcernChat() {
         {messages.length === 0 && (
           <div className="no-scrollbar -mx-4 mb-3 flex gap-2 overflow-x-auto px-4">
             <span className="shrink-0 self-center text-[12.5px] text-muted">{t.examples}</span>
-            {EXAMPLES.map((ex, i) => (
-              <button key={i} type="button" onClick={() => tryExample(i)} className="shrink-0 rounded-full border border-line bg-white px-3 py-1.5 text-[13px] text-body transition-colors hover:border-leaf hover:text-deep">
+            {EXAMPLES.filter((ex) => ex.lang === lang).map((ex, i) => (
+              <button key={i} type="button" onClick={() => tryExample(ex)} className="shrink-0 rounded-full border border-line bg-white px-3 py-1.5 text-[13px] text-body transition-colors hover:border-leaf hover:text-deep">
                 {ex.label[lang]}
               </button>
             ))}
@@ -827,14 +1111,40 @@ export function ConcernChat() {
             )}
           </p>
         )}
-        <button type="button" onClick={confirm} className="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-deep px-5 py-3.5 text-[15px] font-medium text-white hover:bg-deep-hover sm:flex-none">
-          <Check size={18} /> {t.right}
+        <button
+          type="button"
+          onClick={() => {
+            stopReading();
+            setStep("routing");
+          }}
+          className="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-deep px-5 py-3.5 text-[15px] font-medium text-white hover:bg-deep-hover sm:flex-none shadow-sm"
+        >
+          <Navigation size={18} /> {t.nextRouting}
         </button>
         <button type="button" onClick={readBack} className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-line bg-white px-4 py-3.5 text-[15px] font-medium hover:bg-mist">
           {reading ? <Square size={15} fill="currentColor" /> : <Volume2 size={18} />} {reading ? t.stopReading : t.readBack}
         </button>
         <button type="button" onClick={addMore} className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-line bg-white px-4 py-3.5 text-[15px] font-medium hover:bg-mist">
           {t.addMore}
+        </button>
+      </div>
+    );
+  } else if (step === "routing") {
+    composer = (
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={submitWithRouting}
+          className="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-deep px-5 py-3.5 text-[15px] font-medium text-white hover:bg-deep-hover sm:flex-none shadow-sm"
+        >
+          <Check size={18} /> {t.submitRouting}
+        </button>
+        <button
+          type="button"
+          onClick={() => setStep("review")}
+          className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-line bg-white px-4 py-3.5 text-[15px] font-medium hover:bg-mist"
+        >
+          <ArrowLeft size={16} className="rtl:-scale-x-100" /> {t.backReview}
         </button>
       </div>
     );
@@ -932,6 +1242,7 @@ export function ConcernChat() {
               ))}
               {askedMore && step === "describe" && <BotRow>{t.askMore}</BotRow>}
               {factsCard}
+              {routingCard}
               {outcome && <UserRow>{t.right}</UserRow>}
               {outcomeCard}
               {step === "thinking" && <Typing />}

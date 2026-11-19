@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { getBackend, type AuditEntry, type Backend, type Case, type EnrolDone, type EnrolIn, type ReferralIn, type ReferralState, type TaskAction, type VaultEntry } from "@/lib/workspace/backend";
 
 type Workspace = {
@@ -27,29 +28,35 @@ type Workspace = {
 
 const Ctx = createContext<Workspace | null>(null);
 
-/** Loads the cases once, and reloads them after every change, from the server or the browser backend. */
+/** Loads cases on mount, reloads on route changes, window focus, custom sync events, and live polling. */
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [backend, setBackend] = useState<Backend | null>(null);
   const [cases, setCases] = useState<Case[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [syncedAt, setSyncedAt] = useState<number | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const busyRef = useRef(false);
 
-  useEffect(() => {
-    let live = true;
-    getBackend()
-      .then(async (b) => {
-        const list = await b.cases();
-        if (!live) return;
-        setBackend(b);
-        setCases(list);
-        setSyncedAt(Date.now());
-      })
-      .catch((e: unknown) => live && setError(e instanceof Error ? e.message : String(e)));
-    return () => {
-      live = false;
-    };
+  const fetchCases = useCallback(async (b?: Backend) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setSyncing(true);
+    try {
+      const activeBackend = b ?? (await getBackend());
+      const list = await activeBackend.cases();
+      setBackend(activeBackend);
+      setCases(list);
+      setSyncedAt(Date.now());
+      setError(null);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      busyRef.current = false;
+      setSyncing(false);
+    }
   }, []);
 
   const run = useCallback(async (fn: (b: Backend) => Promise<unknown>) => {
@@ -60,7 +67,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       await fn(b);
     } finally {
       try {
-        setCases(await b.cases());
+        const list = await b.cases();
+        setCases(list);
         setSyncedAt(Date.now());
       } finally {
         setSyncing(false);
@@ -68,31 +76,51 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Live: against the server, read the cases again every 20 seconds while the page is visible, and as soon as it
-  // becomes visible again, so what others add (a concern on the website, a check-in, the Telegram bot) appears here.
+  // 1. Initial mount
   useEffect(() => {
-    if (backend?.mode !== "server") return;
-    let busy = false;
-    const tick = async () => {
-      if (busy || document.visibilityState !== "visible") return;
-      busy = true;
-      try {
-        setCases(await backend.cases());
-        setSyncedAt(Date.now());
-      } catch {
-        /* keep what is shown; the next tick tries again */
-      } finally {
-        busy = false;
-      }
+    void fetchCases();
+  }, [fetchCases]);
+
+  // 2. Immediate refresh on route change (e.g. entering /clinician/ or /clinician/case/?id=...)
+  useEffect(() => {
+    void fetchCases();
+  }, [pathname, searchParams, fetchCases]);
+
+  // 3. Live Sync listeners:
+  // - Window focus (when user switches back to clinician tab)
+  // - Visibilitychange (when browser un-minimizes or tab switches)
+  // - Custom "membrain:sync" event (dispatched whenever a concern or check-in completes)
+  // - Storage event (dispatched across browser tabs when another tab submits data)
+  // - Rapid active interval (every 4 seconds)
+  useEffect(() => {
+    const trigger = () => {
+      void fetchCases();
     };
-    const id = window.setInterval(tick, 20000);
-    const vis = () => document.visibilityState === "visible" && void tick();
-    document.addEventListener("visibilitychange", vis);
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") trigger();
+    };
+    const onFocus = () => trigger();
+    const onSync = () => trigger();
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key || e.key.startsWith("membrain")) trigger();
+    };
+
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("membrain:sync", onSync);
+    window.addEventListener("storage", onStorage);
+
+    const pollId = window.setInterval(trigger, 4000);
+
     return () => {
-      window.clearInterval(id);
-      document.removeEventListener("visibilitychange", vis);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("membrain:sync", onSync);
+      window.removeEventListener("storage", onStorage);
+      window.clearInterval(pollId);
     };
-  }, [backend]);
+  }, [fetchCases]);
 
   const value = useMemo<Workspace>(
     () => ({
@@ -106,7 +134,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       query,
       setQuery,
       byId: (id) => cases.find((c) => c.participant.id === id),
-      refresh: () => run(async () => undefined),
+      refresh: () => fetchCases(),
       act: (taskId, action, note, referralTo) => run((b) => b.act(taskId, action, note, referralTo)),
       refer: (pid, body) => run((b) => b.refer(pid, body)),
       advance: (rid, state, date, reason) => run((b) => b.advance(rid, state, date, reason)),
@@ -121,7 +149,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       },
       reidentify: async (pid, reason) => (await getBackend()).reidentify(pid, reason),
     }),
-    [backend, cases, error, query, run, syncedAt, syncing],
+    [backend, cases, error, fetchCases, query, run, syncedAt, syncing],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

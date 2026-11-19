@@ -31,6 +31,12 @@ export type Task = {
   review_target_days: number;
   reasons: string[];
   actions: { action: TaskAction; note: string; referral_to?: string | null; ts: string }[];
+  hospital_id?: string | null;
+  hospital_name?: string | null;
+  emirate?: string | null;
+  area?: string | null;
+  phone?: string | null;
+  email?: string | null;
 };
 
 export type ConcernSummary = {
@@ -47,6 +53,11 @@ export type ConcernSummary = {
   informant: { type?: string; relation?: string } | null;
   attribution: string;
   missing: string[];
+  phone?: string | null;
+  email?: string | null;
+  emirate?: string | null;
+  area?: string | null;
+  assigned_hospital?: string | { id?: string | null; name?: string | null } | null;
 };
 
 export type PreventionPlan = { version?: string; items: { rule: string; text: string; evidence?: string }[] } | null;
@@ -58,6 +69,11 @@ export type Participant = Omit<Persona, "age" | "education" | "dialect" | "refer
   age_band?: string;
   funding?: string;
   emirate?: string;
+  area?: string;
+  phone?: string | null;
+  email?: string | null;
+  assigned_hospital?: string | { id?: string | null; name?: string | null } | null;
+  location?: { latitude?: number | null; longitude?: number | null; emirate?: string | null; area?: string | null } | null;
   languages?: string[];
   consent?: Record<string, boolean>;
   risk_context?: Record<string, unknown>;
@@ -98,6 +114,14 @@ export type ConcernIn = {
   confounders: string[];
   date: string;
   channel?: "app" | "telegram" | "phone";
+  phone?: string | null;
+  email?: string | null;
+  emirate?: string | null;
+  area?: string | null;
+  hospital_id?: string | null;
+  hospital_name?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 /** The family questionnaire (membrain/config.py FAQ_ITEMS): each everyday activity as it is now, 0 manages normally,

@@ -12,6 +12,7 @@ import { detectSpeech, LABEL, Recorder, speak, stopSpeaking, type Audio, type Re
 import { appCaseHref, homeHref } from "@/lib/app";
 import { useSession } from "@/lib/auth";
 import { getBackend } from "@/lib/workspace/backend";
+import { notifyWorkspaceSync } from "@/lib/workspace/sync";
 import type { Backend, Case, CheckinResult, Participant, SessionIn } from "@/lib/workspace/types";
 import { COPY, num, type Copy } from "./copy";
 import { Avatar, MicAnswer, Options, Prompt, Toggle } from "./parts";
@@ -55,15 +56,9 @@ function samples(task: Task, form: string, lang: Lang): [string, string] {
 
 const addDays = (iso: string, d: number) => new Date(Date.parse(iso + "T00:00:00Z") + d * 86400000).toISOString().slice(0, 10);
 
-/** The check-in's date in the demo's synthetic world: today, or two weeks after the last check-in if that is later,
- *  and never before a report already on the record (a concern or the family questionnaire, which carry real dates). */
-function sessionDate(p: Participant) {
-  const isReport = (s: Participant["sessions"][number]) => s.type === "intake" || s.type === "informant";
-  const scored = p.sessions.filter((s) => !isReport(s)).map((s) => s.date.slice(0, 10)).sort();
-  const reports = p.sessions.filter(isReport).map((s) => s.date.slice(0, 10)).sort();
-  const last = scored[scored.length - 1];
-  const soonest = [last ? addDays(last, 14) : DEMO_TODAY, reports[reports.length - 1] ?? DEMO_TODAY, DEMO_TODAY].sort().pop()!;
-  return soonest;
+/** The check-in's date: matches real-world execution date. */
+function sessionDate(_p: Participant) {
+  return new Date().toISOString().slice(0, 10);
 }
 
 const nameOf = (p: Participant, lang: Lang) => (p.enrolled === false ? "" : p.display_name?.[lang] || p.display_name?.en || "");
@@ -167,7 +162,7 @@ export function Checkin() {
   if (!cases || !backend) return <Splash lang={qLang ?? "en"} />;
   const c = id ? cases.find((x) => x.participant.id === id) : null;
   if (!c) return <Picker cases={cases} initialLang={qLang ?? "en"} />;
-  return <Run key={c.participant.id} c={c} backend={backend} initialLang={qLang ?? (c.participant.language as Lang) ?? "en"} />;
+  return <Run key={c.participant.id} c={c} backend={backend} initialLang={qLang ?? "en"} />;
 }
 
 function Splash({ lang }: { lang: Lang }) {
@@ -218,7 +213,16 @@ function TopBar({ t, lang, setLang, subtitle, exitHref, right }: { t: Copy; lang
 /* ── Who is doing the check-in ── */
 
 function Picker({ cases, initialLang }: { cases: Case[]; initialLang: Lang }) {
-  const [lang, setLang] = useState<Lang>(initialLang);
+  const [lang, setLangState] = useState<Lang>(initialLang);
+  const setLang = (l: Lang) => {
+    setLangState(l);
+    try {
+      const u = new URL(window.location.href);
+      if (l === "ar") u.searchParams.set("lang", "ar");
+      else u.searchParams.delete("lang");
+      window.history.replaceState(null, "", u);
+    } catch { /* ignore */ }
+  };
   const t = COPY[lang];
   const people = useMemo(() => {
     const list = cases.map((c) => c.participant);
@@ -240,7 +244,7 @@ function Picker({ cases, initialLang }: { cases: Case[]; initialLang: Lang }) {
             return (
               <Link
                 key={p.id}
-                href={`/checkin/?id=${encodeURIComponent(p.id)}&lang=${concern ? lang : pl}`}
+                href={`/checkin/?id=${encodeURIComponent(p.id)}&lang=${lang}`}
                 className="group flex flex-col rounded-2xl border border-line bg-white p-5 shadow-[0_1px_2px_rgb(15_35_40/0.04)] transition-all hover:-translate-y-0.5 hover:border-leaf/40 hover:shadow-[0_12px_30px_-18px_rgb(15_63_44/0.45)]"
               >
                 <div className="flex items-center gap-3.5">
@@ -298,7 +302,7 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
   const needsProfile = p.age == null || p.education == null;
   const flow: Step[] = useMemo(() => [...(needsProfile ? (["profile"] as Step[]) : []), "welcome", ...TASKS], [needsProfile]);
 
-  const [lang, setLangState] = useState<Lang>(saved?.lang ?? initialLang);
+  const [lang, setLangState] = useState<Lang>(initialLang);
   const [step, setStep] = useState<Step>(saved && flow.includes(saved.step) ? saved.step : flow[0]);
   const [ans, setAns] = useState<Answers>(saved?.answers ?? freshAnswers());
   const [resumed] = useState(!!saved && saved.step !== flow[0]);
@@ -306,7 +310,7 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
   const [speech, setSpeech] = useState<Speech | null>(null);
   const [micOk, setMicOk] = useState(true);
   const [speaking, setSpeaking] = useState(false);
-  const [started, setStarted] = useState(!!saved);
+  const [started, setStarted] = useState(true);
   const [result, setResult] = useState<CheckinResult | null>(null);
   const [after, setAfter] = useState<Case | null>(null);
   const [saveError, setSaveError] = useState(false);
@@ -343,6 +347,12 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
     stopSpeaking();
     spokenFor.current = "";
     setLangState(l);
+    try {
+      const u = new URL(window.location.href);
+      if (l === "ar") u.searchParams.set("lang", "ar");
+      else u.searchParams.delete("lang");
+      window.history.replaceState(null, "", u);
+    } catch { /* ignore */ }
   };
 
   /* Reading the instruction aloud, once per screen. */
@@ -376,14 +386,14 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
   };
   useEffect(() => {
     const key = `${step}:${lang}`;
-    if (!started || !prefs.voice || spokenFor.current === key) return;
+    if (!prefs.voice || spokenFor.current === key) return;
     spokenFor.current = key;
     const text = promptOf(step);
     if (!text) return;
     const timer = window.setTimeout(() => say(text), 350);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, lang, started, prefs.voice, result]);
+  }, [step, lang, prefs.voice, result]);
 
   /* Moving through the screens. */
   const go = (s: Step) => {
@@ -500,6 +510,7 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
       const [r] = await Promise.all([backend.submitSession(p.id, body), new Promise((res) => window.setTimeout(res, 900))]);
       setResult(r);
       writeJson("session", saveKey(p.id), null);
+      notifyWorkspaceSync({ action: "submitSession", pid: p.id });
       backend.cases().then((all) => setAfter(all.find((x) => x.participant.id === p.id) ?? null)).catch(() => {});
       go("done");
     } catch {
@@ -544,7 +555,7 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
 
   let body: ReactNode = null;
   const recordProps = (k: Task) => ({
-    t, lang, speech, micOk, dialect: p.dialect, noiseDb: ans.noiseDb,
+    t, lang, speech, micOk, dialect: lang === "ar" ? p.dialect : "English", noiseDb: ans.noiseDb,
     value: ans.tr[k],
     onText: (v: string) => upd((a) => ({ ...a, tr: { ...a.tr, [k]: v } })),
     onRecorded: recorded(k),
@@ -594,7 +605,7 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
             <Avatar name={p.enrolled === false ? "?" : nameOf(p, lang)} id={p.id} className="h-16 w-16 text-[22px]" />
             <p className="text-[13px] font-semibold uppercase tracking-[0.16em] text-leaf">{t.minutes}</p>
           </div>
-          <Prompt t={t} text={t.welcome(name)} sub={t.welcomeBody} speaking={speaking} onRepeat={started ? () => say(promptOf("welcome")) : undefined} />
+          <Prompt t={t} text={t.welcome(name)} sub={t.welcomeBody} speaking={speaking} onRepeat={() => say(promptOf("welcome"))} />
           {consent.length > 0 && (
             <div>
               <p className="text-[12.5px] font-semibold uppercase tracking-[0.12em] text-leaf">{t.shared}</p>
@@ -735,7 +746,7 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
       body = (
         <div className="space-y-4">
           <Prompt t={t} text={step === "words_recall" ? t.wordsR : step === "story_recall" ? t.storyR : t.delayed} speaking={speaking} onRepeat={() => say(promptOf(step))} />
-          <MicAnswer key={step} {...recordProps(task!)} />
+          <MicAnswer key={`${step}-${lang}`} {...recordProps(task!)} />
         </div>
       );
       break;
@@ -744,7 +755,7 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
       body = (
         <div className="space-y-4">
           <Prompt t={t} text={t.flu(category)} sub={t.fluNote} speaking={speaking} onRepeat={() => say(promptOf("fluency"))} />
-          <MicAnswer key={step} {...recordProps("fluency")} seconds={60} countWords />
+          <MicAnswer key={`${step}-${lang}`} {...recordProps("fluency")} seconds={60} countWords />
         </div>
       );
       break;
@@ -753,7 +764,7 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
       body = (
         <div className="space-y-4">
           <Prompt t={t} eyebrow={t.judgT} text={scenario} speaking={speaking} onRepeat={() => say(promptOf("judgement"))} />
-          <MicAnswer key={step} {...recordProps("judgement")} />
+          <MicAnswer key={`${step}-${lang}`} {...recordProps("judgement")} />
         </div>
       );
       break;
@@ -834,7 +845,15 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
       dir={lang === "ar" ? "rtl" : "ltr"}
       lang={lang}
       className={`flex h-dvh flex-col bg-paper ${prefs.hc ? "mb-hc" : ""}`}
-      onPointerDownCapture={() => !started && step !== "welcome" && setStarted(true)}
+      onPointerDownCapture={() => {
+        try {
+          if (typeof window !== "undefined" && "speechSynthesis" in window && window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+          }
+        } catch {
+          /* ignore */
+        }
+      }}
     >
       <TopBar
         t={t}

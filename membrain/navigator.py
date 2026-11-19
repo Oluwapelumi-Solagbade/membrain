@@ -109,45 +109,95 @@ def directory() -> list[dict]:
     S = []
 
     # capacity: new referrals the service can take per month, and whether it is accepting now (synthetic values)
-    CAP = {"SVC-01": (20, True), "SVC-02": (14, True), "SVC-03": (10, False), "SVC-04": (120, True), "SVC-05": (60, True),
-           "SVC-06": (25, True), "SVC-07": (18, True), "SVC-08": (40, True), "SVC-09": (35, True), "SVC-10": (8, True),
-           "SVC-11": (None, True), "SVC-12": (None, True), "SVC-13": (30, True)}
+    CAP = {
+        "SVC-01": (20, True), "SVC-02": (14, True), "SVC-03": (10, False), "SVC-04": (120, True), "SVC-05": (60, True),
+        "SVC-06": (25, True), "SVC-07": (18, True), "SVC-08": (40, True), "SVC-09": (35, True), "SVC-10": (8, True),
+        "SVC-11": (None, True), "SVC-12": (None, True), "SVC-13": (30, True),
+        "SVC-14": (45, True), "SVC-15": (35, True), "SVC-16": (25, True), "SVC-17": (20, True), "SVC-18": (20, True),
+        "SVC-19": (25, True), "SVC-20": (30, True), "SVC-21": (20, True), "SVC-22": (25, True), "SVC-23": (20, True),
+        "SVC-24": (15, True), "SVC-25": (20, True), "SVC-26": (15, True),
+    }
 
-    def add(i, name, pathways, emirate, area, langs, funding, wait, verified, notes, referral="Clinician referral letter"):
+    def add(i, name, pathways, emirate, area, langs, funding, wait, verified, notes, referral="Clinician referral letter", lat=None, lon=None):
         cap, accepting = CAP[i]
-        S.append({"id": i, "name": name + " (synthetic)", "pathways": pathways, "emirate": emirate, "area": area,
-                  "languages": langs, "funding": funding, "wait_weeks": wait, "last_verified": verified,
-                  "capacity_per_month": cap, "accepting_referrals": accepting,
-                  "referral_process": referral, "notes": notes, "synthetic": True})
+        rec = {"id": i, "name": name + " (synthetic)", "pathways": pathways, "emirate": emirate, "area": area,
+               "languages": langs, "funding": funding, "wait_weeks": wait, "last_verified": verified,
+               "capacity_per_month": cap, "accepting_referrals": accepting,
+               "referral_process": referral, "notes": notes, "synthetic": True}
+        if lat is not None and lon is not None:
+            rec["lat"] = lat
+            rec["lon"] = lon
+        S.append(rec)
 
     add("SVC-01", "Memory Clinic — Abu Dhabi City", ["memory_clinic"], "Abu Dhabi", "Abu Dhabi City", ["ar", "en"],
-        ["thiqa", "enhanced"], 6, "2026-10-20", "Neuropsychology on site; brings informant")
+        ["thiqa", "enhanced"], 6, "2026-10-20", "Neuropsychology on site; brings informant", lat=24.5020, lon=54.3889)
     add("SVC-02", "Geriatric Service — Al Ain", ["memory_clinic", "caregiver_support"], "Abu Dhabi", "Al Ain", ["ar", "en", "ur"],
-        ["thiqa", "enhanced", "basic"], 4, "2026-10-02", "Home-visit option for frail patients")
+        ["thiqa", "enhanced", "basic"], 4, "2026-10-02", "Home-visit option for frail patients", lat=24.2980, lon=54.5910)
     add("SVC-03", "Neurology Outpatients — Dubai", ["memory_clinic"], "Dubai", "Dubai", ["ar", "en", "hi"],
-        ["enhanced", "self_pay"], 9, "2026-07-01", "Imaging same campus")
+        ["enhanced", "self_pay"], 9, "2026-07-01", "Imaging same campus", lat=24.1950, lon=55.6880)
     add("SVC-04", "Primary Care Centre — Khalifa City", ["primary_care", "primary_care_urgent"], "Abu Dhabi", "Abu Dhabi City",
-        ["ar", "en", "tl", "ml"], ["thiqa", "enhanced", "basic", "self_pay"], 1, "2026-11-01", "Bloods and medication review")
+        ["ar", "en", "tl", "ml"], ["thiqa", "enhanced", "basic", "self_pay"], 1, "2026-11-01", "Bloods and medication review", lat=24.4260, lon=54.5820)
     add("SVC-05", "Primary Care Centre — Al Dhafra", ["primary_care", "primary_care_urgent"], "Abu Dhabi", "Al Dhafra",
-        ["ar", "en"], ["thiqa", "basic"], 2, "2026-09-15", "")
+        ["ar", "en"], ["thiqa", "basic"], 2, "2026-09-15", "", lat=23.6520, lon=53.7050)
     add("SVC-06", "Community Mental Health — Abu Dhabi", ["mental_health"], "Abu Dhabi", "Abu Dhabi City", ["ar", "en"],
-        ["thiqa", "enhanced", "basic"], 3, "2026-10-28", "Older-adult clinic Tuesdays")
+        ["thiqa", "enhanced", "basic"], 3, "2026-10-28", "Older-adult clinic Tuesdays", lat=24.4670, lon=54.3650)
     add("SVC-07", "Mental Health Clinic — Dubai", ["mental_health"], "Dubai", "Dubai", ["ar", "en", "hi", "ur"],
-        ["enhanced", "self_pay"], 2, "2026-06-11", "")
+        ["enhanced", "self_pay"], 2, "2026-06-11", "", lat=25.2415, lon=55.3182)
     add("SVC-08", "Audiology Unit — Abu Dhabi", ["audiology"], "Abu Dhabi", "Abu Dhabi City", ["ar", "en"],
-        ["thiqa", "enhanced", "self_pay"], 2, "2026-10-10", "Hearing-aid fitting")
+        ["thiqa", "enhanced", "self_pay"], 2, "2026-10-10", "Hearing-aid fitting", lat=24.4710, lon=54.3720)
     add("SVC-09", "Eye Clinic — Al Ain", ["optometry"], "Abu Dhabi", "Al Ain", ["ar", "en"], ["thiqa", "enhanced", "basic"], 3,
-        "2026-09-30", "")
+        "2026-09-30", "", lat=24.2250, lon=55.7480)
     add("SVC-10", "Sleep Clinic — Abu Dhabi", ["sleep"], "Abu Dhabi", "Abu Dhabi City", ["ar", "en"], ["thiqa", "enhanced"], 8,
-        "2026-08-14", "Home sleep testing available")
+        "2026-08-14", "Home sleep testing available", lat=24.4710, lon=54.3720)
     add("SVC-11", "Emergency Department — Abu Dhabi", ["urgent_clinical_assessment"], "Abu Dhabi", "Abu Dhabi City",
         ["ar", "en", "ur", "hi", "tl"], ["thiqa", "enhanced", "basic", "self_pay"], 0, "2026-11-10",
-        "Emergency protocol: same day", referral="Call ahead; send summary")
+        "Emergency protocol: same day", referral="Call ahead; send summary", lat=24.4710, lon=54.3720)
     add("SVC-12", "Emergency Department — Al Ain", ["urgent_clinical_assessment"], "Abu Dhabi", "Al Ain",
         ["ar", "en", "ur"], ["thiqa", "enhanced", "basic", "self_pay"], 0, "2026-11-09",
-        "Emergency protocol: same day", referral="Call ahead; send summary")
+        "Emergency protocol: same day", referral="Call ahead; send summary", lat=24.1950, lon=55.6880)
     add("SVC-13", "Family Caregiver Programme — Abu Dhabi", ["caregiver_support"], "Abu Dhabi", "Abu Dhabi City",
-        ["ar", "en"], ["thiqa", "enhanced", "basic", "self_pay"], 1, "2026-10-05", "Group sessions in Arabic and English")
+        ["ar", "en"], ["thiqa", "enhanced", "basic", "self_pay"], 1, "2026-10-05", "Group sessions in Arabic and English", lat=24.4670, lon=54.3650)
+
+    # Full set of UAE Regional Hospitals & Catchment Facilities
+    add("SVC-14", "Rashid Hospital — Neurosciences & Memory Clinic (DHA)", ["memory_clinic", "urgent_clinical_assessment", "caregiver_support"],
+        "Dubai", "Downtown / Oud Metha", ["ar", "en", "ur", "hi"], ["thiqa", "enhanced", "basic", "self_pay"], 2, "2026-11-10",
+        "DHA tertiary neurosciences hospital. Specialized cognitive assessment unit nearest to Downtown Dubai & Burj Khalifa.", lat=25.2415, lon=55.3182)
+    add("SVC-15", "Dubai Hospital — Geriatrics & Neurology Centre (DHA)", ["memory_clinic", "primary_care", "caregiver_support"],
+        "Dubai", "Deira", ["ar", "en", "ur", "hi"], ["thiqa", "enhanced", "basic", "self_pay"], 3, "2026-11-08",
+        "DHA dedicated geriatric medicine and cognitive neurology clinics.", lat=25.2917, lon=55.3211)
+    add("SVC-16", "Mediclinic City Hospital — Cognitive Health & Neuropsychology", ["memory_clinic", "mental_health"],
+        "Dubai", "Dubai Healthcare City", ["ar", "en", "fr"], ["enhanced", "self_pay"], 1, "2026-11-12",
+        "Comprehensive neuropsychological profiling and memory diagnostics near Downtown Dubai.", lat=25.2325, lon=55.3235)
+    add("SVC-17", "American Hospital Dubai — Memory & Aging Clinic", ["memory_clinic", "audiology", "sleep"],
+        "Dubai", "Oud Metha", ["ar", "en"], ["enhanced", "self_pay"], 1, "2026-11-14",
+        "Multidisciplinary cognitive wellness and memory loss evaluation.", lat=25.2340, lon=55.3150)
+    add("SVC-18", "King's College Hospital London — Dubai Hills", ["memory_clinic", "primary_care"],
+        "Dubai", "Dubai Hills / Al Barsha", ["ar", "en"], ["enhanced", "self_pay"], 2, "2026-11-05",
+        "UK-trained consultant geriatricians and neurology specialists.", lat=25.1180, lon=55.2420)
+    add("SVC-19", "University Hospital Sharjah (UHS) — Neurology & Geriatric Clinic", ["memory_clinic", "caregiver_support"],
+        "Sharjah", "University City", ["ar", "en", "ur"], ["thiqa", "enhanced", "basic", "self_pay"], 2, "2026-11-09",
+        "Academic medical centre with cognitive neurology and memory research.", lat=25.2930, lon=55.4670)
+    add("SVC-20", "Al Qassimi Hospital (EHS) — Cognitive & Neurosciences Centre", ["memory_clinic", "urgent_clinical_assessment"],
+        "Sharjah", "Al Khezamia", ["ar", "en", "ur", "hi"], ["thiqa", "enhanced", "basic", "self_pay"], 3, "2026-11-04",
+        "Federal EHS tertiary referral hospital for Sharjah and Northern Emirates.", lat=25.3350, lon=55.4120)
+    add("SVC-21", "Sheikh Khalifa Medical City Ajman (EHS) — Memory Care", ["memory_clinic", "primary_care"],
+        "Ajman", "Al Jurf", ["ar", "en", "ur"], ["thiqa", "enhanced", "basic", "self_pay"], 2, "2026-11-06",
+        "Comprehensive geriatric and memory evaluation services in Ajman.", lat=25.4210, lon=55.4850)
+    add("SVC-22", "Thumbay University Hospital — Neurosciences & Aging", ["memory_clinic", "caregiver_support"],
+        "Ajman", "Al Jurf", ["ar", "en", "ur", "hi"], ["enhanced", "basic", "self_pay"], 1, "2026-11-11",
+        "Multilingual specialist cognitive assessments and rapid consultations.", lat=25.4180, lon=55.4920)
+    add("SVC-23", "Saqr Hospital (EHS) — Geriatric & Neurosciences Clinic", ["memory_clinic", "urgent_clinical_assessment"],
+        "Ras Al Khaimah", "Al Juwais", ["ar", "en", "ur"], ["thiqa", "enhanced", "basic", "self_pay"], 2, "2026-11-07",
+        "Primary government hospital providing cognitive triage in RAK.", lat=25.7680, lon=55.9550)
+    add("SVC-24", "RAK Hospital — Neurosciences & Cognitive Wellness", ["memory_clinic", "sleep"],
+        "Ras Al Khaimah", "Al Qusaidat", ["ar", "en"], ["enhanced", "self_pay"], 1, "2026-11-13",
+        "Private specialized neuro-cognitive assessment centre.", lat=25.7720, lon=55.9710)
+    add("SVC-25", "Fujairah Hospital (EHS) — Neurology & Memory Clinic", ["memory_clinic", "urgent_clinical_assessment"],
+        "Fujairah", "Al Faseel", ["ar", "en", "ur"], ["thiqa", "enhanced", "basic", "self_pay"], 2, "2026-11-08",
+        "East Coast tertiary hospital serving Fujairah and surrounding regions.", lat=25.1420, lon=56.3310)
+    add("SVC-26", "Umm Al Quwain Hospital (EHS) — Specialist Outpatients", ["memory_clinic", "primary_care"],
+        "Umm Al Quwain", "Al Salamah", ["ar", "en", "ur"], ["thiqa", "enhanced", "basic", "self_pay"], 2, "2026-11-06",
+        "Specialist consultative care and local memory triage.", lat=25.5260, lon=55.5580)
     return S
 
 
@@ -156,10 +206,10 @@ FUNDING_LABEL = {"thiqa": "Government entitlement (Thiqa)", "enhanced": "Enhance
 LANG_LABEL = {"ar": "Arabic", "en": "English", "ur": "Urdu", "hi": "Hindi", "tl": "Tagalog", "ml": "Malayalam"}
 
 
-def match_services(pathway: str, person: dict, services: list[dict] | None = None, today: str = "2026-11-14") -> dict:
+def match_services(pathway: str, person: dict, services: list[dict] | None = None, today: str | None = None) -> dict:
     """Clinically appropriate services first; accessibility is shown, never used to drop the pathway."""
     services = services if services is not None else directory()
-    t = date.fromisoformat(today)
+    t = date.fromisoformat(today or date.today().isoformat())
     langs = set(person.get("languages") or [person.get("language", "ar")])
     funding = person.get("funding")
     emirate = person.get("emirate")
@@ -222,7 +272,8 @@ def state_date(ref: dict, state: str) -> str | None:
     return next((h["date"] for h in ref["history"] if h["state"] == state), None)
 
 
-def programme_metrics(refs: list[dict], people: dict, today: str = "2026-11-14") -> dict:
+def programme_metrics(refs: list[dict], people: dict, today: str | None = None) -> dict:
+    today = today or date.today().isoformat()
     sent = [r for r in refs if state_date(r, "sent")]
     done = [r for r in refs if state_date(r, "assessment_completed")]
     accepted = [r for r in sent if state_date(r, "accepted")]
@@ -264,12 +315,12 @@ PATHWAY_ASSUMPTIONS = {
 }
 
 
-def simulate_pathways(n: int = 160, seed: int = 3, today: str = "2026-11-14") -> tuple[list[dict], dict]:
+def simulate_pathways(n: int = 160, seed: int = 3, today: str | None = None) -> tuple[list[dict], dict]:
     rng = np.random.default_rng(seed)
     svc = directory()
     A = PATHWAY_ASSUMPTIONS
     refs, people = [], {}
-    end = date.fromisoformat(today)
+    end = date.fromisoformat(today or date.today().isoformat())
     for i in range(n):
         pid = f"SYN-P{i:04d}"
         lang = rng.choice(["ar", "en", "ur", "tl"], p=[0.55, 0.3, 0.1, 0.05])

@@ -18,6 +18,8 @@ export type Service = {
   referral_process: string;
   notes?: string;
   synthetic?: boolean;
+  lat?: number;
+  lon?: number;
 };
 
 export type NavConfig = {
@@ -93,3 +95,48 @@ export const LOOP: ReferralState[] = ["recommended", "sent", "accepted", "appoin
 export const serviceById = (id: string | null | undefined) => NAV.directory.find((s) => s.id === id);
 export const stateTone = (s: ReferralState) =>
   STALLED.includes(s) ? "bg-lv-review-soft text-lv-review" : DONE.includes(s) ? "bg-lv-stable-soft text-lv-stable" : s === "cancelled" ? "bg-paper text-muted" : "bg-lv-base-soft text-lv-base";
+
+export function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10;
+}
+
+export type UaeArea = { id: string; emirate: string; name: { en: string; ar: string }; lat: number; lon: number };
+
+export const UAE_AREAS: UaeArea[] = [
+  { id: "dxb-downtown", emirate: "Dubai", name: { en: "Downtown Dubai / Burj Khalifa", ar: "وسط مدينة دبي / برج خليفة" }, lat: 25.1972, lon: 55.2744 },
+  { id: "dxb-oud-metha", emirate: "Dubai", name: { en: "Bur Dubai / Oud Metha", ar: "بر دبي / عود ميثاء" }, lat: 25.234, lon: 55.315 },
+  { id: "dxb-deira", emirate: "Dubai", name: { en: "Deira / Al Rigga", ar: "ديرة / الرقة" }, lat: 25.2697, lon: 55.3095 },
+  { id: "dxb-marina", emirate: "Dubai", name: { en: "Dubai Marina / JBR", ar: "دبي مارينا / جميرا بيتش ريزيدنس" }, lat: 25.0805, lon: 55.1403 },
+  { id: "dxb-hills", emirate: "Dubai", name: { en: "Dubai Hills / Al Barsha", ar: "دبي هيلز / البرشاء" }, lat: 25.118, lon: 55.242 },
+  { id: "dxb-mirdif", emirate: "Dubai", name: { en: "Mirdif / Al Warqa", ar: "مردف / الورقاء" }, lat: 25.215, lon: 55.419 },
+  { id: "dxb-jebel-ali", emirate: "Dubai", name: { en: "Jebel Ali / Dubai South", ar: "جبل علي / دبي الجنوب" }, lat: 25.012, lon: 55.084 },
+  { id: "auh-downtown", emirate: "Abu Dhabi", name: { en: "Abu Dhabi City / Corniche", ar: "مدينة أبوظبي / الكورنيش" }, lat: 24.471, lon: 54.372 },
+  { id: "auh-maryah", emirate: "Abu Dhabi", name: { en: "Al Maryah / Reem Island", ar: "جزيرة المارية / جزيرة الريم" }, lat: 24.502, lon: 54.3889 },
+  { id: "auh-khalifa", emirate: "Abu Dhabi", name: { en: "Khalifa City / Masdar", ar: "مدينة خليفة / مصدر" }, lat: 24.426, lon: 54.582 },
+  { id: "auh-yas", emirate: "Abu Dhabi", name: { en: "Yas Island / Al Raha", ar: "جزيرة ياس / شاطئ الراحة" }, lat: 24.482, lon: 54.608 },
+  { id: "auh-mzb", emirate: "Abu Dhabi", name: { en: "Mohammed Bin Zayed City", ar: "مدينة محمد بن زايد" }, lat: 24.331, lon: 54.542 },
+  { id: "auh-dhafra", emirate: "Abu Dhabi", name: { en: "Al Dhafra / Madinat Zayed", ar: "الظفرة / مدينة زايد" }, lat: 23.652, lon: 53.705 },
+  { id: "aan-centre", emirate: "Abu Dhabi", name: { en: "Al Ain City Centre", ar: "وسط مدينة العين" }, lat: 24.218, lon: 55.762 },
+  { id: "aan-maqam", emirate: "Abu Dhabi", name: { en: "Al Ain — Al Maqam / Tawam", ar: "العين — المقام / توام" }, lat: 24.195, lon: 55.688 },
+  { id: "shj-centre", emirate: "Sharjah", name: { en: "Sharjah City / Al Majaz", ar: "مدينة الشارقة / المجاز" }, lat: 25.335, lon: 55.412 },
+  { id: "shj-univ", emirate: "Sharjah", name: { en: "University City / Muwaileh", ar: "المدينة الجامعية / مويلح" }, lat: 25.293, lon: 55.467 },
+  { id: "ajm-centre", emirate: "Ajman", name: { en: "Ajman City / Al Jurf", ar: "مدينة عجمان / الجرف" }, lat: 25.421, lon: 55.485 },
+  { id: "rak-centre", emirate: "Ras Al Khaimah", name: { en: "Ras Al Khaimah / Al Nakheel", ar: "رأس الخيمة / النخيل" }, lat: 25.768, lon: 55.955 },
+  { id: "fuj-centre", emirate: "Fujairah", name: { en: "Fujairah City / Corniche", ar: "مدينة الفجيرة / الكورنيش" }, lat: 25.142, lon: 56.331 },
+  { id: "uaq-centre", emirate: "Umm Al Quwain", name: { en: "Umm Al Quwain / Al Salamah", ar: "أم القيوين / السلمة" }, lat: 25.526, lon: 55.558 },
+];
+
+export function findNearbyHospitals(lat: number, lon: number, preferredPathway = "memory_clinic", directory = NAV.directory): (Service & { distanceKm: number })[] {
+  return directory
+    .filter((s) => s.pathways.includes(preferredPathway) || s.pathways.includes("primary_care"))
+    .map((s) => {
+      const d = s.lat && s.lon ? distanceKm(lat, lon, s.lat, s.lon) : 999;
+      return { ...s, distanceKm: d };
+    })
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+}

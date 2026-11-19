@@ -7,14 +7,16 @@
     "predev": "node scripts/sync-data.mjs",
     "dev": "next dev",
     "prebuild": "node scripts/sync-data.mjs",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.3.5",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.70.0",
     "next": "16.4.5",
+    "postcss": "^8.5.33",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

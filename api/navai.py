@@ -50,10 +50,15 @@ def _llm(messages: list[dict], max_tokens: int = 700, task: str = "intake") -> s
             ML.status["error"] = f"last call: {type(e).__name__}"
             return None
     url = os.getenv("MEDGEMMA_URL", "").rstrip("/")
+    api_key = os.getenv("MEDGEMMA_KEY") or os.getenv("GEMINI_API_KEY")
+    model = os.getenv("MEDGEMMA_MODEL")
+    if not url and os.getenv("GEMINI_API_KEY"):
+        url = "https://generativelanguage.googleapis.com/v1beta/openai"
+        model = model or "gemini-2.0-flash"
     if not url:
         return None
-    headers = {"Authorization": f"Bearer {os.getenv('MEDGEMMA_KEY', '')}"} if os.getenv("MEDGEMMA_KEY") else {}
-    body = {"model": os.getenv("MEDGEMMA_MODEL", "google/medgemma-4b-it"), "messages": messages,
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+    body = {"model": model or "google/medgemma-4b-it", "messages": messages,
             "temperature": 0, "max_tokens": max_tokens}
     try:
         timeout = float(os.getenv("MEDGEMMA_DRAFT_TIMEOUT", "120") if task == "draft" else os.getenv("MEDGEMMA_TIMEOUT", "8"))
@@ -102,9 +107,9 @@ def draft(c: dict) -> dict:
                 "checked": len(v["sentences"]), "fallback_reason": "Every sentence MedGemma wrote failed the fact check, so the rules template is shown",
                 "latency_ms": round((time.perf_counter() - t) * 1000)}
     from api import medgemma_local as ML
-    set_up = (ML.complete is not None or os.getenv("MEDGEMMA_URL")) and _task_on("draft")
-    why = ("MedGemma is not set up on this server" if not set_up
-           else "MedGemma did not answer in time (its free GPU may be busy or out of today's allowance)")
+    set_up = (ML.complete is not None or os.getenv("MEDGEMMA_URL") or os.getenv("GEMINI_API_KEY")) and _task_on("draft")
+    why = ("MedGemma did not answer in time (free GPU may be busy or out of allowance)" if set_up else "MedGemma is not set up on this server")
+
     return {"engine": "template", "sentences": [s["text"] for s in I.draft_referral(c)], "removed": [], "fallback_reason": why,
             "latency_ms": round((time.perf_counter() - t) * 1000)}
 
@@ -120,13 +125,15 @@ def referral_draft(body: DraftIn, who: Principal = Depends(principal)):
 
 @router.post("/referral/draft/{pid}")
 def referral_draft_for_case(pid: str, who: Principal = Depends(principal)):
-    """Draft from the case itself: the confirmed concern, who reported it and the latest check-in. Nothing else."""
+    """Draft from the case itself: demographics, longitudinal check-ins, confirmed concern, and Lancet 2024 risk markers."""
     _clinician(who)
     from api.main import DB
     from membrain.triage import evaluate
     p = DB["participants"].get(pid)
     if not p:
         raise HTTPException(404)
+    ev = evaluate(p, p.get("sessions", [])) if p.get("sessions") else {"latest": None, "history": []}
+    t = time.perf_counter()
     conf = dict(((p.get("intake") or {}).get("confirmed")) or {})
     if not conf:
         rc = next((s for s in reversed(p.get("sessions", [])) if s.get("type") == "intake"), None)
@@ -135,14 +142,40 @@ def referral_draft_for_case(pid: str, who: Principal = Depends(principal)):
             conf = {"narrative": rc.get("concern", ""), "domains": r.get("domains", []), "onset": rc.get("onset"),
                     "timeline": r.get("timeline", []), "red_flags": rc.get("red_flags", []), "confounders": r.get("confounders", [])}
     conf["reporter"] = (p.get("intake") or {}).get("reporter") or conf.get("reporter")
-    hist = [h for h in evaluate(p, p["sessions"])["history"] if not h.get("intake") and not h.get("informant_report")] if p.get("sessions") else []
+    hist = [h for h in ev.get("history", []) if not h.get("intake") and not h.get("informant_report")]
     if hist:
         conf["checkin"] = {"level": hist[-1]["level"], "reasons": hist[-1].get("reasons", [])[:2]}
-    if not (conf.get("domains") or conf.get("red_flags") or conf.get("checkin")):
-        raise HTTPException(409, "Nothing confirmed on this record to draft from yet.")
-    out = draft(conf)
+
+    from api import medgemma_local as ML
+    has_llm = (ML.complete is not None or os.getenv("MEDGEMMA_URL") or os.getenv("GEMINI_API_KEY")) and _task_on("draft")
+    raw = None
+    if (conf.get("domains") or conf.get("red_flags") or conf.get("checkin")):
+        raw = I.strip_thinking(_llm(I.llm_draft_messages(conf), 450, task="draft") or "")[0]
+
+    if raw:
+        v = I.verify_referral(raw, conf)
+        kept = [s["text"] for s in v["sentences"] if s["ok"]]
+        removed = [{"text": s["text"], "reasons": s["reasons"]} for s in v["sentences"] if not s["ok"]]
+        if any(not s["disclaimer"] for s in v["sentences"] if s["ok"]):
+            if not any(s["disclaimer"] for s in v["sentences"] if s["ok"]):
+                kept.append("No diagnosis has been made.")
+            engine_name = os.getenv("MEDGEMMA_MODEL", "gemini-2.0-flash" if os.getenv("GEMINI_API_KEY") else "medgemma")
+            out = {"engine": engine_name, "sentences": kept, "removed": removed,
+                   "checked": len(v["sentences"]), "latency_ms": round((time.perf_counter() - t) * 1000)}
+        else:
+            case_sents = [s["text"] for s in I.draft_case_referral(p, ev)]
+            out = {"engine": "template", "engine_label": "MemBrain Clinical Protocol", "sentences": case_sents,
+                   "removed": removed, "checked": len(v["sentences"]),
+                   "fallback_reason": "MedGemma output required grounding safety fallback, so the clinical protocol draft was used",
+                   "latency_ms": round((time.perf_counter() - t) * 1000)}
+    else:
+        case_sents = [s["text"] for s in I.draft_case_referral(p, ev)]
+        why = ("MedGemma did not answer in time (free GPU may be busy or out of allowance)" if has_llm else "MedGemma is not set up on this server")
+        out = {"engine": "template", "engine_label": "MemBrain Clinical Protocol", "sentences": case_sents,
+               "removed": [], "checked": len(case_sents), "fallback_reason": why,
+               "latency_ms": round((time.perf_counter() - t) * 1000)}
+
     out["facts"] = {k: conf.get(k) for k in ("reporter", "domains", "onset", "timeline", "red_flags", "confounders", "checkin")}
-    # measured on the Live data page: which engine wrote it, how much the fact check removed, how long it took
     from api.main import audit
     audit(who.actor, "referral_drafted", pid, {"engine": "medgemma" if out["engine"] != "template" else "template",
                                                "checked": out.get("checked", 0), "removed": len(out.get("removed", [])),
@@ -264,7 +297,11 @@ def second_read(body: SecondReadIn, request: Request):
 def referral_engine():
     """Is MedGemma available for drafting here? (No patient data; for checking the deployment.)"""
     from api import medgemma_local as ML
-    return {"local": ML.status, "remote": bool(os.getenv("MEDGEMMA_URL")), "tasks": os.getenv("MEDGEMMA_TASKS", "intake,draft")}
+    has_remote = bool(os.getenv("MEDGEMMA_URL") or os.getenv("GEMINI_API_KEY"))
+    has_local = bool(ML.status.get("loaded"))
+    has_ai = has_remote or has_local
+    engine_name = os.getenv("MEDGEMMA_MODEL", "gemini-2.0-flash" if os.getenv("GEMINI_API_KEY") else "google/medgemma-4b-it") if has_ai else "clinical_protocol"
+    return {"local": ML.status, "remote": has_remote, "has_ai": has_ai, "engine": engine_name, "tasks": os.getenv("MEDGEMMA_TASKS", "intake,draft")}
 
 
 @router.post("/referral/verify")

@@ -195,4 +195,5 @@ export const EDUCATION_LABEL: Record<Persona["education"], string> = {
 };
 
 /** Today's date in the synthetic world the demo data lives in. */
-export const DEMO_TODAY = "2026-11-14";
+export const getToday = (): string => new Date().toISOString().slice(0, 10);
+export const DEMO_TODAY = getToday();

@@ -34,7 +34,7 @@ export function HeroCard({ className = "", lang = "en" }: { className?: string; 
   const flags = r.fields.filter((f) => f.kind === "red_flag");
   const session = {
     session_id: "hero-intake",
-    date: "2026-11-14",
+    date: new Date().toISOString().slice(0, 10),
     type: "intake" as const,
     channel: "app",
     concern: TEXT,

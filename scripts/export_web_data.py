@@ -78,6 +78,6 @@ data = {"config": cfg, "items": {"WORD_LISTS": I.WORD_LISTS, "FLUENCY": I.FLUENC
         "navai": _navai(),
         "prevention_always": {"en": ALWAYS[0], "ar": ALWAYS[1]},
         "validation": {"n": N, "seed": 7, "assumptions": ASSUMPTIONS, "summary": res["summary"]}}
-(ROOT / "web" / "data.js").write_text("window.MB_DATA = " + json.dumps(data, ensure_ascii=False, default=str) + ";\n")
-(ROOT / "docs" / "validation_summary.json").write_text(json.dumps(data["validation"], indent=1, default=str))
+(ROOT / "web" / "data.js").write_text("window.MB_DATA = " + json.dumps(data, ensure_ascii=False, default=str) + ";\n", encoding="utf-8")
+(ROOT / "docs" / "validation_summary.json").write_text(json.dumps(data["validation"], indent=1, default=str), encoding="utf-8")
 print("ok", N, len(ps))

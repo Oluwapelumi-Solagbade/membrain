@@ -76,7 +76,7 @@ export function PatientHome({ c, lang, onTab, onReport }: { c: Case; lang: Lang;
   const msg = (MESSAGES[key] ?? MESSAGES.BASELINE)[i];
   const scored = c.participant.sessions.filter((s) => s.type !== "intake" && s.type !== "informant").map((s) => s.date.slice(0, 10)).sort();
   const last = scored[scored.length - 1];
-  const nextDate = last ? addDays(last, key === "CHECK_AGAIN" ? 21 : scored.length < 2 ? 14 : 182) : "2026-11-14";
+  const nextDate = last ? addDays(last, key === "CHECK_AGAIN" ? 21 : scored.length < 2 ? 14 : 182) : new Date().toISOString().slice(0, 10);
   const recent = [...c.participant.sessions].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 5);
   const name = nameOf(c, lang);
   const hero = (

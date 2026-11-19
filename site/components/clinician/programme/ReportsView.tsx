@@ -5,7 +5,7 @@ import { Loading, PageHeader, Panel, Stat, SyntheticBadge, btnClass, downloadTex
 import { useWorkspace } from "../WorkspaceProvider";
 import { BarRow, Fact, LevelBar, Note, pct } from "./common";
 import type { Level } from "@/lib/mb";
-import { levelOf } from "@/lib/workspace/derive";
+import { levelOf, TODAY } from "@/lib/workspace/derive";
 import { ENTRY_LABEL } from "@/lib/workspace/concern";
 import { NAV, nav, STATE_LABEL, type Completion, type ProgrammeMetrics } from "@/lib/workspace/navigator";
 import type { ReferralState, TaskAction } from "@/lib/workspace/types";
@@ -71,7 +71,7 @@ export function ReportsView() {
   const people: Record<string, Record<string, unknown>> = Object.fromEntries(
     cases.map((c) => [c.participant.id, { language: c.participant.language, funding: c.participant.funding, sex: c.participant.sex, age_band: c.participant.age_band }]),
   );
-  const live = nav.metrics(refs, people);
+  const live = nav.metrics(refs, people, TODAY);
   const counts: Partial<Record<Level, number>> = {};
   cases.forEach((c) => (counts[levelOf(c)] = (counts[levelOf(c)] ?? 0) + 1));
   const tasks = cases.map((c) => c.task).filter((t): t is NonNullable<typeof t> => !!t);

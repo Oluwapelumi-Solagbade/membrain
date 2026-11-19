@@ -102,7 +102,9 @@ export function Intake({ lang: initialLang, followPid, staff, defaultReporter, o
     else if (rec === "idle") void startMic();
   }
   function useExample() {
-    const e = EXAMPLES[Math.floor(Math.random() * EXAMPLES.length)];
+    const list = EXAMPLES.filter((x) => x.lang === lang);
+    const pool = list.length ? list : EXAMPLES;
+    const e = pool[Math.floor(Math.random() * pool.length)];
     setText(e.text);
     setReporter(e.reporter);
     setResult(null);
@@ -134,7 +136,7 @@ export function Intake({ lang: initialLang, followPid, staff, defaultReporter, o
       timeline: result.timeline.filter((_, i) => ok[`tl:${i}`]).map((x) => [x.activity, x.who_took_over] as [string, string]),
       red_flags: result.fields.filter((f) => f.kind === "red_flag").map((f) => f.key),
       confounders: result.fields.filter((f) => f.kind === "confounder" && ok[`confounder:${f.key}`]).map((f) => f.key),
-      date: followPid ? today() : "2026-11-14",
+      date: today(),
     };
     try {
       const b = await getBackend();

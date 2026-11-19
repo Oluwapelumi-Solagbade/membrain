@@ -747,6 +747,163 @@ def draft_referral(c: dict) -> list[dict]:
     return out
 
 
+def draft_case_referral(p: dict, ev: dict | None = None) -> list[dict]:
+    """Deterministic, comprehensive clinical referral letter drafted from verified case facts.
+    Each item is a dict with 'text' and 'sources'."""
+    from membrain.triage import evaluate
+    if ev is None:
+        ev = evaluate(p, p.get("sessions", []))
+    latest = ev.get("latest") or {}
+    
+    out = []
+    
+    # 1. Demographics & Referral Target
+    disp = p.get("display_name") or {}
+    name = disp.get("en") or disp.get("ar") or p.get("id")
+    age = p.get("age")
+    sex = "male" if p.get("sex") == "M" else ("female" if p.get("sex") == "F" else "individual")
+    age_str = f", a {age}-year-old {sex}" if age else f", an adult {sex}"
+    emirate = p.get("emirate") or "Abu Dhabi"
+    entry = (p.get("entry_route") or "primary care").replace("_", " ")
+    ref_list = p.get("referrals") or []
+    pathway = (ref_list[0].get("pathway") if ref_list else "memory_clinic") or "memory_clinic"
+    pathway_label = pathway.replace("_", " ").title()
+    
+    out.append({
+        "text": f"Clinical referral for specialist assessment at {pathway_label} for {name}{age_str} residing in {emirate} (entry via {entry}).",
+        "sources": ["demographics", "pathway"]
+    })
+    
+    # Clinical urgency & primary indicators
+    lvl = latest.get("level")
+    reasons = latest.get("reasons") or []
+    if lvl == "URGENT":
+        msg = f"Urgent clinical review required. Primary indicators: {'; '.join(reasons)}." if reasons else "Urgent clinical review required due to acute or high-risk cognitive and functional indicators."
+        out.append({"text": msg, "sources": ["urgency", "level:URGENT"]})
+    elif lvl in ("CLINICIAN_REVIEW", "CHECK_AGAIN"):
+        msg = f"Clinical review recommended based on longitudinal monitoring. Primary indicators: {'; '.join(reasons)}." if reasons else "Clinical review recommended based on longitudinal cognitive monitoring."
+        out.append({"text": msg, "sources": ["urgency", f"level:{lvl}"]})
+        
+    # 2. Informant & Caregiver Intake Concern
+    ik = p.get("intake") or {}
+    c = dict(ik.get("confirmed") or {})
+    if not c:
+        rc = next((s for s in reversed(p.get("sessions", [])) if s.get("type") == "intake"), None)
+        if rc:
+            r = rc.get("reported_concern") or {}
+            c = {"narrative": rc.get("concern", ""), "domains": r.get("domains", []), "onset": rc.get("onset"),
+                 "timeline": r.get("timeline", []), "red_flags": rc.get("red_flags", []), "confounders": r.get("confounders", [])}
+    
+    # Red flags if reported
+    rf = c.get("red_flags") or []
+    if rf:
+        rf_labels = [RED_FLAGS.get(k, k.replace("_", " ")) for k in rf]
+        out.append({
+            "text": f"Urgent safety/red flags reported at intake: {'; '.join(rf_labels)}.",
+            "sources": [f"rf:{k}" for k in rf]
+        })
+        
+    if c.get("domains"):
+        dom_labels = [DOMAINS.get(k, k) for k in c["domains"]]
+        onset_txt = f" {ONSET[c['onset']]}" if c.get("onset") and c["onset"] in ONSET else ""
+        who = DRAFT_REPORTER.get(c.get("reporter") or ik.get("reporter"), "Family")
+        out.append({
+            "text": f"{who} reports noticeable changes in {', '.join(dom_labels)}{onset_txt}.",
+            "sources": [f"dom:{k}" for k in c["domains"]]
+        })
+        
+    if c.get("timeline"):
+        tl_str = "; ".join(f"{ACTIVITIES.get(a, a)} (now assisted by {WHO.get(w, w)})" for a, w in c["timeline"])
+        out.append({
+            "text": f"Everyday functional tasks taken over by household members: {tl_str}.",
+            "sources": [f"act:{a}" for a, _ in c["timeline"]]
+        })
+        
+    # Quotes from narrative
+    quotes = [q for q in c.get("quotes", []) if q]
+    if not quotes and c.get("narrative"):
+        narr = c["narrative"].strip()
+        if len(narr) > 10:
+            quotes = [narr[:120] + ("..." if len(narr) > 120 else "")]
+    if quotes:
+        out.append({
+            "text": f"In the reporter's own words: “{quotes[0]}”.",
+            "sources": ["narrative_quote"]
+        })
+        
+    if c.get("confounders"):
+        cf_labels = [CONFOUNDERS.get(k, k.replace("_", " ")) for k in c["confounders"]]
+        out.append({
+            "text": f"Clinical confounders noted at intake: {'; '.join(cf_labels)}.",
+            "sources": [f"cf:{k}" for k in c["confounders"]]
+        })
+        
+    # Background case context (if story present and no detailed narrative)
+    if not c.get("narrative") and p.get("story"):
+        out.append({
+            "text": f"Case presentation context: {p['story']}",
+            "sources": ["clinical_summary"]
+        })
+        
+    # 3. Longitudinal Cognitive Check-In Trajectory
+    checkins = [s for s in p.get("sessions", []) if s.get("type") not in ("intake", "informant")]
+    if checkins:
+        dates = [s.get("date") for s in checkins if s.get("date")]
+        d_range = f"from {dates[0]} to {dates[-1]}" if len(dates) > 1 else f"on {dates[0]}"
+        out.append({
+            "text": f"Digital cognitive tracking comprises {len(checkins)} check-in session(s) completed {d_range}.",
+            "sources": ["longitudinal_checkins"]
+        })
+        
+    drivers = latest.get("drivers") or []
+    if drivers:
+        d_strs = [f"{d.get('input')}: {d.get('metric', 'RCI')} {d.get('value'):+.2f}" for d in drivers[:3]]
+        out.append({
+            "text": f"Key psychometric decline drivers: {'; '.join(d_strs)}.",
+            "sources": ["decline_drivers"]
+        })
+        
+    # 4. Modifiable Risk Factors & Reversible Causes (Lancet Commission 2024)
+    ctx = p.get("context") or {}
+    rf_items = []
+    if ctx.get("sbp") is not None and ctx.get("dbp") is not None:
+        rf_items.append(f"blood pressure {ctx['sbp']}/{ctx['dbp']} mmHg")
+    if ctx.get("hba1c") is not None:
+        rf_items.append(f"HbA1c {ctx['hba1c']}%")
+    if ctx.get("ldl") is not None:
+        rf_items.append(f"LDL {ctx['ldl']} mmol/L")
+    if ctx.get("bmi") is not None:
+        rf_items.append(f"BMI {ctx['bmi']}")
+    if ctx.get("smoker"):
+        rf_items.append("smoking history")
+    if ctx.get("family_history_dementia"):
+        rf_items.append("family history of dementia")
+    if ctx.get("activity_min_week") is not None:
+        rf_items.append(f"physical activity {ctx['activity_min_week']} min/week")
+    if ctx.get("sleep_hours") is not None:
+        rf_items.append(f"sleep duration {ctx['sleep_hours']} hours/night")
+        
+    if rf_items:
+        out.append({
+            "text": f"Lancet Commission 2024 cardiovascular & lifestyle risk factors: {', '.join(rf_items)}.",
+            "sources": ["lancet_risk_factors"]
+        })
+        
+    # 5. Recommended Actions & Next Steps
+    out.append({
+        "text": "Recommended specialist actions: comprehensive multidisciplinary memory clinic evaluation, formal certified clinician MoCA, structural neuroimaging (brain MRI/CT) if clinically indicated, and cardiovascular risk factor optimization.",
+        "sources": ["recommendations"]
+    })
+    
+    # 6. Safety boundary disclaimer
+    out.append({
+        "text": "This referral letter is a screening-derived clinical assessment request. No formal diagnosis has been made.",
+        "sources": ["disclaimer"]
+    })
+    
+    return out
+
+
 def _rep_lower(c):
     r = c.get("reporter")
     return "the family" if r not in DRAFT_REPORTER else DRAFT_REPORTER[r][0].lower() + DRAFT_REPORTER[r][1:]

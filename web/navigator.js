@@ -12,7 +12,7 @@
     function newReferral(id, pid, pathway, service_id, urgency, on, reason, by = "clinician", entry_route = "programme") {
       return { id, participant_id: pid, pathway, service_id, urgency, reason, entry_route, state: "recommended", history: [{ state: "recommended", date: on, reason, by }] };
     }
-    function match(pathway, person, today = "2026-11-14") {
+    function match(pathway, person, today = new Date().toISOString().slice(0, 10)) {
       const langs = new Set(person.languages || [person.language || "ar"]); const out = [];
       for (const s of N.directory) {
         if (!s.pathways.includes(pathway)) continue;
@@ -27,7 +27,7 @@
       return { pathway, services: out, gap, gap_action: gap ? "Record pathway gap, explain options to the person, escalate to responsible clinical team" : null };
     }
     const median = (a) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
-    function metrics(refs, people, today = "2026-11-14") {
+    function metrics(refs, people, today = new Date().toISOString().slice(0, 10)) {
       const sent = refs.filter((r) => stateDate(r, "sent")); const done = refs.filter((r) => stateDate(r, "assessment_completed"));
       const accepted = sent.filter((r) => stateDate(r, "accepted"));
       const tcr = refs.filter((r) => r.concern_date).map((r) => days(r.concern_date, r.history[0].date));

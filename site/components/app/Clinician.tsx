@@ -709,7 +709,7 @@ export function CaseScreen({ id, onBack, onFollow }: { id: string; onBack: () =>
           {open ? (
             <button type="button" onClick={() => { tap("MEDIUM"); setReferOpen(true); }} className="flex h-[52px] flex-[1.4] items-center justify-center gap-2 rounded-[16px] bg-gradient-to-b from-[#1b5a40] to-deep text-[15px] font-semibold text-white shadow-[0_10px_22px_-10px_rgb(15_63_44/0.8)]"><Send size={17} /> Confirm and refer</button>
           ) : (
-            <Link href={`/checkin/?id=${encodeURIComponent(p.id)}&lang=${p.language ?? "en"}`} onClick={() => tap("MEDIUM")} className="flex h-[52px] flex-[1.4] items-center justify-center gap-2 rounded-[16px] bg-gradient-to-b from-[#1b5a40] to-deep text-[15px] font-semibold text-white"><Mic size={17} /> Start a check-in</Link>
+            <Link href={`/checkin/?id=${encodeURIComponent(p.id)}`} onClick={() => tap("MEDIUM")} className="flex h-[52px] flex-[1.4] items-center justify-center gap-2 rounded-[16px] bg-gradient-to-b from-[#1b5a40] to-deep text-[15px] font-semibold text-white"><Mic size={17} /> Start a check-in</Link>
           )}
         </div>
       </div>
@@ -732,7 +732,7 @@ export function CaseScreen({ id, onBack, onFollow }: { id: string; onBack: () =>
           <>
             {open && <div className="my-2 h-px bg-[#eef0ec]" />}
             <SheetAction icon={MessageSquarePlus} title="Record a change" sub="A follow-up concern, by voice or typing" onClick={() => { setMore(false); onFollow(p.id); }} tone="bg-lv-review-soft text-lv-review" />
-            <SheetAction icon={Mic} title="Start a check-in" sub="Six minutes, spoken" href={`/checkin/?id=${encodeURIComponent(p.id)}&lang=${p.language ?? "en"}`} />
+            <SheetAction icon={Mic} title="Start a check-in" sub="Six minutes, spoken" href={`/checkin/?id=${encodeURIComponent(p.id)}`} />
             <SheetAction icon={ClipboardCheck} title="Family questionnaire" sub="Ten questions for a family member" href={`/informant/?id=${encodeURIComponent(p.id)}`} tone="bg-[#e9eef8] text-[#4a6fb0]" />
             {!isIntakeOnly(c) && <SheetAction icon={Lock} title="Contact details" sub="Needs a reason · audited" onClick={() => { setMore(false); setReidOpen(true); }} tone="bg-[#eef0f6] text-[#2b3a55]" />}
             <SheetAction icon={Route} title="Refer to a service" sub="Pathway, matched service, reason checked against the record" onClick={() => { setMore(false); setReferOpen(true); }} />

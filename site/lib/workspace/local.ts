@@ -8,6 +8,7 @@ import { concernSummary } from "./concern";
 import { FAQ_ITEMS, INFORMANT_MESSAGE } from "./informant";
 import { preventionPlan, riskContext } from "./prevention";
 import { nav } from "./navigator";
+import { notifyWorkspaceSync } from "./sync";
 import type { AuditEntry, Backend, Case, CheckinResult, ConcernIn, EnrolDone, EnrolIn, InformantDone, InformantIn, VaultEntry, Participant, ProfileIn, Referral, ReferralIn, ReferralState, SessionIn, Task, TaskAction } from "./types";
 
 const KEY = "membrain.workspace.v2";
@@ -50,10 +51,11 @@ function save(s: State) {
 }
 
 let memory: State | null = null;
-const state = () => (memory ??= load());
+const state = () => (typeof window !== "undefined" ? (memory = load()) : (memory ??= load()));
 const commit = (s: State) => {
   memory = s;
   save(s);
+  notifyWorkspaceSync({ action: "localCommit" });
 };
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
 
@@ -89,6 +91,12 @@ function buildCase(p: Participant, s: State): Case {
       review_target_days: config.REVIEW_TARGET_DAYS[e.level],
       reasons: e.reasons,
       actions: [],
+      hospital_id: typeof p.assigned_hospital === "object" ? p.assigned_hospital?.id ?? null : null,
+      hospital_name: typeof p.assigned_hospital === "object" ? p.assigned_hospital?.name ?? null : p.assigned_hospital ?? null,
+      emirate: p.emirate ?? null,
+      area: p.area ?? null,
+      phone: p.phone ?? null,
+      email: p.email ?? null,
     };
   };
   // A report that only carries the previous level forward (nothing new) does not open a second task.
@@ -188,6 +196,17 @@ export const localBackend: Backend = {
       consent: {},
       referrals: [],
       enrolled: false,
+      phone: body.phone ?? null,
+      email: body.email ?? null,
+      emirate: body.emirate ?? undefined,
+      area: body.area ?? undefined,
+      assigned_hospital: body.hospital_id ? { id: body.hospital_id, name: body.hospital_name ?? null } : null,
+      location: (body.latitude || body.emirate) ? {
+        latitude: body.latitude ?? null,
+        longitude: body.longitude ?? null,
+        emirate: body.emirate ?? null,
+        area: body.area ?? null,
+      } : null,
       intake: {
         reporter: body.reporter,
         at: body.date,

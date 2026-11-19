@@ -68,6 +68,11 @@ def concern_summary(p: dict) -> dict:
         "informant": {"type": inf.get("type"), "relation": inf.get("relation")} if inf else None,
         "attribution": f"Reported by: {raised_by}. This is their account, not a clinical finding, until a clinician confirms it.",
         "missing": missing,
+        "phone": p.get("phone") or (p.get("identity") or {}).get("phone") or (ik.get("phone")),
+        "email": p.get("email") or (p.get("identity") or {}).get("email") or (ik.get("email")),
+        "emirate": p.get("emirate") or ik.get("emirate"),
+        "area": p.get("area") or ik.get("area"),
+        "assigned_hospital": p.get("assigned_hospital") or ik.get("assigned_hospital"),
     }
 
 

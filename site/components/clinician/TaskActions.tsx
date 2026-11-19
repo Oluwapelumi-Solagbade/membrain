@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Check, Info, RotateCcw, Route, Stethoscope, X } from "lucide-react";
 import { btnClass } from "./parts";
 import { useWorkspace } from "./WorkspaceProvider";
-import { caseHref, fmtTime, HELD, levelOf } from "@/lib/workspace/derive";
+import { caseHref, fmtRelTime, fmtTime, HELD, levelOf } from "@/lib/workspace/derive";
 import type { Case } from "@/lib/workspace/types";
 
 const DONE_LABEL: Record<string, string> = {
@@ -46,7 +46,7 @@ export function TaskActions({ c, onRefer }: { c: Case; onRefer?: () => void }) {
       <p className="flex flex-wrap items-center gap-2.5 rounded-xl bg-lv-stable-soft px-4 py-3 text-[15px] font-medium text-lv-stable">
         <Check size={18} /> {DONE_LABEL[last.action] ?? last.action}
         {last.note && <span className="font-normal text-ink">· “{last.note}”</span>}
-        <span className="font-normal text-body">· {fmtTime(last.ts)}</span>
+        <span className="font-normal text-body">· {fmtTime(last.ts)} ({fmtRelTime(last.ts)})</span>
       </p>
     );
   }
@@ -75,7 +75,7 @@ export function TaskActions({ c, onRefer }: { c: Case; onRefer?: () => void }) {
     <div className="space-y-3">
       {last && (
         <p className="flex items-center gap-2 text-[14px] text-body">
-          <RotateCcw size={15} /> {DONE_LABEL[last.action] ?? last.action} · {fmtTime(last.ts)}
+          <RotateCcw size={15} /> {DONE_LABEL[last.action] ?? last.action} · {fmtTime(last.ts)} ({fmtRelTime(last.ts)})
         </p>
       )}
       <div className="flex flex-wrap gap-2.5">

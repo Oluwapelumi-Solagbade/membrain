@@ -132,7 +132,7 @@ def whisper_text(pcm, lang: str) -> tuple[str, object, int]:
     English came out translated into the page's language. Now the recording is split at short pauses, each piece's
     language is detected (Arabic or English only; the page's language is the default), runs of the same language are
     decoded together, and the pieces are joined in order. Returns (text, info, latency_ms)."""
-    page = "ar" if lang == "ar" else "en"
+    page = "ar" if (lang or "").lower().startswith("ar") else "en"
     m = _model()
     if not _RUN.acquire(timeout=BUSY_WAIT_S):
         raise HTTPException(503, "Speech recognition is busy. Please try again in a moment.", headers={"Retry-After": "10"})
@@ -166,6 +166,13 @@ def whisper_text(pcm, lang: str) -> tuple[str, object, int]:
 
 AZURE_MAX_SECONDS = 60
 AZURE_LOCALE = {"ar": "ar-AE", "en": "en-GB"}
+
+
+def _resolve_locale(lang: str) -> str:
+    l = (lang or "").lower().strip()
+    if l.startswith("ar") or l == "arabic":
+        return "ar-AE"
+    return "en-GB"
 
 
 def _engine() -> str | None:
@@ -216,8 +223,9 @@ def _wav(pcm) -> bytes:
 def _azure(pcm, lang: str) -> dict:
     import httpx
     region = os.getenv("AZURE_SPEECH_REGION", "uaenorth")
+    loc = _resolve_locale(lang)
     url = (f"https://{region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1"
-           f"?language={AZURE_LOCALE.get(lang, 'ar-AE')}&format=simple")
+           f"?language={loc}&format=simple")
     t = time.perf_counter()
     try:
         r = httpx.post(url, content=_wav(pcm), timeout=30.0, headers={
@@ -227,13 +235,13 @@ def _azure(pcm, lang: str) -> dict:
         j = r.json()
     except Exception as e:
         raise HTTPException(502, f"Speech service error: {type(e).__name__}")
-    return {"text": (j.get("DisplayText") or "").strip(), "engine": "azure-uaenorth", "language": AZURE_LOCALE.get(lang, "ar-AE"),
+    return {"text": (j.get("DisplayText") or "").strip(), "engine": "azure-uaenorth", "language": loc,
             "duration_s": round(len(pcm) / 16000, 1), "latency_ms": round((time.perf_counter() - t) * 1000),
             "status": j.get("RecognitionStatus")}
 
 
 @router.post("/transcribe")
-async def transcribe(audio: UploadFile = File(...), lang: str = Form("ar")):
+async def transcribe(audio: UploadFile = File(...), lang: str = Form("en")):
     if not _engine():
         raise HTTPException(503, "No server speech engine configured")
     data = await audio.read()

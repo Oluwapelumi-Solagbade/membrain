@@ -102,6 +102,29 @@ export const COPY = {
       "In this prototype, nothing leaves your browser.",
     ],
     emergency: "In an emergency, call 998.",
+    routingTitle: "Nearest hospital & clinical callback",
+    routingSubtitle: "MemBrain routes your concern to the nearest specialist memory clinic in the UAE. A clinician will review the record and call you within 21 days.",
+    detectLocation: "Detect my location",
+    detectingLocation: "Detecting location…",
+    locationDetected: "Location detected",
+    selectArea: "Your Area / Landmark",
+    nearestHospital: "Recommended Hospital",
+    chooseHospital: "Assigned Hospital / Health Network",
+    distanceAway: (d: number) => `${d} km away`,
+    contactTitle: "Your Contact Details",
+    contactSubtitle: "Required so the assigned hospital clinical team can reach out for your review.",
+    phoneLabel: "Phone number (for clinician callback)",
+    phonePlaceholder: "+971 50 123 4567",
+    emailLabel: "Email address (for confidential confirmation)",
+    emailPlaceholder: "you@example.com",
+    contactAssurance: "Your phone and email are encrypted and provided exclusively to the assigned hospital triage team for clinical follow-up.",
+    nextRouting: "Next: Choose Hospital & Contact",
+    submitRouting: "Submit Concern & Route to Hospital",
+    backReview: "Back to Review",
+    assignedHospitalLabel: "Assigned Facility",
+    reviewCommitment: "Target Review: Clinician call within 21 days",
+    phoneRequired: "Please enter a valid phone number so the hospital team can contact you.",
+    emailRequired: "Please enter a valid email address.",
   },
   ar: {
     title: "هل لاحظت تغيّرًا؟",
@@ -198,6 +221,29 @@ export const COPY = {
       "في هذا النموذج، لا يغادر أي شيء متصفحك.",
     ],
     emergency: "في حالات الطوارئ، اتصل على ٩٩٨.",
+    routingTitle: "أقرب مستشفى والمتابعة الطبية",
+    routingSubtitle: "يوجّه MemBrain تقريرك إلى أقرب عيادة تخصصية للذاكرة في دولة الإمارات. سيراجع طبيب مختص السجل ويتصل بك خلال ٢١ يومًا.",
+    detectLocation: "تحديد موقعي الحالي",
+    detectingLocation: "جارٍ تحديد الموقع…",
+    locationDetected: "تم تحديد الموقع بنجاح",
+    selectArea: "منطقتك أو المعلم القريب",
+    nearestHospital: "المستشفى المقترح الأقرب",
+    chooseHospital: "المستشفى أو الشبكة الصحية المخصصة",
+    distanceAway: (d: number) => `على بعد ${ar(d)} كم`,
+    contactTitle: "بيانات التواصل الخاصة بك",
+    contactSubtitle: "مطلوبة ليتواصل معك الفريق الطبي للمستشفى المخصص لمتابعة الحالة.",
+    phoneLabel: "رقم الهاتف (لاتصال الطبيب والمتابعة)",
+    phonePlaceholder: "+971 50 123 4567",
+    emailLabel: "البريد الإلكتروني (لتأكيد سري ومتابعة)",
+    emailPlaceholder: "you@example.com",
+    contactAssurance: "تُشفّر بيانات هاتفك وبريدك وتُتاح حصرًا لفريق الفرز السريري بالمستشفى المخصص للمتابعة الطبية.",
+    nextRouting: "التالي: اختيار المستشفى وبيانات التواصل",
+    submitRouting: "إرسال التقرير وتوجيهه للمستشفى",
+    backReview: "العودة إلى المراجعة",
+    assignedHospitalLabel: "المستشفى المخصص",
+    reviewCommitment: "المراجعة المستهدفة: اتصال الطبيب خلال ٢١ يومًا",
+    phoneRequired: "يُرجى إدخال رقم هاتف صالح ليتسنى لفريق المستشفى الاتصال بك.",
+    emailRequired: "يُرجى إدخال بريد إلكتروني صالح.",
   },
 } as const;
 
@@ -206,12 +252,15 @@ export type Copy = (typeof COPY)[Lang];
 export const REPORTERS: Reporter[] = ["self", "family", "helper", "professional", "coordinator"];
 
 /** Example narratives: the same ones the prototype ships, so results can be compared. */
-export const EXAMPLES: { label: Record<Lang, string>; lang: Lang; reporter: Reporter; text: string }[] = [
+export type ExampleItem = { label: Record<Lang, string>; lang: Lang; reporter: Reporter; text: string };
+
+export const EXAMPLES: ExampleItem[] = [
+  // --- English examples ---
   {
-    label: { en: "Mum's memory and money (Arabic)", ar: "ذاكرة الوالدة والأمور المالية" },
-    lang: "ar",
+    label: { en: "Mother's memory and finances", ar: "ذاكرة الوالدة والأمور المالية" },
+    lang: "en",
     reporter: "family",
-    text: "أمي من حوالي سنتين صارت تنسى وايد وتعيد نفس السؤال. ما تقدر تدير بطاقة البنك، وأختي الحين تدفع الفواتير عنها. وصارت ضايقة وما تبي تطلع.",
+    text: "For about two years my mother has been forgetting things frequently and repeating the same question. She can no longer manage her bank card, and my sister now pays the bills for her. She has also become withdrawn and no longer wants to go out.",
   },
   {
     label: { en: "Dad, as the helper sees it", ar: "الوالد، كما تراه العاملة المنزلية" },
@@ -220,15 +269,41 @@ export const EXAMPLES: { label: Record<Lang, string>; lang: Lang; reporter: Repo
     text: "Our helper says Dad left the gas on twice this month and asks her the same question many times a day. My son now handles his bills. It has been getting worse for about a year. He started a new blood pressure medicine in August.",
   },
   {
-    label: { en: "A fall, then confusion (Arabic)", ar: "سقوط ثم تشوّش" },
+    label: { en: "Recent fall and confusion", ar: "سقوط ثم تشوّش" },
+    lang: "en",
+    reporter: "family",
+    text: "My father fell yesterday in the bathroom and hit his head. Since then he has been very drowsy, confused, and his speech has become slurred.",
+  },
+  {
+    label: { en: "My own memory and driving", ar: "ذاكرتي والقيادة" },
+    lang: "en",
+    reporter: "self",
+    text: "For the last few months I keep forgetting appointments and I lose track of conversations at work. My wife now pays our bills because I missed two. My son now does the driving since I got lost on a familiar road. It has been getting worse.",
+  },
+
+  // --- Arabic examples ---
+  {
+    label: { en: "Mother's memory and finances", ar: "ذاكرة الوالدة والأمور المالية" },
+    lang: "ar",
+    reporter: "family",
+    text: "أمي من حوالي سنتين صارت تنسى وايد وتعيد نفس السؤال. ما تقدر تدير بطاقة البنك، وأختي الحين تدفع الفواتير عنها. وصارت ضايقة وما تبي تطلع.",
+  },
+  {
+    label: { en: "Dad, as the helper sees it", ar: "الوالد، كما تراه العاملة المنزلية" },
+    lang: "ar",
+    reporter: "family",
+    text: "العاملة تقول إن الوالد ترك الغاز شغال مرتين هذا الشهر ويكرر عليها نفس السؤال كذا مرة باليوم. ولدي الحين يدير فواتيره. الموضوع يزداد من سنة تقريبًا، وبدأ دواء ضغط جديد في أغسطس.",
+  },
+  {
+    label: { en: "Recent fall and confusion", ar: "سقوط ثم تشوّش" },
     lang: "ar",
     reporter: "family",
     text: "أبوي طاح أمس في الحمام وضرب راسه، ومن يومها نعسان ومتلخبط وكلامه ثقيل.",
   },
   {
-    label: { en: "My own memory", ar: "ذاكرتي أنا (بالإنجليزية)" },
-    lang: "en",
+    label: { en: "My own memory and driving", ar: "ذاكرتي والقيادة" },
+    lang: "ar",
     reporter: "self",
-    text: "For the last few months I keep forgetting appointments and I lose track of conversations at work. My wife now pays our bills because I missed two. My son now does the driving since I got lost on a familiar road. It has been getting worse.",
+    text: "من عدة أشهر صرت أنسى المواعيد وأفقد تركيزي بمحادثات العمل. زوجتي الحين تدير حساباتنا لأني نسيت دفعتين. ولدي صار يسوق عني بعد ما ضيعت طريقي بشارع متعود عليه، والموضوع يزداد صعوبة.",
   },
 ];

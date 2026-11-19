@@ -1,6 +1,7 @@
 // The workspace against the MemBrain API (api/main.py). Every call carries the signed-in session's bearer token
 // (lib/auth.ts); the server decides from it what the caller may see.
 import { authHeader, sessionEnded } from "../auth";
+import { notifyWorkspaceSync } from "./sync";
 import type { AuditEntry, Backend, Case, CheckinResult, ConcernIn, EnrolDone, EnrolIn, InformantDone, InformantIn, VaultEntry, ProfileIn, Referral, ReferralIn, ReferralState, SessionIn, TaskAction } from "./types";
 
 async function call<T>(base: string, path: string, init: RequestInit = {}): Promise<T> {
@@ -30,21 +31,53 @@ export function serverBackend(base: string): Backend {
     cases: () => call<Case[]>(base, "/cases"),
     act: async (taskId: string, action: TaskAction, note = "", referralTo: string | null = null) => {
       await post(`/tasks/${encodeURIComponent(taskId)}/action`, { action, note, referral_to: referralTo });
+      notifyWorkspaceSync({ action: "act", taskId });
     },
-    refer: (pid: string, body: ReferralIn) => post<Referral>(`/participants/${encodeURIComponent(pid)}/referrals`, body),
-    advance: (rid: string, state: ReferralState, date: string, reason = "") => post<Referral>(`/referrals/${encodeURIComponent(rid)}/status`, { state, date, reason }),
+    refer: async (pid: string, body: ReferralIn) => {
+      const r = await post<Referral>(`/participants/${encodeURIComponent(pid)}/referrals`, body);
+      notifyWorkspaceSync({ action: "refer", pid });
+      return r;
+    },
+    advance: async (rid: string, state: ReferralState, date: string, reason = "") => {
+      const r = await post<Referral>(`/referrals/${encodeURIComponent(rid)}/status`, { state, date, reason });
+      notifyWorkspaceSync({ action: "advance", rid });
+      return r;
+    },
     audit: () => call<AuditEntry[]>(base, "/audit"),
-    raiseConcern: (body: ConcernIn) => post<Case>("/concerns", body),
-    followUpConcern: (pid: string, body: ConcernIn) => post<Case>(`/participants/${encodeURIComponent(pid)}/concerns`, body),
-    submitInformant: (pid: string, body: InformantIn) => post<InformantDone>(`/participants/${encodeURIComponent(pid)}/informant`, body),
-    enrol: (body: EnrolIn) => post<EnrolDone>("/participants", body),
+    raiseConcern: async (body: ConcernIn) => {
+      const r = await post<Case>("/concerns", body);
+      notifyWorkspaceSync({ action: "raiseConcern", pid: r.participant.id });
+      return r;
+    },
+    followUpConcern: async (pid: string, body: ConcernIn) => {
+      const r = await post<Case>(`/participants/${encodeURIComponent(pid)}/concerns`, body);
+      notifyWorkspaceSync({ action: "followUpConcern", pid });
+      return r;
+    },
+    submitInformant: async (pid: string, body: InformantIn) => {
+      const r = await post<InformantDone>(`/participants/${encodeURIComponent(pid)}/informant`, body);
+      notifyWorkspaceSync({ action: "submitInformant", pid });
+      return r;
+    },
+    enrol: async (body: EnrolIn) => {
+      const r = await post<EnrolDone>("/participants", body);
+      notifyWorkspaceSync({ action: "enrol", id: r.id });
+      return r;
+    },
     reidentify: (pid: string, reason: string) => post<VaultEntry>(`/participants/${encodeURIComponent(pid)}/reidentify`, { reason }),
-    setProfile: (pid: string, body: ProfileIn) =>
-      call<Case>(base, `/participants/${encodeURIComponent(pid)}/profile`, { method: "PATCH", body: JSON.stringify(body) }),
-    submitSession: (pid: string, body: SessionIn) =>
-      call<CheckinResult>(base, `/participants/${encodeURIComponent(pid)}/sessions`, { method: "POST", body: JSON.stringify(body) }),
+    setProfile: async (pid: string, body: ProfileIn) => {
+      const r = await call<Case>(base, `/participants/${encodeURIComponent(pid)}/profile`, { method: "PATCH", body: JSON.stringify(body) });
+      notifyWorkspaceSync({ action: "setProfile", pid });
+      return r;
+    },
+    submitSession: async (pid: string, body: SessionIn) => {
+      const r = await call<CheckinResult>(base, `/participants/${encodeURIComponent(pid)}/sessions`, { method: "POST", body: JSON.stringify(body) });
+      notifyWorkspaceSync({ action: "submitSession", pid });
+      return r;
+    },
     reset: async () => {
       await post("/demo/reset", {});
+      notifyWorkspaceSync({ action: "reset" });
     },
   };
 }

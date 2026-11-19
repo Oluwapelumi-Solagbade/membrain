@@ -2,11 +2,11 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, Clock, Download, MapPin, Route, Search } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Download, MapPin, RotateCcw, Route, Search } from "lucide-react";
 import { Loading, PageHeader, Panel, Stat, SyntheticBadge, Tabs, btnClass, downloadText, toCsv } from "../parts";
 import { ReferralCard, ReferralState } from "../ReferralCard";
 import { useWorkspace } from "../WorkspaceProvider";
-import { caseHref, fmtDate, TODAY } from "@/lib/workspace/derive";
+import { caseHref, fmtDate, fmtRelTime, TODAY } from "@/lib/workspace/derive";
 import { DONE, NAV, nav, serviceById, STALLED, STATE_LABEL, type Service } from "@/lib/workspace/navigator";
 import type { Referral } from "@/lib/workspace/types";
 
@@ -29,7 +29,7 @@ const isOverdue = (r: Referral) => (r.state === "sent" || r.state === "recommend
 const pct = (x: number | null) => (x == null ? "–" : `${Math.round(x * 100)}%`);
 
 export function ReferralsView() {
-  const { ready, cases } = useWorkspace();
+  const { ready, cases, refresh, syncing } = useWorkspace();
   const [tab, setTab] = useState<"referrals" | "directory">("referrals");
 
   const referrals = useMemo(() => cases.flatMap((c) => c.participant.referrals), [cases]);
@@ -45,7 +45,25 @@ export function ReferralsView() {
 
   return (
     <>
-      <PageHeader title="Referrals" sub="Closed-loop tracking: a referral counts as done only when the assessment has happened and follow-up is written down" aside={<SyntheticBadge />} />
+      <PageHeader
+        title="Referrals"
+        sub="Closed-loop tracking: a referral counts as done only when the assessment has happened and follow-up is written down"
+        aside={
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void refresh()}
+              disabled={syncing}
+              title="Refresh referrals from server"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-white px-3 py-1.5 text-[13px] font-medium text-body shadow-sm hover:bg-paper"
+            >
+              <RotateCcw size={14} className={syncing ? "animate-spin text-leaf" : ""} />
+              <span>{syncing ? "Syncing..." : "Sync"}</span>
+            </button>
+            <SyntheticBadge />
+          </div>
+        }
+      />
 
       <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <Stat tone="referral" icon={Route} label="In progress" value={ready ? metrics.unresolved : "–"} note="Not yet closed or cancelled" />
@@ -147,7 +165,10 @@ function ReferralList({ referrals }: { referrals: Referral[] }) {
                         <td className="border-b border-[#f0f0ec] px-4 py-3">
                           <ReferralState state={r.state} />
                         </td>
-                        <td className="whitespace-nowrap border-b border-[#f0f0ec] px-4 py-3 text-body">{fmtDate(lastDate(r))}</td>
+                        <td className="whitespace-nowrap border-b border-[#f0f0ec] px-4 py-3 text-body">
+                          <div>{fmtDate(lastDate(r))}</div>
+                          <div className="text-[12px] text-muted">{fmtRelTime(lastDate(r))}</div>
+                        </td>
                         <td className="whitespace-nowrap border-b border-[#f0f0ec] px-4 py-3">
                           {NAV.closed.includes(r.state) ? <span className="text-muted">–</span> : <span className="tabular-nums">{d} d</span>}
                           {isOverdue(r) && <span className="ms-2 rounded-full bg-lv-review-soft px-2 py-0.5 text-[12px] font-semibold text-lv-review">overdue</span>}
@@ -174,7 +195,7 @@ function ReferralList({ referrals }: { referrals: Referral[] }) {
                       <span className="mt-1 block text-[14.5px]">{NAV.pathways[r.pathway] ?? r.pathway}</span>
                       <span className="block text-[13.5px] text-body">{serviceById(r.service_id)?.name ?? "Service to be assigned"}</span>
                       <span className="mt-1.5 flex flex-wrap items-center gap-2 text-[13px] text-muted">
-                        <span className={r.urgency === "urgent" ? "font-medium text-lv-urgent" : ""}>{r.urgency}</span>· updated {fmtDate(lastDate(r))}
+                        <span className={r.urgency === "urgent" ? "font-medium text-lv-urgent" : ""}>{r.urgency}</span>· updated {fmtDate(lastDate(r))} ({fmtRelTime(lastDate(r))})
                         {!NAV.closed.includes(r.state) && <>· {daysInStep(r)} d in step</>}
                         {isOverdue(r) && <span className="rounded-full bg-lv-review-soft px-2 py-0.5 text-[12px] font-semibold text-lv-review">overdue</span>}
                       </span>
