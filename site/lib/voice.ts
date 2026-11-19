@@ -8,7 +8,63 @@ import { asset } from "@/lib/asset";
 import { getBackend } from "@/lib/workspace/backend";
 
 export type Engine = "local" | "azure" | "browser" | "typed";
-export type Speech = { engine: Engine; label: string; base: string | null; region?: string; locales?: Record<string, string>; inUae?: boolean };
+export type Speech = {
+  engine: Engine;
+  label: string;
+  base: string | null;
+  region?: string;
+  locales?: Record<string, string>;
+  inUae?: boolean;
+  key?: string;
+};
+
+export const DEFAULT_AZURE_LOCALES: Record<string, string> = {
+  Emirati: "ar-AE",
+  "Other Gulf": "ar-SA",
+  Egyptian: "ar-EG",
+  Levantine: "ar-LB",
+  "Other Arabic": "ar-AE",
+  English: "en-GB",
+};
+
+export function getDirectAzureKey(): { key: string; region: string } | null {
+  if (typeof window === "undefined") return null;
+  const q = new URLSearchParams(window.location.search);
+  const qKey = q.get("azure_key");
+  const qRegion = q.get("azure_region");
+  if (qKey) {
+    try {
+      window.localStorage.setItem("membrain.azure_speech_key", qKey);
+      if (qRegion) window.localStorage.setItem("membrain.azure_speech_region", qRegion);
+    } catch {
+      /* ignore */
+    }
+    return { key: qKey, region: qRegion || "uaenorth" };
+  }
+  const envKey = process.env.NEXT_PUBLIC_AZURE_SPEECH_KEY;
+  const envRegion = process.env.NEXT_PUBLIC_AZURE_SPEECH_REGION || "uaenorth";
+  if (envKey) return { key: envKey, region: envRegion };
+
+  try {
+    const lsKey = window.localStorage.getItem("membrain.azure_speech_key");
+    const lsRegion = window.localStorage.getItem("membrain.azure_speech_region") || "uaenorth";
+    if (lsKey) return { key: lsKey, region: lsRegion };
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+export function setDirectAzureKey(key: string, region = "uaenorth"): void {
+  if (typeof window === "undefined") return;
+  if (!key.trim()) {
+    window.localStorage.removeItem("membrain.azure_speech_key");
+    window.localStorage.removeItem("membrain.azure_speech_region");
+  } else {
+    window.localStorage.setItem("membrain.azure_speech_key", key.trim());
+    window.localStorage.setItem("membrain.azure_speech_region", region.trim() || "uaenorth");
+  }
+}
 
 export type Audio = { snr_db: number; clipping: number; speech_ratio: number; duration_s: number };
 export type VoiceFeatures = { speech_rate_wpm: number; pause_count: number; mean_pause_s: number; type_token_ratio: number; word_count: number };
@@ -53,23 +109,49 @@ function loadScript(src: string): Promise<void> {
 export async function detectSpeech(base: string | null): Promise<Speech> {
   const browser = !!(win().SpeechRecognition || win().webkitSpeechRecognition);
   let s: Speech = { engine: browser ? "browser" : "typed", label: LABEL[browser ? "browser" : "typed"], base };
-  if (base === null) return s;
-  const ask = new URLSearchParams(window.location.search).get("asr");
-  const cfg = await getJson<{ enabled: boolean; region: string; locales: Record<string, string> }>(base + "/api/speech/config");
-  if (cfg?.enabled && ask !== "browser") {
+
+  const ask = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("asr") : null;
+  if (ask === "browser") return s;
+
+  // 1. Direct Azure key (via env var, URL parameter, or saved in browser localStorage)
+  const direct = getDirectAzureKey();
+  if (direct?.key && ask !== "local") {
     try {
       await loadScript(SDK_URL);
-      s = { engine: "azure", label: LABEL.azure, base, region: cfg.region, locales: cfg.locales };
+      s = {
+        engine: "azure",
+        label: LABEL.azure,
+        base,
+        region: direct.region,
+        key: direct.key,
+        locales: DEFAULT_AZURE_LOCALES,
+      };
+      return s;
     } catch {
-      /* SDK did not load: keep the fallback */
+      /* SDK did not load */
     }
   }
-  const asr = await getJson<{ enabled: boolean; prefer: boolean; label?: string; in_uae?: boolean; engine?: string }>(base + "/api/asr/config");
-  if (asr?.enabled && ask !== "azure" && ask !== "browser" && typeof MediaRecorder !== "undefined") {
-    // Only switch to self-hosted Whisper if Azure is not configured, or if specifically requested with ?asr=local
-    if (ask === "local" || (!cfg?.enabled && asr.prefer)) {
-      const where = asr.in_uae ? "self-hosted, in-country" : "self-hosted";
-      s = { engine: "local", label: asr.label ? `${asr.label.replace(/\s*\(in-country\)$/, "")} (${where})` : LABEL.local, base, locales: cfg?.locales, inUae: asr.in_uae === true };
+
+  // 2. Server-brokered Azure Speech or local model via backend API
+  if (base !== null) {
+    const cfg = await getJson<{ enabled: boolean; region: string; locales: Record<string, string> }>(base + "/api/speech/config");
+    if (cfg?.enabled && ask !== "local") {
+      try {
+        await loadScript(SDK_URL);
+        s = { engine: "azure", label: LABEL.azure, base, region: cfg.region, locales: cfg.locales };
+        return s;
+      } catch {
+        /* SDK did not load: keep the fallback */
+      }
+    }
+    const asr = await getJson<{ enabled: boolean; prefer: boolean; label?: string; in_uae?: boolean; engine?: string }>(base + "/api/asr/config");
+    if (asr?.enabled && ask !== "azure" && typeof MediaRecorder !== "undefined") {
+      // Only switch to self-hosted Whisper if Azure is not configured, or if specifically requested with ?asr=local
+      if (ask === "local" || (!cfg?.enabled && asr.prefer)) {
+        const where = asr.in_uae ? "self-hosted, in-country" : "self-hosted";
+        s = { engine: "local", label: asr.label ? `${asr.label.replace(/\s*\(in-country\)$/, "")} (${where})` : LABEL.local, base, locales: cfg?.locales, inUae: asr.in_uae === true };
+        return s;
+      }
     }
   }
   return s;
@@ -294,12 +376,19 @@ export class Recorder {
         this.mr = null;
       }
     }
-    if (sp.engine === "azure" && sp.base !== null && win().SpeechSDK) {
+    if (sp.engine === "azure" && (sp.key || sp.base !== null) && win().SpeechSDK) {
       try {
-        const tok = await getJson<{ token: string; region: string }>(sp.base + "/api/speech/token");
-        if (!tok) throw new Error("token");
         const sdk = win().SpeechSDK;
-        const cfg = sdk.SpeechConfig.fromAuthorizationToken(tok.token, tok.region);
+        let cfg;
+        if (sp.key) {
+          cfg = sdk.SpeechConfig.fromSubscription(sp.key, sp.region || "uaenorth");
+        } else if (sp.base !== null) {
+          const tok = await getJson<{ token: string; region: string }>(sp.base + "/api/speech/token");
+          if (!tok) throw new Error("token");
+          cfg = sdk.SpeechConfig.fromAuthorizationToken(tok.token, tok.region);
+        } else {
+          throw new Error("No speech key or token available");
+        }
         cfg.speechRecognitionLanguage = this.locale;
         this.push = sdk.AudioInputStream.createPushStream();
         this.az = new sdk.SpeechRecognizer(cfg, sdk.AudioConfig.fromStreamInput(this.push));
@@ -324,7 +413,10 @@ export class Recorder {
             emit();
           }
         };
-        this.az.canceled = () => {
+        this.az.canceled = (_: unknown, e: any) => {
+          if (e && e.errorDetails) {
+            console.warn("Azure Speech SDK error:", e.errorDetails);
+          }
           if (this.active && this.az) {
             try {
               this.az.close();
@@ -338,7 +430,8 @@ export class Recorder {
         await new Promise((res, rej) => this.az.startContinuousRecognitionAsync(res, rej));
         this.engine = "azure";
         return true;
-      } catch {
+      } catch (err) {
+        console.warn("Azure Speech init failed, falling back to browser:", err);
         this.az = null;
       }
     }

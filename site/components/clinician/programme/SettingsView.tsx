@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Database, Download, History, RefreshCw, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { CheckCircle2, Database, Download, History, Key, Mic, RefreshCw, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { PageHeader, Panel, btnClass, downloadText, toCsv } from "../parts";
 import { useWorkspace } from "../WorkspaceProvider";
 import { Fact, Note, selectClass } from "./common";
@@ -10,6 +10,7 @@ import engineData from "@/lib/generated/engine-data.json";
 import { config } from "@/lib/mb";
 import { caseHref, fmtTime } from "@/lib/workspace/derive";
 import type { AuditEntry } from "@/lib/workspace/types";
+import { detectSpeech, getDirectAzureKey, setDirectAzureKey, type Speech } from "@/lib/voice";
 
 const C = config as unknown as Record<string, unknown> & {
   REVIEW_TARGET_DAYS: Record<string, number>;
@@ -136,7 +137,7 @@ export function SettingsView() {
     <>
       <PageHeader title="Settings" sub="Where the data lives, the thresholds every level comes from, and who did what" />
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_1.2fr]">
+      <div className="mt-6 grid gap-5 lg:grid-cols-2">
         <Panel title="Data source" icon={Database}>
           <Fact k="Mode" v={mode === "server" ? "Live: MemBrain server" : mode === "browser" ? "Demo: in this browser" : "Connecting…"} />
           <Fact k="Server address" v={mode === "server" ? base || "This site's own server" : "None answered"} />
@@ -173,6 +174,10 @@ export function SettingsView() {
           </div>
         </Panel>
 
+        <SpeechConfigPanel base={base} />
+      </div>
+
+      <div className="mt-5">
         <Panel title="Urgent warning signs" icon={SlidersHorizontal} aside={<span className="text-[13.5px] text-body">Any one means urgent</span>}>
           <ul className="space-y-1.5 text-[14.5px]">
             {Object.entries(C.RED_FLAGS).map(([k, label]) => (
@@ -284,5 +289,113 @@ export function SettingsView() {
         </Panel>
       </div>
     </>
+  );
+}
+
+function SpeechConfigPanel({ base }: { base: string | null }) {
+  const [speech, setSpeech] = useState<Speech | null>(null);
+  const [key, setKey] = useState("");
+  const [region, setRegion] = useState("uaenorth");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [showKey, setShowKey] = useState(false);
+
+  useEffect(() => {
+    const direct = getDirectAzureKey();
+    if (direct) {
+      setKey(direct.key);
+      setRegion(direct.region);
+    }
+    void detectSpeech(base).then(setSpeech);
+  }, [base]);
+
+  const save = async () => {
+    setDirectAzureKey(key, region);
+    const updated = await detectSpeech(base);
+    setSpeech(updated);
+    setMsg(key.trim() ? "Azure Speech key saved! Speech engine is now Azure AI Speech." : "Key cleared. Reverted to standard detection.");
+    setTimeout(() => setMsg(null), 4000);
+  };
+
+  const clear = async () => {
+    setKey("");
+    setDirectAzureKey("", "uaenorth");
+    const updated = await detectSpeech(base);
+    setSpeech(updated);
+    setMsg("Cleared custom Azure Speech key.");
+    setTimeout(() => setMsg(null), 4000);
+  };
+
+  return (
+    <Panel
+      title="Speech & Voice AI"
+      icon={Mic}
+      aside={
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-[12px] font-medium ${
+            speech?.engine === "azure"
+              ? "bg-lv-stable-soft text-lv-stable"
+              : speech?.engine === "local"
+                ? "bg-deep/10 text-deep"
+                : "bg-lv-hold-soft text-lv-hold"
+          }`}
+        >
+          {speech?.engine === "azure" ? "Azure AI Speech Active" : speech?.engine === "local" ? "Gulf Whisper Active" : "Browser Speech Active"}
+        </span>
+      }
+    >
+      <Fact k="Active engine" v={speech?.label ?? "Detecting…"} />
+      <Fact k="Target region" v={speech?.region ?? region} />
+      {speech?.key && <Fact k="Key source" v="Direct browser key (localStorage)" />}
+
+      <div className="mt-4 space-y-3 border-t border-line pt-4">
+        <label className="block text-[13.5px] font-medium text-ink">
+          Azure AI Speech Key
+          <div className="mt-1.5 flex gap-2">
+            <input
+              type={showKey ? "text" : "password"}
+              value={key}
+              onChange={(e) => setKey(e.target.value)}
+              placeholder="Paste Azure Speech Key…"
+              className="flex-1 rounded-xl border border-line bg-panel px-3 py-2 font-mono text-[13px] text-ink placeholder:text-muted focus:border-deep focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey(!showKey)}
+              className="rounded-xl border border-line px-3 py-2 text-[12px] text-body hover:bg-neutral-100"
+            >
+              {showKey ? "Hide" : "Show"}
+            </button>
+          </div>
+        </label>
+
+        <label className="block text-[13.5px] font-medium text-ink">
+          Azure Region
+          <input
+            type="text"
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+            placeholder="e.g. uaenorth"
+            className="mt-1.5 w-full rounded-xl border border-line bg-panel px-3 py-2 font-mono text-[13px] text-ink focus:border-deep focus:outline-none"
+          />
+        </label>
+
+        {msg && <p className="rounded-xl bg-lv-stable-soft px-3 py-2 text-[13px] text-lv-stable">{msg}</p>}
+
+        <div className="flex flex-wrap gap-2 pt-1">
+          <button type="button" onClick={save} className={btnClass.primary}>
+            Save & Activate Azure
+          </button>
+          {key && (
+            <button type="button" onClick={clear} className={btnClass.secondary}>
+              Clear Key
+            </button>
+          )}
+        </div>
+
+        <p className="text-[12.5px] leading-relaxed text-body">
+          Tip: You can also set <code className="font-mono text-[12px] text-ink">AZURE_SPEECH_KEY</code> in GitHub Repository Secrets (for GitHub Pages builds) or Hugging Face Space secrets to enable Azure Speech across all devices without entering it here.
+        </p>
+      </div>
+    </Panel>
   );
 }
