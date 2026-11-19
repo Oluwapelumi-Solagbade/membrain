@@ -10,6 +10,7 @@ import { config, getEngine, getIntake, LEVEL_TONE, REPORTER_LABEL, type Evaluati
 import { ACTIVITY, CONFOUNDER, DOMAIN, ONSET, RED_FLAG, WHO, label } from "@/lib/labels";
 import { APP_HOME, appCaseHref, inApp } from "@/lib/app";
 import { rememberClaim } from "@/lib/auth";
+import { speak as speakAloud, stopSpeaking } from "@/lib/voice";
 import { getBackend } from "@/lib/workspace/backend";
 import { COPY, EXAMPLES, REPORTERS, type Copy } from "./copy";
 
@@ -35,19 +36,8 @@ function getRecognition(): RecognitionCtor | null {
 }
 
 function speak(text: string, lang: Lang, onEnd: () => void) {
-  try {
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = lang === "ar" ? "ar-AE" : "en-GB";
-    u.rate = 0.95;
-    const voice = speechSynthesis.getVoices().find((v) => v.lang.startsWith(lang === "ar" ? "ar" : "en"));
-    if (voice) u.voice = voice;
-    u.onend = onEnd;
-    u.onerror = onEnd;
-    speechSynthesis.cancel();
-    speechSynthesis.speak(u);
-  } catch {
-    onEnd();
-  }
+  // the server's voice when it has one (works in the Android app and in Chrome), else the device's
+  void speakAloud(text, lang).finally(onEnd);
 }
 
 const refFor = (text: string) => {
@@ -235,7 +225,7 @@ export function ConcernChat() {
   useEffect(() => () => {
     recRef.current?.stop();
     try { mrRef.current?.mr.stop(); mrRef.current?.stream.getTracks().forEach((tr) => tr.stop()); } catch { /* not recording */ }
-    try { speechSynthesis.cancel(); } catch { /* not available */ }
+    stopSpeaking();
   }, []);
 
   const switchLang = (l: Lang) => {
@@ -520,7 +510,7 @@ export function ConcernChat() {
   };
 
   function stopReading() {
-    try { speechSynthesis.cancel(); } catch { /* ignore */ }
+    stopSpeaking();
     setReading(false);
   }
 

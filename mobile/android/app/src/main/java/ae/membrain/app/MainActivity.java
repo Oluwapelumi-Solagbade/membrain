@@ -36,6 +36,9 @@ public class MainActivity extends BridgeActivity {
         setIcons(true);
 
         WebView web = getBridge().getWebView();
+        // Spoken instructions are audio from the MemBrain server (Android's WebView has no speech synthesis):
+        // let them play without a tap on each one.
+        web.getSettings().setMediaPlaybackRequiresUserGesture(false);
         web.addJavascriptInterface(new NativeBars(), "MembrainNative");
         ViewCompat.setOnApplyWindowInsetsListener(web, (v, insets) -> {
             Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());

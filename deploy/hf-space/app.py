@@ -17,7 +17,8 @@ if ON_ZERO_GPU:
         return True
 
 os.environ.setdefault("WHISPER_MODEL", "Vulcan-Spark/membrain-whisper-gulf-ct2")
-os.environ.setdefault("ASR_PREFER_LOCAL", "1")   # spoken check-in uses our Gulf Whisper, not the browser
+os.environ.setdefault("ASR_PREFER_LOCAL", "1")
+os.environ.setdefault("PIPER_TTS", "1")   # instructions spoken by the server (api/tts.py): Android WebView and Chrome lack Arabic voices   # spoken check-in uses our Gulf Whisper, not the browser
 os.environ.setdefault("SERVER_IN_UAE", "0")   # this demo host is not in the UAE: the site words its privacy notes so
 # Live demo data is saved to this PRIVATE dataset (api/store.py) when the Space has a STORE_TOKEN secret
 # (fine-grained, write access to that dataset only). Without the secret, data stays in memory as before.

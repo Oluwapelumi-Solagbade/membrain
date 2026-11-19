@@ -35,6 +35,8 @@ from membrain.triage import LEVELS, evaluate
 @contextlib.asynccontextmanager
 async def lifespan(_app):
     from api.telegram import running   # the Telegram bot runs with the API when TELEGRAM_BOT_TOKEN is set
+    from api.tts import preload
+    preload()                          # server voices for spoken instructions (api/tts.py), loaded in the background
     async with running():
         yield
 
@@ -52,6 +54,9 @@ app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, allow_methods=
 from api.speech import router as speech_router  # noqa: E402
 
 app.include_router(speech_router)
+from api.tts import router as tts_router  # noqa: E402
+
+app.include_router(tts_router)
 from api.navai import router as navai_router  # noqa: E402
 
 app.include_router(navai_router)

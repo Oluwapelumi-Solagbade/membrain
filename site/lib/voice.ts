@@ -5,6 +5,7 @@
 // The check-in's recorder (first written for the earlier prototype).
 import type { Lang } from "./mb";
 import { asset } from "@/lib/asset";
+import { getBackend } from "@/lib/workspace/backend";
 
 export type Engine = "local" | "azure" | "browser" | "typed";
 export type Speech = { engine: Engine; label: string; base: string | null; region?: string; locales?: Record<string, string>; inUae?: boolean };
@@ -85,11 +86,62 @@ function loadVoices() {
 }
 if (typeof window !== "undefined") loadVoices();
 
+/* Server voices (api/tts.py): the Android app's WebView has no speech at all and Chrome often has no Arabic voice,
+ * so instructions are spoken by the MemBrain server when it offers it, and by the device otherwise. */
+let ttsBase: string | null | undefined;
+let ttsOn: Promise<boolean> | null = null;
+let playing: HTMLAudioElement | null = null;
+let playingDone: (() => void) | null = null;
+
+async function serverVoice(): Promise<boolean> {
+  if (ttsBase === undefined) {
+    try {
+      const b = await getBackend();
+      ttsBase = b.mode === "server" ? b.base ?? "" : null;
+    } catch {
+      ttsBase = null;
+    }
+  }
+  if (ttsBase === null) return false;
+  ttsOn ??= getJson<{ enabled: boolean }>(ttsBase + "/api/speech/tts/config").then((c) => !!c?.enabled);
+  return ttsOn;
+}
+
+function playServer(text: string, lang: Lang, slow: boolean): Promise<boolean> {
+  return new Promise((resolve) => {
+    const q = new URLSearchParams({ text, lang, ...(slow ? { slow: "true" } : {}) });
+    const a = new Audio(`${ttsBase}/api/speech/tts?${q}`);
+    let started = false;
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      if (playing === a) { playing = null; playingDone = null; }
+      resolve(ok);
+    };
+    playing = a;
+    playingDone = () => finish(true);
+    a.onplaying = () => { started = true; };
+    a.onended = () => finish(true);
+    a.onerror = () => finish(started);
+    // The first Arabic sentence can take a few seconds while the server voice wakes up; after that, the device speaks.
+    window.setTimeout(() => { if (!started) { a.pause(); a.removeAttribute("src"); finish(false); } }, 9000);
+    a.play().catch(() => finish(false));   // autoplay refused: the device voice takes over
+  });
+}
+
 export function stopSpeaking() {
   try {
     speechSynthesis.cancel();
   } catch {
     /* ignore */
+  }
+  if (playing) {
+    playing.pause();
+    const done = playingDone;
+    playing = null;
+    playingDone = null;
+    done?.();
   }
 }
 
@@ -106,7 +158,15 @@ export function arabicOnly(text: string): string {
 
 /** Says the text; resolves when it has finished. Resolves `false` when the device plainly could not say it
  * (no voice for the language, or speech blocked), so the screen can show the text instead. */
-export function speak(text: string, lang: Lang, slow = false): Promise<boolean> {
+export async function speak(text: string, lang: Lang, slow = false): Promise<boolean> {
+  stopSpeaking();
+  if (await serverVoice()) {
+    if (await playServer(text, lang, slow)) return true;
+  }
+  return speakOnDevice(text, lang, slow);
+}
+
+function speakOnDevice(text: string, lang: Lang, slow = false): Promise<boolean> {
   return new Promise((resolve) => {
     let done = false;
     const t0 = performance.now();
