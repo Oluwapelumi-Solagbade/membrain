@@ -134,4 +134,4 @@ Open `http://localhost:8000` in Chrome to test live streaming to Azure Dubai.
 - `3e84d73` — `docs: add Microsoft Azure Speech Dubai integration guide and update repo map`
 - `17204a9` — `feat(voice-asr): add openSMILE/Praat feature spec, on-device VAD design, and Arabic ASR dialect benchmark`
 
-All commits have been pushed and verified on GitHub remote [`origin/Abdulwaliy_membrain`](https://github.com/Oluwapelumi-Solagbade/membrain/tree/Abdulwaliy_membrain).
+All commits have been pushed and verified on GitHub remote [`origin/Abdulwaliy_membrain`](https://github.com/teamcerebrospark/membrain/tree/Abdulwaliy_membrain).

@@ -45,7 +45,7 @@ app = FastAPI(title="MemBrain API", version=C.ENGINE_VERSION, lifespan=lifespan,
               description="Voice-first longitudinal brain-health check-in. Identifies risk and change; never diagnoses.")
 # Only listed origins may call the API from a browser (GitHub Pages demo, local dev, the App Service itself).
 ALLOWED_ORIGINS = [o.strip() for o in os.getenv(
-    "ALLOWED_ORIGINS", "https://oluwapelumi-solagbade.github.io,http://localhost:8000,http://127.0.0.1:8000,"
+    "ALLOWED_ORIGINS", "https://teamcerebrospark.github.io,https://oluwapelumi-solagbade.github.io,http://localhost:8000,http://127.0.0.1:8000,"
     "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3100,http://127.0.0.1:3100").split(",") if o.strip()]
 # The Android app (Capacitor) loads its screens from https://localhost on the phone; it calls the same API.
 ALLOWED_ORIGINS += [o for o in ("https://localhost", "capacitor://localhost") if o not in ALLOWED_ORIGINS]

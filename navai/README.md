@@ -27,7 +27,7 @@ condor_submit navai/navai.submit                # logs/navai.out, writes docs/na
 ```python
 from kaggle_secrets import UserSecretsClient; import os
 os.environ["HF_TOKEN"] = UserSecretsClient().get_secret("HF_TOKEN")
-!git clone -q https://github.com/Oluwapelumi-Solagbade/membrain.git && cd membrain && pip -q install -r requirements.txt -r navai/requirements-navai.txt
+!git clone -q https://github.com/teamcerebrospark/membrain.git && cd membrain && pip -q install -r requirements.txt -r navai/requirements-navai.txt
 !cd membrain && python -m navai.medgemma_eval --model google/medgemma-1.5-4b-it --tag medgemma15_v2_t4 --dtype float16 --sets dev test
 !cat membrain/docs/navai/RESULTS_medgemma15_v2_t4.md
 ```

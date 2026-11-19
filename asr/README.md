@@ -20,7 +20,7 @@ We do **not** train a new model. We compare existing recognisers on Emirati spee
 ## Run it (Kaggle "GPU T4 x2" or Colab T4, about 1–2 hours)
 
 ```bash
-git clone https://github.com/Oluwapelumi-Solagbade/membrain.git && cd membrain
+git clone https://github.com/teamcerebrospark/membrain.git && cd membrain
 pip install -r requirements.txt -r asr/requirements-asr.txt
 huggingface-cli download eabayed/EmiratiDialictShowsAudioTranscription --repo-type dataset --local-dir data/emirati
 

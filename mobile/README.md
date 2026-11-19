@@ -23,7 +23,7 @@ npm run apk        # builds the web bundle, syncs it into android/, then ./gradl
 On macOS with Homebrew: `export JAVA_HOME=/opt/homebrew/opt/openjdk@17 ANDROID_HOME=$HOME/Library/Android/sdk`.
 
 `.github/workflows/android.yml` builds it on every push to main and publishes `MemBrain.apk` on the
-[android-latest release](https://github.com/Oluwapelumi-Solagbade/membrain/releases/tag/android-latest); the landing
+[android-latest release](https://github.com/teamcerebrospark/membrain/releases/tag/android-latest); the landing
 page's download button links there. It is a debug-signed build for the demo; a store release needs a signing key.
 
 The launcher icons and splash screens in `android/app/src/main/res` are generated from `site/public/brand/membrain-mark-white.png`.

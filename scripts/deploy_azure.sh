@@ -28,7 +28,7 @@ if [ -n "$TG" ]; then
 fi
 az webapp config appsettings set --name "$APP" --resource-group "$RG" --output none --settings \
   AZURE_SPEECH_KEY="$KEY" AZURE_SPEECH_REGION="uaenorth" \
-  ALLOWED_ORIGINS="https://oluwapelumi-solagbade.github.io,https://$APP.azurewebsites.net" \
+  ALLOWED_ORIGINS="https://teamcerebrospark.github.io,https://oluwapelumi-solagbade.github.io,https://$APP.azurewebsites.net" \
   SCM_DO_BUILD_DURING_DEPLOYMENT=true ${TG_SETTINGS[@]+"${TG_SETTINGS[@]}"}
 unset KEY TG TG_SETTINGS
 az webapp restart --name "$APP" --resource-group "$RG" --output none

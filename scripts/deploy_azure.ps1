@@ -68,7 +68,7 @@ Write-Host "==> Configuring app settings (in-country speech + CORS)..."
 & $azCmd webapp config appsettings set --name $App --resource-group $Rg --output none --settings `
     AZURE_SPEECH_KEY="$SpeechKey" `
     AZURE_SPEECH_REGION="$Loc" `
-    ALLOWED_ORIGINS="https://oluwapelumi-solagbade.github.io,https://$App.azurewebsites.net" `
+    ALLOWED_ORIGINS="https://teamcerebrospark.github.io,https://oluwapelumi-solagbade.github.io,https://$App.azurewebsites.net" `
     SCM_DO_BUILD_DURING_DEPLOYMENT=true
 
 Write-Host "==> Restarting web app..."

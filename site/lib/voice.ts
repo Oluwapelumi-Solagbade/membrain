@@ -28,23 +28,10 @@ export const DEFAULT_AZURE_LOCALES: Record<string, string> = {
 };
 
 export function getDirectAzureKey(): { key: string; region: string } | null {
+  // A key typed by this clinician on this device only (Settings). Never from the URL (keys in links leak into
+  // history and logs) and never built into the public site (anyone could read it): the server's token broker
+  // (/api/speech/token, key kept in the Space's secrets) is the normal way to use Azure.
   if (typeof window === "undefined") return null;
-  const q = new URLSearchParams(window.location.search);
-  const qKey = q.get("azure_key");
-  const qRegion = q.get("azure_region");
-  if (qKey) {
-    try {
-      window.localStorage.setItem("membrain.azure_speech_key", qKey);
-      if (qRegion) window.localStorage.setItem("membrain.azure_speech_region", qRegion);
-    } catch {
-      /* ignore */
-    }
-    return { key: qKey, region: qRegion || "uaenorth" };
-  }
-  const envKey = process.env.NEXT_PUBLIC_AZURE_SPEECH_KEY;
-  const envRegion = process.env.NEXT_PUBLIC_AZURE_SPEECH_REGION || "uaenorth";
-  if (envKey) return { key: envKey, region: envRegion };
-
   try {
     const lsKey = window.localStorage.getItem("membrain.azure_speech_key");
     const lsRegion = window.localStorage.getItem("membrain.azure_speech_region") || "uaenorth";

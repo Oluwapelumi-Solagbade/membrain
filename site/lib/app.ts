@@ -33,4 +33,4 @@ export const homeHref = (lang: "en" | "ar" = "en") => (inApp() ? APP_HOME : lang
 export const appCaseHref = (id: string) => (inApp() ? `${APP_HOME}?case=${encodeURIComponent(id)}` : `/clinician/case/?id=${encodeURIComponent(id)}`);
 
 /** The APK, built by .github/workflows/android.yml and attached to the "android-latest" release on every push. */
-export const APK_URL = "https://github.com/Oluwapelumi-Solagbade/membrain/releases/download/android-latest/MemBrain.apk";
+export const APK_URL = "https://github.com/teamcerebrospark/membrain/releases/download/android-latest/MemBrain.apk";

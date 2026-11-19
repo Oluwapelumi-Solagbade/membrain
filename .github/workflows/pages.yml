@@ -1,5 +1,5 @@
 # Publishes the site to GitHub Pages, connected to the live MemBrain server on Hugging Face (same data and AI):
-# https://oluwapelumi-solagbade.github.io/membrain/
+# https://teamcerebrospark.github.io/membrain/
 # One-time setup by the repo owner: Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
 name: Site on GitHub Pages
 on:
@@ -31,8 +31,6 @@ jobs:
           # allows this origin (ALLOWED_ORIGINS). If the server is unreachable, the page says so and runs in the browser.
           NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || vars.API_URL || 'https://vulcan-spark-membrain.hf.space' }}
           NEXT_PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
-          NEXT_PUBLIC_AZURE_SPEECH_KEY: ${{ secrets.AZURE_SPEECH_KEY }}
-          NEXT_PUBLIC_AZURE_SPEECH_REGION: ${{ secrets.AZURE_SPEECH_REGION || 'uaenorth' }}
         run: |
           npm ci --no-audit --no-fund
           npm run build
