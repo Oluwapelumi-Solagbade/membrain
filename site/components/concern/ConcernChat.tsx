@@ -220,13 +220,30 @@ export function ConcernChat() {
     return findNearbyHospitals(coords.lat, coords.lon);
   }, [coords.lat, coords.lon]);
 
-  const recommendedHospital = useMemo(() => {
-    return nearbyHospitals.find((s) => s.isRegistered) ?? nearbyHospitals[0];
+  const registeredHospitals = useMemo(() => {
+    return nearbyHospitals.filter((s) => s.isRegistered);
   }, [nearbyHospitals]);
 
+  const comingSoonHospitals = useMemo(() => {
+    return nearbyHospitals.filter((s) => !s.isRegistered);
+  }, [nearbyHospitals]);
+
+  const recommendedHospital = useMemo(() => {
+    return registeredHospitals[0] ?? nearbyHospitals[0];
+  }, [registeredHospitals, nearbyHospitals]);
+
+  // Ensure selected hospital is strictly an active registered hospital with clinicians
+  useEffect(() => {
+    if (!isHospitalRegistered(selectedHospitalId)) {
+      const best = registeredHospitals[0]?.id || "SVC-14";
+      setSelectedHospitalId(best);
+    }
+  }, [selectedHospitalId, registeredHospitals]);
+
   const assignedHospital = useMemo(() => {
-    const found = NAV.directory.find((s: Service) => s.id === selectedHospitalId && isHospitalRegistered(s.id));
-    return found ?? recommendedHospital ?? NAV.directory[0];
+    const regList = NAV.directory.filter((s) => isHospitalRegistered(s.id));
+    const found = regList.find((s: Service) => s.id === selectedHospitalId);
+    return found ?? recommendedHospital ?? regList[0];
   }, [selectedHospitalId, recommendedHospital]);
 
   const detectLocation = () => {
@@ -961,81 +978,100 @@ export function ConcernChat() {
         </div>
 
         {/* Recommended & Selectable Hospitals */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
             <label className="text-[13px] font-semibold text-deep flex items-center gap-1.5">
-              <Building2 size={15} className="text-leaf" /> {t.chooseHospital}
+              <Building2 size={15} className="text-leaf" /> {t.availableHospitalsTitle}
             </label>
-            <span className="text-[11.5px] text-muted">{t.registeredOnlyNotice}</span>
+            <span className="text-[11.5px] font-medium text-leaf">{t.registeredOnlyNotice}</span>
           </div>
-          <div className="space-y-2 max-h-[290px] overflow-y-auto pr-1">
-            {nearbyHospitals.map((s) => {
+
+          <div className="space-y-2">
+            {registeredHospitals.map((s) => {
               const isSelected = selectedHospitalId === s.id;
-              const isRegistered = s.isRegistered;
               const isRecommended = s.id === recommendedHospital?.id;
               return (
-                <div
+                <button
+                  type="button"
                   key={s.id}
-                  onClick={() => {
-                    if (isRegistered) setSelectedHospitalId(s.id);
-                  }}
-                  className={`rounded-xl border p-3 transition-all ${
-                    !isRegistered
-                      ? "cursor-not-allowed border-dashed border-line bg-paper/60 opacity-65"
-                      : isSelected
-                      ? "cursor-pointer border-deep bg-deep/5 shadow-sm ring-1 ring-deep"
-                      : "cursor-pointer border-line bg-white hover:border-leaf/50"
+                  onClick={() => setSelectedHospitalId(s.id)}
+                  className={`w-full text-start rounded-xl border p-3 transition-all ${
+                    isSelected
+                      ? "border-deep bg-deep/5 shadow-sm ring-2 ring-deep"
+                      : "border-line bg-white hover:border-leaf/50"
                   }`}
-                  aria-disabled={!isRegistered}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`font-semibold text-[14.5px] ${isRegistered ? "text-ink" : "text-muted"}`}>
+                        <span className="font-semibold text-[14.5px] text-ink">
                           {s.name}
                         </span>
-                        {isRegistered ? (
-                          <>
-                            {isRecommended && (
-                              <span className="rounded bg-leaf/15 px-2 py-0.5 text-[11px] font-semibold text-leaf">
-                                {t.nearestHospital}
-                              </span>
-                            )}
-                            <span className="rounded bg-mist px-2 py-0.5 text-[10.5px] font-medium text-deep">
-                              {t.activeDoctors}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="rounded border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider text-amber-800">
-                            {t.comingSoon}
+                        {isRecommended && (
+                          <span className="rounded bg-leaf/15 px-2 py-0.5 text-[11px] font-semibold text-leaf">
+                            {t.nearestHospital}
                           </span>
                         )}
+                        <span className="rounded bg-mist px-2 py-0.5 text-[10.5px] font-medium text-deep">
+                          {t.activeDoctors}
+                        </span>
                         <span className="text-[12px] font-medium text-muted">
                           {t.distanceAway(s.distanceKm)}
                         </span>
                       </div>
                       <p className="mt-1 text-[13px] text-muted line-clamp-1">
-                        {isRegistered
-                          ? `${s.notes ?? s.area} · ${s.emirate}`
-                          : `${s.notes ?? s.area} · ${s.emirate} — ${t.comingSoonDesc}`}
+                        {s.notes ?? s.area} · {s.emirate}
                       </p>
                     </div>
                     <span
                       className={`mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                        !isRegistered
-                          ? "border-muted/30 bg-paper/80 text-muted"
-                          : isSelected
-                          ? "border-deep bg-deep text-white"
-                          : "border-line bg-white"
+                        isSelected ? "border-deep bg-deep text-white" : "border-line bg-white"
                       }`}
                     >
-                      {isSelected && isRegistered && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                      {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
                     </span>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
+
+          {/* Coming Soon Hospitals */}
+          {comingSoonHospitals.length > 0 && (
+            <div className="pt-2 space-y-2">
+              <p className="text-[12px] font-semibold uppercase tracking-wider text-muted">
+                {t.comingSoonHospitalsTitle}
+              </p>
+              <div className="space-y-1.5 max-h-[190px] overflow-y-auto pr-1">
+                {comingSoonHospitals.map((s) => (
+                  <div
+                    key={s.id}
+                    className="rounded-xl border border-dashed border-line bg-paper/50 p-2.5 opacity-60 cursor-not-allowed select-none pointer-events-none"
+                    aria-disabled="true"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-[13.5px] text-muted line-clamp-1">
+                            {s.name}
+                          </span>
+                          <span className="rounded border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                            {t.comingSoon}
+                          </span>
+                          <span className="text-[11.5px] text-muted">
+                            {t.distanceAway(s.distanceKm)}
+                          </span>
+                        </div>
+                        <p className="text-[12px] text-muted line-clamp-1">
+                          {s.notes ?? s.area} · {s.emirate} — {t.comingSoonDesc}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Contact details */}
