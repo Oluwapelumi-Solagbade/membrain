@@ -142,6 +142,13 @@ export const localBackend: Backend = {
     return participants(s).filter((p) => !u || canSee(u, p)).map((p) => buildCase(p, s));
   },
 
+  async getCase(pid: string) {
+    const s = state();
+    const p = participants(s).find((x) => x.id === pid);
+    if (!p) throw new Error("Participant not found");
+    return buildCase(p, s);
+  },
+
   async assignHospital(pid: string, hospitalId: string) {
     const s = clone(state());
     const p = participants(s).find((x) => x.id === pid);
@@ -289,9 +296,14 @@ export const localBackend: Backend = {
   async enrol(body: EnrolIn): Promise<EnrolDone> {
     if (body.age < 50 || body.age > 75) throw new Error("MemBrain is for people aged 50 to 75");
     const s = clone(state());
-    let id = "";
-    do id = "MB-" + Math.floor(Math.random() * 0xffffff).toString(16).toUpperCase().padStart(6, "0");
-    while (participants(s).some((x) => x.id === id));
+    const existingConcern = body.id ? s.concerns.find((x) => x.id === body.id) : null;
+    let id = existingConcern ? existingConcern.id : "";
+    if (!id) {
+      do id = "MB-" + Math.floor(Math.random() * 0xffffff).toString(16).toUpperCase().padStart(6, "0");
+      while (participants(s).some((x) => x.id === id));
+    } else {
+      s.concerns = s.concerns.filter((x) => x.id !== id);
+    }
     const consent = Object.fromEntries(Object.entries(body.consent).map(([k, v]) => [k, !!v]));
     const ctx: Record<string, unknown> = { ...body.context };
     if (consent.clinical_record === false) for (const k of ["sbp", "dbp", "hba1c", "ldl", "bmi"]) ctx[k] = null;
@@ -300,27 +312,40 @@ export const localBackend: Backend = {
     const helperOk = !prof || prof.type !== "household_helper" || prof.consented;
     const flags = [...new Set(body.concern.red_flags)].filter((f) => f in (config.RED_FLAGS as Record<string, string>));
     const acts = [...new Set((prof?.timeline ?? []).map((t) => t.activity_key).filter(Boolean))].sort();
+    const regName = body.identity?.full_name?.trim();
+    const assignedHospital = (() => {
+      if (existingConcern?.assigned_hospital) return existingConcern.assigned_hospital;
+      const hid = me()?.role === "clinician" ? me()?.hospital_id : null;   // a clinician enrols into their own hospital
+      return hid ? { id: hid, name: NAV.directory.find((x) => x.id === hid)?.name ?? null } : null;
+    })();
+    const sessions = existingConcern?.sessions?.length
+      ? clone(existingConcern.sessions)
+      : [{
+          session_id: `${id}-intake`, date: body.date, type: "intake", channel: "app", concern: body.concern.text.trim() || "routine programme screening", onset: body.concern.onset, red_flags: flags,
+          reported_concern: { reporter: ROUTE_REPORTER[body.concern.route], domains: [], activities_taken_over: acts },
+        }];
     const p = {
-      id, display_name: { en: "Enrolled participant", ar: "مشارك مسجّل" }, age: body.age, age_band: body.age < 60 ? "50-59" : body.age < 70 ? "60-69" : "70-75",
+      id, display_name: regName ? { en: regName, ar: regName } : { en: "Enrolled participant", ar: "مشارك مسجّل" }, age: body.age, age_band: body.age < 60 ? "50-59" : body.age < 70 ? "60-69" : "70-75",
       sex: body.sex, education: body.education, dialect: body.dialect, language: body.language, languages: [body.language], story: "", context: ctx, consent,
-      referrals: [], enrolled: true, entry_route: body.concern.route,
-      assigned_hospital: (() => {
-        const hid = me()?.role === "clinician" ? me()?.hospital_id : null;   // a clinician enrols into their own hospital
-        return hid ? { id: hid, name: NAV.directory.find((x) => x.id === hid)?.name ?? null } : null;
-      })(), emirate: body.emirate ?? undefined, funding: body.funding ?? undefined,
+      referrals: existingConcern?.referrals ?? [], enrolled: true, entry_route: body.concern.route,
+      assigned_hospital: assignedHospital, emirate: body.emirate ?? existingConcern?.emirate ?? undefined, funding: body.funding ?? existingConcern?.funding ?? undefined,
       prevention: { en: preventionPlan(ctx, "en"), ar: preventionPlan(ctx, "ar") }, risk_context: riskContext(ctx, body.education),
       pending_iqcode: body.iqcode, informant: prof && helperOk ? { ...prof } : null,
       genomics: body.apoe && consent.genomics ? { apoe: body.apoe, source: "Existing result entered at enrolment", date: body.date, counselling: "not_offered" } : null,
-      sessions: [{
-        session_id: `${id}-intake`, date: body.date, type: "intake", channel: "app", concern: body.concern.text.trim() || "routine programme screening", onset: body.concern.onset, red_flags: flags,
-        reported_concern: { reporter: ROUTE_REPORTER[body.concern.route], domains: [], activities_taken_over: acts },
-      }],
+      sessions,
     } as unknown as Participant;
+    s.enrolled = s.enrolled.filter((x) => x.id !== id);
     s.enrolled.push(p);
     s.vault[id] = { identity: body.identity, informant: body.informant };
     audit(s, "coordinator", "enrol", id, { consent, entry_route: body.concern.route, red_flags: flags });
     commit(s);
-    return { id, first_form: "A", phone_linked: false, case: buildCase(participants(s).find((x) => x.id === id)!, s) };
+    if (typeof window !== "undefined" && regName) {
+      try {
+        window.sessionStorage.setItem(`membrain.registered_name.${id}`, regName);
+        window.localStorage.setItem(`membrain.registered_name.${id}`, regName);
+      } catch { /* storage disabled */ }
+    }
+    return { id, first_form: "A", phone_linked: false, registered_name: regName || undefined, case: buildCase(participants(s).find((x) => x.id === id)!, s) };
   },
 
   async reidentify(pid: string, reason: string): Promise<VaultEntry> {

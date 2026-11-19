@@ -27,6 +27,19 @@ MAX_BYTES = 6 * 1024 * 1024        # about 3 minutes of compressed speech
 MAX_SECONDS = 180
 
 
+def _load_dotenv(path: str = ".env") -> None:
+    if not os.path.exists(path):
+        return
+    for line in open(path, encoding="utf-8"):
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, v = line.split("=", 1)
+            os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+
+_load_dotenv()
+
+
 def decode(data: bytes):
     """Any browser format (WebM/Opus, Ogg, MP4/AAC, WAV) -> 16 kHz mono float32, in memory."""
     import av
@@ -199,10 +212,10 @@ def _resolve_locale(lang: str) -> str:
 
 
 def _engine() -> str | None:
-    if os.getenv("WHISPER_MODEL"):
-        return "membrain-whisper-gulf"
     if os.getenv("AZURE_SPEECH_KEY"):
         return "azure-uaenorth"
+    if os.getenv("WHISPER_MODEL"):
+        return "membrain-whisper-gulf"
     return None
 
 
@@ -226,7 +239,7 @@ def asr_config():
     in_uae = os.getenv("SERVER_IN_UAE", "0") == "1"
     where = " (in-country)" if in_uae else ""
     label = {"membrain-whisper-gulf": os.getenv("WHISPER_LABEL", "MemBrain Gulf Whisper" + where),
-             "azure-uaenorth": f"Azure AI Speech, {os.getenv('AZURE_SPEECH_REGION', 'uaenorth')} (in-country)"}.get(eng, "MemBrain Gulf Whisper" + where)
+             "azure-uaenorth": f"Azure AI Speech, {os.getenv('AZURE_SPEECH_REGION', 'uaenorth')} (in-country)"}.get(eng, "Azure AI Speech, uaenorth (in-country)")
     return {"enabled": eng is not None, "prefer": eng == "membrain-whisper-gulf" and os.getenv("ASR_PREFER_LOCAL") == "1",
             "engine": eng, "label": label, "in_uae": in_uae,
             "state": state() if eng == "membrain-whisper-gulf" else ("ready" if eng else "off")}

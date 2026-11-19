@@ -14,6 +14,7 @@ import { useSession } from "@/lib/auth";
 import { getBackend } from "@/lib/workspace/backend";
 import { notifyWorkspaceSync } from "@/lib/workspace/sync";
 import type { Backend, Case, CheckinResult, Participant, SessionIn } from "@/lib/workspace/types";
+import { EnrolForm } from "../clinician/enrol/EnrolView";
 import { COPY, num, type Copy } from "./copy";
 import { Avatar, MicAnswer, Options, Prompt, Toggle } from "./parts";
 
@@ -61,7 +62,28 @@ function sessionDate(_p: Participant) {
   return new Date().toISOString().slice(0, 10);
 }
 
-const nameOf = (p: Participant, lang: Lang) => (p.enrolled === false ? "" : p.display_name?.[lang] || p.display_name?.en || "");
+function registeredNameOf(pid?: string | null): string {
+  if (!pid || typeof window === "undefined") return "";
+  try {
+    const s =
+      window.sessionStorage.getItem(`membrain.registered_name.${pid}`) ||
+      window.localStorage.getItem(`membrain.registered_name.${pid}`);
+    if (s && s.trim()) return s.trim();
+  } catch {
+    /* storage disabled */
+  }
+  return "";
+}
+
+const nameOf = (p: Participant, lang: Lang, explicitName?: string | null) => {
+  if (p.enrolled === false) return "";
+  if (explicitName && explicitName.trim()) return explicitName.trim();
+  const reg = registeredNameOf(p.id);
+  if (reg) return reg;
+  const n = p.display_name?.[lang] || p.display_name?.en || "";
+  if (n === "Enrolled participant" || n === "مشارك مسجّل" || n === "New concern" || n === "قلق جديد") return "";
+  return n;
+};
 
 /* ── Steps ── */
 
@@ -142,8 +164,21 @@ export function Checkin() {
   const params = useSearchParams();
   const id = params.get("id");
   const qLang = params.get("lang") === "ar" ? "ar" : params.get("lang") === "en" ? "en" : null;
+  const qName = params.get("name");
   const [backend, setBackend] = useState<Backend | null>(null);
   const [cases, setCases] = useState<Case[] | null>(null);
+
+  useEffect(() => {
+    if (id && qName && typeof window !== "undefined") {
+      try {
+        const n = qName.trim();
+        window.sessionStorage.setItem(`membrain.registered_name.${id}`, n);
+        window.localStorage.setItem(`membrain.registered_name.${id}`, n);
+      } catch {
+        /* storage disabled */
+      }
+    }
+  }, [id, qName]);
 
   useEffect(() => {
     let live = true;
@@ -238,7 +273,7 @@ function Picker({ cases, initialLang }: { cases: Case[]; initialLang: Lang }) {
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {people.map((p) => {
             const concern = p.enrolled === false;
-            const nm = concern ? p.id : nameOf(p, lang);
+            const nm = concern ? p.id : (nameOf(p, lang) || p.display_name?.[lang] || p.display_name?.en || p.id);
             const n = p.sessions.filter((s) => s.type !== "intake" && s.type !== "informant").length;
             const pl = (p.language as Lang) ?? "en";
             return (
@@ -248,7 +283,7 @@ function Picker({ cases, initialLang }: { cases: Case[]; initialLang: Lang }) {
                 className="group flex flex-col rounded-2xl border border-line bg-white p-5 shadow-[0_1px_2px_rgb(15_35_40/0.04)] transition-all hover:-translate-y-0.5 hover:border-leaf/40 hover:shadow-[0_12px_30px_-18px_rgb(15_63_44/0.45)]"
               >
                 <div className="flex items-center gap-3.5">
-                  <Avatar name={concern ? "?" : p.display_name.en} id={p.id} />
+                  <Avatar name={concern ? "?" : (nameOf(p, lang) || p.display_name.en)} id={p.id} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[17px] font-semibold leading-tight">
                       {nm} {!concern && lang === "en" && <span className="ms-1 font-normal text-muted" lang="ar">{p.display_name.ar}</span>}
@@ -296,10 +331,14 @@ const CATEGORIES_AR: Record<string, string> = {
 };
 
 function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLang: Lang }) {
-  const p = c.participant;
+  const [currentCase, setCurrentCase] = useState<Case>(c);
+  const p = currentCase.participant;
   const { session: me } = useSession();
+  const params = useSearchParams();
+  const qName = params?.get("name");
+  const userMeName = me?.user?.pid === p.id && me.user.name && me.user.name !== "Enrolled participant" && me.user.name !== "مشارك مسجّل" ? me.user.name : null;
   const saved = useMemo(() => readJson<Saved>("session", saveKey(p.id)), [p.id]);
-  const needsProfile = p.age == null || p.education == null;
+  const needsProfile = p.age == null || p.education == null || p.enrolled === false;
   const flow: Step[] = useMemo(() => [...(needsProfile ? (["profile"] as Step[]) : []), "welcome", ...TASKS], [needsProfile]);
 
   const [lang, setLangState] = useState<Lang>(initialLang);
@@ -320,7 +359,7 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
   const t = COPY[lang];
 
   const form = useMemo(() => ENGINE().formForSession(p.sessions.filter((s) => s.type !== "intake").length, seedOf(p.id)), [p]);
-  const name = nameOf(p, lang);
+  const name = nameOf(p, lang, qName || userMeName);
   const words = ITEMS.WORD_LISTS[form][lang];
   const story = ITEMS.STORIES[form][lang];
   const scenario = lang === "ar" ? SCENARIOS_AR[form] ?? ITEMS.JUDGEMENT[form][lang] : ITEMS.JUDGEMENT[form][lang];
@@ -531,7 +570,7 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
   /* Which "Continue" is available. */
   const task = TASK_OF[step];
   const canNext =
-    step === "profile" ? !!profile.education && profile.age >= 40 && profile.age <= 100 :
+    step === "profile" ? true :
     step === "welcome" ? true :
     step === "hear" ? ans.precheck.hearing_ok !== null :
     step === "see" ? ans.precheck.vision_ok !== null :
@@ -566,32 +605,32 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
   switch (step) {
     case "profile":
       body = (
-        <div className="space-y-7">
-          <Prompt t={t} text={t.profileTitle} sub={t.profileBody} speaking={false} />
-          <div>
-            <p className="text-[14px] font-semibold text-body">{t.age}</p>
-            <div className="mt-2 flex items-center gap-3">
-              <button type="button" onClick={() => setProfile((x) => ({ ...x, age: Math.max(40, x.age - 1) }))} className="h-14 w-14 rounded-2xl border border-line bg-white text-[26px] font-medium text-deep hover:bg-mist" aria-label="−">−</button>
-              <input
-                type="number"
-                inputMode="numeric"
-                value={profile.age}
-                min={40}
-                max={100}
-                onChange={(e) => setProfile((x) => ({ ...x, age: Number(e.target.value) || 0 }))}
-                className="h-14 w-28 rounded-2xl border border-line bg-white text-center font-serif text-[28px] font-semibold text-ink outline-none focus:ring-2 focus:ring-leaf/40"
-              />
-              <button type="button" onClick={() => setProfile((x) => ({ ...x, age: Math.min(100, x.age + 1) }))} className="h-14 w-14 rounded-2xl border border-line bg-white text-[26px] font-medium text-deep hover:bg-mist" aria-label="+">+</button>
-            </div>
-          </div>
-          <div>
-            <p className="mb-2 text-[14px] font-semibold text-body">{t.schooling}</p>
-            <Options
-              options={(["none", "primary", "secondary", "tertiary"] as const).map((v) => ({ value: v, label: t.edu[v] }))}
-              value={profile.education}
-              onPick={(v) => setProfile((x) => ({ ...x, education: v as Participant["education"] }))}
-            />
-          </div>
+        <div className="space-y-6">
+          <EnrolForm
+            backend={backend}
+            prefilledCase={currentCase}
+            initialLang={lang}
+            embedded
+            title={t.profileTitle}
+            sub={t.profileBody}
+            onComplete={(done) => {
+              if (done.case) setCurrentCase(done.case);
+              else setCurrentCase((prev) => ({ ...prev, participant: { ...prev.participant, enrolled: true } }));
+              if (done.registered_name) {
+                try {
+                  window.sessionStorage.setItem(`membrain.registered_name.${done.id}`, done.registered_name);
+                  window.localStorage.setItem(`membrain.registered_name.${done.id}`, done.registered_name);
+                } catch {}
+              }
+              try {
+                const u = new URL(window.location.href);
+                u.searchParams.set("id", done.id);
+                if (done.registered_name) u.searchParams.set("name", done.registered_name);
+                window.history.replaceState(null, "", u.toString());
+              } catch {}
+              go("welcome");
+            }}
+          />
         </div>
       );
       break;
@@ -602,7 +641,7 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
         <div className="space-y-6">
           {resumed && <p className="rounded-xl bg-mist px-4 py-3 text-[15px] text-deep">{t.resumed}</p>}
           <div className="flex items-center gap-4">
-            <Avatar name={p.enrolled === false ? "?" : nameOf(p, lang)} id={p.id} className="h-16 w-16 text-[22px]" />
+            <Avatar name={p.enrolled === false ? "?" : (name || p.display_name.en)} id={p.id} className="h-16 w-16 text-[22px]" />
             <p className="text-[13px] font-semibold uppercase tracking-[0.16em] text-leaf">{t.minutes}</p>
           </div>
           <Prompt t={t} text={t.welcome(name)} sub={t.welcomeBody} speaking={speaking} onRepeat={() => say(promptOf("welcome"))} />
@@ -834,7 +873,7 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
 
   /* ── Layout ── */
 
-  const showFooter = step !== "saving" && step !== "done";
+  const showFooter = step !== "saving" && step !== "done" && step !== "profile";
   const isLast = step === "ill";
   const nextLabel = step === "welcome" ? t.start : isLast ? t.finish : t.next;
   const tasksDone = Math.max(0, TASKS.indexOf(step));
@@ -904,30 +943,32 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
 
       <div className="min-h-0 flex-1 overflow-y-auto" onClick={() => settingsOpen && setSettingsOpen(false)}>
         <div className="mx-auto flex w-full max-w-[1080px] gap-10 lg:px-6">
-          <aside className="hidden w-[280px] shrink-0 py-10 lg:block">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-leaf">{t.asideTitle}</p>
-            <ol className="mt-4 space-y-4">
-              {t.aside.map((a, i) => (
-                <li key={a} className="flex gap-3 text-[14.5px] leading-snug text-body">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white font-mono text-[12px] text-deep shadow-sm">{num(i + 1, lang)}</span>
-                  {a}
-                </li>
-              ))}
-            </ol>
-            {engineLabel && (
-              <p className="mt-8 rounded-2xl border border-line bg-white p-4 text-[13px] leading-snug text-muted">
-                <span className="block text-[11.5px] font-semibold uppercase tracking-[0.12em] text-leaf">{lang === "ar" ? "التعرّف على الكلام" : "Speech recognition"}</span>
-                <span className="mt-1 block text-body" dir="auto">{engineLabel}</span>
-              </p>
-            )}
-            <div className="mt-4 rounded-2xl border border-lv-urgent/15 bg-white p-4">
-              <p className="flex items-center gap-2 text-[14px] font-semibold text-lv-urgent">
-                <Phone size={15} /> {t.emergency}
-              </p>
-            </div>
-          </aside>
+          {step !== "profile" && (
+            <aside className="hidden w-[280px] shrink-0 py-10 lg:block">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-leaf">{t.asideTitle}</p>
+              <ol className="mt-4 space-y-4">
+                {t.aside.map((a, i) => (
+                  <li key={a} className="flex gap-3 text-[14.5px] leading-snug text-body">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white font-mono text-[12px] text-deep shadow-sm">{num(i + 1, lang)}</span>
+                    {a}
+                  </li>
+                ))}
+              </ol>
+              {engineLabel && (
+                <p className="mt-8 rounded-2xl border border-line bg-white p-4 text-[13px] leading-snug text-muted">
+                  <span className="block text-[11.5px] font-semibold uppercase tracking-[0.12em] text-leaf">{lang === "ar" ? "التعرّف على الكلام" : "Speech recognition"}</span>
+                  <span className="mt-1 block text-body" dir="auto">{engineLabel}</span>
+                </p>
+              )}
+              <div className="mt-4 rounded-2xl border border-lv-urgent/15 bg-white p-4">
+                <p className="flex items-center gap-2 text-[14px] font-semibold text-lv-urgent">
+                  <Phone size={15} /> {t.emergency}
+                </p>
+              </div>
+            </aside>
+          )}
 
-          <main className="mx-auto w-full max-w-[600px] px-4 pb-10 pt-8 sm:pt-12" style={prefs.big ? { zoom: 1.16 } : undefined}>
+          <main className={`mx-auto w-full ${step === "profile" ? "max-w-[960px]" : "max-w-[600px]"} px-4 pb-10 pt-8 sm:pt-12`} style={prefs.big ? { zoom: 1.16 } : undefined}>
             <div key={step} className="mb-step-in">
               {body}
             </div>
@@ -946,7 +987,7 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
                 <ArrowLeft size={17} className="rtl:-scale-x-100" /> <span className="hidden sm:inline">{t.back}</span>
               </button>
             )}
-            {step !== "welcome" && step !== "profile" && (
+            {step !== "welcome" && (
               <button type="button" onClick={next} className="h-[52px] px-3 text-[15px] font-medium text-muted hover:text-ink">
                 {t.skip}
               </button>
@@ -956,7 +997,6 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
               disabled={!canNext}
               onClick={() => {
                 if (step === "welcome") setStarted(true);
-                if (step === "profile") return void saveProfile();
                 next();
               }}
               className="ms-auto inline-flex h-[52px] min-w-[150px] flex-1 items-center justify-center gap-2 rounded-xl bg-deep px-6 text-[16.5px] font-semibold text-white shadow-sm transition-colors hover:bg-deep-hover disabled:cursor-not-allowed disabled:bg-[#9fb3aa] sm:flex-none"

@@ -136,14 +136,41 @@ export function contactOf(c: Case): { phone?: string | null; email?: string | nu
   return { phone, email };
 }
 
+export function registeredNameOf(pid?: string | null): string {
+  if (!pid || typeof window === "undefined") return "";
+  try {
+    const s =
+      window.sessionStorage.getItem(`membrain.registered_name.${pid}`) ||
+      window.localStorage.getItem(`membrain.registered_name.${pid}`);
+    if (s && s.trim()) return s.trim();
+  } catch {
+    /* storage disabled */
+  }
+  return "";
+}
+
+export function participantNameOf(
+  p?: { id: string; display_name?: { en?: string; ar?: string }; enrolled?: boolean } | null,
+  lang: "en" | "ar" = "en"
+): string {
+  if (!p || p.enrolled === false) return "";
+  const reg = registeredNameOf(p.id);
+  if (reg) return reg;
+  const n = p.display_name?.[lang] || p.display_name?.en || "";
+  if (n === "Enrolled participant" || n === "مشارك مسجّل" || n === "New concern" || n === "قلق جديد") return "";
+  return n;
+}
+
 export function matchesQuery(c: Case, q: string): boolean {
   const s = q.trim().toLowerCase();
   if (!s) return true;
   const p = c.participant;
   const fac = facilityOf(c);
   const con = contactOf(c);
+  const reg = registeredNameOf(p.id);
   return [
     p.id,
+    reg,
     p.display_name?.en,
     p.display_name?.ar,
     c.concern.in_their_words,

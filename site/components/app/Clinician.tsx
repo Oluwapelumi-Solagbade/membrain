@@ -17,14 +17,14 @@ import programmeData from "@/lib/generated/programme-data.json";
 import { ACTIVITY, DOMAIN, label } from "@/lib/labels";
 import { LEVEL_LABEL, type Level } from "@/lib/mb";
 import { hospitalLabel, useSession } from "@/lib/auth";
-import { dueOf, fmtDate, isActive, isIntakeOnly, levelOf, ORDER, profileLine, TODAY } from "@/lib/workspace/derive";
+import { dueOf, fmtDate, isActive, isIntakeOnly, levelOf, ORDER, participantNameOf, profileLine, TODAY } from "@/lib/workspace/derive";
 import { NAV, nav } from "@/lib/workspace/navigator";
 import type { Case, VaultEntry } from "@/lib/workspace/types";
 
 export const LEVEL_COLOR: Record<Level, string> = { URGENT: "#b3123a", CLINICIAN_REVIEW: "#c0502f", CHECK_AGAIN: "#c98a1b", BASELINE: "#4a6fb0", STABLE: "#2f8a57", INVALID: "#8a9691" };
 const REF = () => { const t = new Date().toISOString().slice(0, 10); return t > TODAY ? t : TODAY; };
 const days = (a: string, b: string) => Math.round((Date.parse(b.slice(0, 10)) - Date.parse(a.slice(0, 10))) / 86400000);
-export const nameOf = (c: Case) => (isIntakeOnly(c) ? "New concern" : c.participant.display_name?.en || c.participant.id);
+export const nameOf = (c: Case) => (isIntakeOnly(c) ? "New concern" : participantNameOf(c.participant, "en") || c.participant.id);
 const reasonsOf = (c: Case) => (c.task && c.task.status !== "closed" ? c.task.reasons : c.latest?.reasons ?? []).map((r) => r.replace(/->/g, "→"));
 const lastDate = (c: Case) => c.participant.sessions.map((s) => s.date.slice(0, 10)).filter((d) => d <= REF()).sort().pop() ?? "";
 const num2 = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(2));

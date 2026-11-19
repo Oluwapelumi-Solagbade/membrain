@@ -1,6 +1,7 @@
 // Client-side clinical referral drafting generator.
 // Generates a medically grounded, structured referral letter from confirmed Case data
 // matching the backend rules protocol in membrain/intake.py.
+import { participantNameOf } from "./derive";
 import type { Case } from "./types";
 
 export function draftFromCase(c: Case): string[] {
@@ -9,7 +10,7 @@ export function draftFromCase(c: Case): string[] {
   const sentences: string[] = [];
 
   // 1. Demographics & Referral Target
-  const name = p.display_name?.en || p.display_name?.ar || p.id;
+  const name = participantNameOf(p, "en") || p.id;
   const age = p.age;
   const sex = p.sex === "M" ? "male" : p.sex === "F" ? "female" : "individual";
   const ageStr = age ? `, a ${age}-year-old ${sex}` : `, an adult ${sex}`;

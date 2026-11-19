@@ -25,9 +25,10 @@ import { useWorkspace } from "../WorkspaceProvider";
 import { ACTIVITY, label } from "@/lib/labels";
 import { config, DEMO_TODAY, EDUCATION_LABEL, type Lang } from "@/lib/mb";
 import { speak, stopSpeaking } from "@/lib/voice";
-import { caseHref, fmtDate } from "@/lib/workspace/derive";
+import { caseHref, fmtDate, registeredNameOf } from "@/lib/workspace/derive";
 import { NAV } from "@/lib/workspace/navigator";
-import type { EnrolDone, EnrolIn, InformantChange } from "@/lib/workspace/types";
+import { getBackend } from "@/lib/workspace/backend";
+import type { Backend, Case, EnrolDone, EnrolIn, InformantChange } from "@/lib/workspace/types";
 
 /* ── What the form asks, in the order the coordinator asks it ── */
 
@@ -138,6 +139,62 @@ const blank = (): Form => ({
   sbp: "", dbp: "", hba1c: "", ldl: "", bmi: "", activity: "", district: "", cond: {}, smoker: false, isolated: false, famHistory: false, apoe: "",
 });
 
+function initialForm(prefilledCase?: Case, initialLang: Lang = "ar"): Form {
+  const base = blank();
+  if (initialLang) base.language = initialLang;
+  if (!prefilledCase) return base;
+
+  const p = prefilledCase.participant;
+  const c = prefilledCase.concern;
+  const intake = p.intake?.confirmed;
+
+  const regName = registeredNameOf(p.id) || (p.display_name && p.display_name.en !== "Enrolled participant" && p.display_name.en !== "New concern" && p.display_name.en !== "مشارك مسجّل" && p.display_name.en !== "قلق جديد" ? (p.display_name.en || p.display_name.ar || "") : "");
+
+  let route: EnrolIn["concern"]["route"] = "programme";
+  const rawRoute = c?.raised_by || p.entry_route || p.intake?.reporter;
+  if (rawRoute === "family") route = "family";
+  else if (rawRoute === "helper" || rawRoute === "household_helper") route = "household_helper";
+  else if (rawRoute === "self") route = "self";
+  else if (rawRoute === "professional" || rawRoute === "primary_care") route = "primary_care";
+
+  const narrative = c?.in_their_words || intake?.narrative || "";
+  const rawOnset = c?.onset || intake?.onset || "none";
+  const onset: NonNullable<EnrolIn["concern"]["onset"]> =
+    rawOnset === "days" || rawOnset === "weeks" || rawOnset === "months" || rawOnset === "years" ? rawOnset : "none";
+
+  const flags: Record<string, boolean> = {};
+  for (const rf of [...(c?.red_flags_reported ?? []), ...(intake?.red_flags ?? [])]) {
+    flags[rf] = true;
+  }
+
+  const phone = p.phone || c?.phone || "";
+  const age = p.age != null ? String(p.age) : "";
+  const sex = p.sex === "M" ? "M" : "F";
+  const years = p.education === "none" ? "0" : p.education === "primary" ? "6" : p.education === "secondary" ? "12" : p.education === "tertiary" ? "16" : "";
+  const dialect = p.dialect || "Emirati";
+  const language = (p.language as Lang) || initialLang || "ar";
+  const emirate = p.emirate || (typeof c?.emirate === "string" ? c.emirate : "Abu Dhabi");
+  const funding = p.funding || "thiqa";
+
+  return {
+    ...base,
+    route,
+    text: narrative,
+    onset,
+    flags,
+    name: regName,
+    phone,
+    age,
+    sex,
+    years,
+    language,
+    dialect,
+    emirate,
+    funding,
+    channel: (p as unknown as { preferred_channel?: "app" | "whatsapp" | "phone" }).preferred_channel || "whatsapp",
+  };
+}
+
 /* ── Small pieces ── */
 
 const field = "h-11 w-full rounded-xl border border-[#d7ddda] bg-white px-3.5 text-[15.5px] text-ink outline-none transition-[border-color,box-shadow] placeholder:text-[#9aa5a0] focus:border-deep focus:shadow-[0_0_0_4px_rgb(15_63_44/0.10)]";
@@ -204,9 +261,24 @@ function Section({ title, sub, children }: { title: string; sub?: ReactNode; chi
 
 /* ── The screen ── */
 
-export function EnrolView() {
-  const { enrol, mode } = useWorkspace();
-  const [f, setF] = useState<Form>(blank);
+export function EnrolForm({
+  backend,
+  prefilledCase,
+  initialLang = "ar",
+  title,
+  sub,
+  embedded = false,
+  onComplete,
+}: {
+  backend?: Backend;
+  prefilledCase?: Case;
+  initialLang?: Lang;
+  title?: string;
+  sub?: string;
+  embedded?: boolean;
+  onComplete?: (done: EnrolDone) => void;
+}) {
+  const [f, setF] = useState<Form>(() => initialForm(prefilledCase, initialLang));
   const [step, setStep] = useState(0);
   const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -277,8 +349,26 @@ export function EnrolView() {
     setBusy(true);
     setError(null);
     try {
-      setDone(await enrol(body()));
+      const regName = f.name.trim();
+      const payload = body();
+      if (prefilledCase?.participant?.id) {
+        payload.id = prefilledCase.participant.id;
+      }
+      const enrolFn = backend?.enrol ?? (async (b: EnrolIn) => (await getBackend()).enrol(b));
+      const res = await enrolFn(payload);
+      if (typeof window !== "undefined" && regName) {
+        try {
+          window.sessionStorage.setItem(`membrain.registered_name.${res.id}`, regName);
+          window.localStorage.setItem(`membrain.registered_name.${res.id}`, regName);
+        } catch { /* storage disabled */ }
+      }
+      const fullDone: EnrolDone = { ...res, registered_name: regName };
       stopSpeaking();
+      if (onComplete) {
+        onComplete(fullDone);
+      } else {
+        setDone(fullDone);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -313,7 +403,7 @@ export function EnrolView() {
     void speak(text, f.language).finally(() => setReading((r) => (r === k ? null : r)));
   };
 
-  if (done) return <Done done={done} urgent={urgent} lang={f.language} onAgain={() => { setF(blank()); setStep(0); setDone(null); }} />;
+  if (done && !onComplete) return <Done done={done} urgent={urgent} lang={f.language} onAgain={() => { setF(initialForm(prefilledCase, initialLang)); setStep(0); setDone(null); }} />;
 
   /* ── Each step ── */
   let content: ReactNode = null;
@@ -567,15 +657,29 @@ export function EnrolView() {
   }
 
   const isLast = step === STEPS.length - 1;
-  const primaryLabel = urgent && key === "concern" ? "Record identity and escalate" : urgent && key === "identity" ? "Create urgent review now" : isLast ? "Enrol and create pseudonymous ID" : "Continue";
+  const primaryLabel = urgent && key === "concern"
+    ? (f.language === "ar" ? "تسجيل الهوية وتصعيد الحالة" : "Record identity and escalate")
+    : urgent && key === "identity"
+    ? (f.language === "ar" ? "إنشاء مراجعة عاجلة الآن" : "Create urgent review now")
+    : isLast
+    ? (embedded ? (f.language === "ar" ? "تسجيل وبدء التقييم" : "Enrol and begin check-in") : (f.language === "ar" ? "تسجيل وإنشاء معرّف بديل" : "Enrol and create pseudonymous ID"))
+    : (f.language === "ar" ? "متابعة" : "Continue");
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Enrol a participant"
-        sub="Done by a programme coordinator or clinician, with the person (and a family member if they wish)."
-        aside={mode === "browser" ? <span className="rounded-2xl border border-[#ececea] bg-white px-4 py-2.5 text-[14px] text-body">Demo: saved in this browser only</span> : undefined}
-      />
+      {embedded && (
+        <div className="rounded-2xl border border-line bg-white p-5 sm:p-6 shadow-[0_1px_3px_rgb(15_35_40/0.05)]">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-leaf">
+            {f.language === "ar" ? "التسجيل الأولي للمشارك" : "Participant enrolment"}
+          </p>
+          <h2 className="mt-1 font-serif text-[24px] font-semibold tracking-[-0.015em] sm:text-[28px]">
+            {title || (f.language === "ar" ? "معلومات عنك والتسجيل" : "A little about you")}
+          </h2>
+          <p className="mt-1 text-[14.5px] leading-snug text-body">
+            {sub || (f.language === "ar" ? "يرجى إكمال تفاصيل التسجيل للمشارك قبل المتابعة إلى جلسة التقييم." : "Please complete participant enrolment details before continuing to the check-in exercise.")}
+          </p>
+        </div>
+      )}
       <div className="grid items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
         {/* Steps */}
         <nav aria-label="Enrolment steps" className="-mx-1 overflow-x-auto lg:mx-0 lg:overflow-visible">
@@ -624,6 +728,20 @@ export function EnrolView() {
   );
 }
 
+export function EnrolView() {
+  const { mode } = useWorkspace();
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Enrol a participant"
+        sub="Done by a programme coordinator or clinician, with the person (and a family member if they wish)."
+        aside={mode === "browser" ? <span className="rounded-2xl border border-[#ececea] bg-white px-4 py-2.5 text-[14px] text-body">Demo: saved in this browser only</span> : undefined}
+      />
+      <EnrolForm />
+    </div>
+  );
+}
+
 function UrgentNote({ flags, short = false }: { flags: string[]; short?: boolean }) {
   return (
     <Note tone="urgent">
@@ -654,7 +772,12 @@ function Done({ done, urgent, lang, onAgain }: { done: EnrolDone; urgent: boolea
         </p>
         <div className="mt-7 flex flex-wrap justify-center gap-2.5">
           {!urgent && (
-            <Link href={`/checkin/?id=${encodeURIComponent(done.id)}&lang=${lang}`} className={btnClass.primary}><Mic size={16} /> Start baseline check-in now</Link>
+            <Link
+              href={`/checkin/?id=${encodeURIComponent(done.id)}${done.registered_name ? `&name=${encodeURIComponent(done.registered_name)}` : ""}&lang=${lang}`}
+              className={btnClass.primary}
+            >
+              <Mic size={16} /> Start baseline check-in now
+            </Link>
           )}
           <Link href={caseHref(done.id)} className={urgent ? btnClass.danger : btnClass.secondary}><Stethoscope size={16} /> Open the case</Link>
           <button type="button" onClick={onAgain} className={btnClass.secondary}><Plus size={16} /> Enrol another person</button>

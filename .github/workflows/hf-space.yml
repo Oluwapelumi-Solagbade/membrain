@@ -58,6 +58,8 @@ jobs:
           cat deploy/hf-space/requirements-extra.txt >> /tmp/space/requirements.txt
           cp -r site/out /tmp/space/site/out
           cp deploy/hf-space/app.py deploy/hf-space/README.md /tmp/space/
+          echo "AZURE_SPEECH_KEY=${{ secrets.AZURE_SPEECH_KEY }}" >> /tmp/space/.env
+          echo "AZURE_SPEECH_REGION=${{ secrets.AZURE_SPEECH_REGION || 'uaenorth' }}" >> /tmp/space/.env
 
       - name: Upload to Hugging Face
         if: steps.tok.outputs.ok == '1'

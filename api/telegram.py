@@ -653,22 +653,23 @@ async def transcribe(voice: dict, lang: str) -> str | None:
     if r.status_code != 200:
         return None
     audio = r.content
+    if azure_key:
+        region = os.getenv("AZURE_SPEECH_REGION", "uaenorth")
+        locale = "ar-AE" if lang == "ar" else "en-GB"
+        r = await _client().post(
+            f"https://{region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1",
+            params={"language": locale, "format": "simple"}, content=audio,
+            headers={"Ocp-Apim-Subscription-Key": azure_key, "Content-Type": "audio/ogg; codecs=opus"})
+        if r.status_code != 200:
+            log.warning("Azure speech returned %s", r.status_code)
+            return None
+        d = r.json()
+        return (d.get("DisplayText") or "").strip() if d.get("RecognitionStatus") == "Success" else None
     if whisper:
         from api.asr_local import decode, whisper_text
         # All of it in a worker thread: Whisper does its work while the segments are read, and loading can take a while.
         text = await asyncio.to_thread(lambda: whisper_text(decode(audio), lang)[0])
         return text or None
-    region = os.getenv("AZURE_SPEECH_REGION", "uaenorth")
-    locale = "ar-AE" if lang == "ar" else "en-GB"
-    r = await _client().post(
-        f"https://{region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1",
-        params={"language": locale, "format": "simple"}, content=audio,
-        headers={"Ocp-Apim-Subscription-Key": azure_key, "Content-Type": "audio/ogg; codecs=opus"})
-    if r.status_code != 200:
-        log.warning("Azure speech returned %s", r.status_code)
-        return None
-    d = r.json()
-    return (d.get("DisplayText") or "").strip() if d.get("RecognitionStatus") == "Success" else None
 
 
 BOT = Bot(api=call, transcribe=transcribe)

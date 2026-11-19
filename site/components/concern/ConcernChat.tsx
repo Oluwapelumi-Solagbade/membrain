@@ -9,11 +9,11 @@ import { Narrative } from "../Narrative";
 import { config, getEngine, getIntake, LEVEL_TONE, REPORTER_LABEL, type Evaluation, type IntakeResult, type Lang, type Reporter, type Span } from "@/lib/mb";
 import { ACTIVITY, CONFOUNDER, DOMAIN, ONSET, RED_FLAG, WHO, label } from "@/lib/labels";
 import { APP_HOME, appCaseHref, inApp } from "@/lib/app";
-import { rememberClaim } from "@/lib/auth";
+import { rememberClaim, useSession } from "@/lib/auth";
 import { speak as speakAloud, stopSpeaking } from "@/lib/voice";
 import { getBackend } from "@/lib/workspace/backend";
 import { notifyWorkspaceSync } from "@/lib/workspace/sync";
-import { NAV, UAE_AREAS, findNearbyHospitals, distanceKm, type Service } from "@/lib/workspace/navigator";
+import { NAV, UAE_AREAS, findNearbyHospitals, findNearestRegisteredHospital, isHospitalRegistered, distanceKm, type Service } from "@/lib/workspace/navigator";
 import type { ConcernIn } from "@/lib/workspace/types";
 import { COPY, EXAMPLES, REPORTERS, type Copy } from "./copy";
 
@@ -192,6 +192,7 @@ export function ConcernChat() {
       })
       .catch(() => setOnServer(false));
   }, []);
+  const { session } = useSession();
   const [reporter, setReporter] = useState<Reporter | null>(null);
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<string[]>([]); // what the person sent, in order
@@ -219,9 +220,12 @@ export function ConcernChat() {
     return findNearbyHospitals(coords.lat, coords.lon);
   }, [coords.lat, coords.lon]);
 
-  const recommendedHospital = nearbyHospitals[0];
+  const recommendedHospital = useMemo(() => {
+    return nearbyHospitals.find((s) => s.isRegistered) ?? nearbyHospitals[0];
+  }, [nearbyHospitals]);
+
   const assignedHospital = useMemo(() => {
-    const found = NAV.directory.find((s: Service) => s.id === selectedHospitalId);
+    const found = NAV.directory.find((s: Service) => s.id === selectedHospitalId && isHospitalRegistered(s.id));
     return found ?? recommendedHospital ?? NAV.directory[0];
   }, [selectedHospitalId, recommendedHospital]);
 
@@ -244,9 +248,9 @@ export function ConcernChat() {
           }
         }
         setSelectedAreaId(closestArea.id);
-        const nearby = findNearbyHospitals(lat, lon);
-        if (nearby.length > 0) {
-          setSelectedHospitalId(nearby[0].id);
+        const bestReg = findNearestRegisteredHospital(lat, lon);
+        if (bestReg) {
+          setSelectedHospitalId(bestReg.id);
         }
       },
       () => setLocating(false),
@@ -259,14 +263,18 @@ export function ConcernChat() {
     const area = UAE_AREAS.find((a) => a.id === areaId);
     if (area) {
       setUserCoords({ lat: area.lat, lon: area.lon });
-      const nearby = findNearbyHospitals(area.lat, area.lon);
-      if (nearby.length > 0) {
-        setSelectedHospitalId(nearby[0].id);
+      const bestReg = findNearestRegisteredHospital(area.lat, area.lon);
+      if (bestReg) {
+        setSelectedHospitalId(bestReg.id);
       }
     }
   };
 
   const submitWithRouting = () => {
+    if (!assignedHospital || !isHospitalRegistered(assignedHospital.id)) {
+      setContactError(t.selectRegisteredHospital);
+      return;
+    }
     if (!phone.trim()) {
       setContactError(t.phoneRequired);
       return;
@@ -454,12 +462,26 @@ export function ConcernChat() {
       .then((b) => b.raiseConcern(body))
       .then((c) => {
         setCaseId(c.participant.id);
+        if (typeof window !== "undefined") {
+          try {
+            window.sessionStorage.setItem("membrain.recent_concern_id", c.participant.id);
+            if (assignedHospital?.id) {
+              window.sessionStorage.setItem("membrain.recent_concern_hospital_id", assignedHospital.id);
+              window.sessionStorage.setItem("membrain.recent_concern_hospital_name", assignedHospital.name);
+            }
+          } catch {
+            /* storage disabled */
+          }
+        }
         notifyWorkspaceSync({ action: "raiseConcern", pid: c.participant.id });
         const claim = (c as { claim_token?: string }).claim_token;
         if (claim) rememberClaim(c.participant.id, claim);
         return c.latest ?? ev;
       })
-      .catch(() => ev);
+      .catch((err) => {
+        console.error("Failed to save concern:", err);
+        return ev;
+      });
     setStep("thinking");
     Promise.all([saved, new Promise((r) => window.setTimeout(r, 900))]).then(([final]) => {
       setOutcome(final as Evaluation);
@@ -940,32 +962,52 @@ export function ConcernChat() {
 
         {/* Recommended & Selectable Hospitals */}
         <div className="space-y-2">
-          <label className="text-[13px] font-semibold text-deep flex items-center gap-1.5">
-            <Building2 size={15} className="text-leaf" /> {t.chooseHospital}
-          </label>
-          <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
-            {nearbyHospitals.map((s, idx) => {
+          <div className="flex items-center justify-between">
+            <label className="text-[13px] font-semibold text-deep flex items-center gap-1.5">
+              <Building2 size={15} className="text-leaf" /> {t.chooseHospital}
+            </label>
+            <span className="text-[11.5px] text-muted">{t.registeredOnlyNotice}</span>
+          </div>
+          <div className="space-y-2 max-h-[290px] overflow-y-auto pr-1">
+            {nearbyHospitals.map((s) => {
               const isSelected = selectedHospitalId === s.id;
-              const isFirst = idx === 0;
+              const isRegistered = s.isRegistered;
+              const isRecommended = s.id === recommendedHospital?.id;
               return (
                 <div
                   key={s.id}
-                  onClick={() => setSelectedHospitalId(s.id)}
-                  className={`cursor-pointer rounded-xl border p-3 transition-colors ${
-                    isSelected
-                      ? "border-deep bg-deep/5 shadow-sm"
-                      : "border-line bg-white hover:border-leaf/50"
+                  onClick={() => {
+                    if (isRegistered) setSelectedHospitalId(s.id);
+                  }}
+                  className={`rounded-xl border p-3 transition-all ${
+                    !isRegistered
+                      ? "cursor-not-allowed border-dashed border-line bg-paper/60 opacity-65"
+                      : isSelected
+                      ? "cursor-pointer border-deep bg-deep/5 shadow-sm ring-1 ring-deep"
+                      : "cursor-pointer border-line bg-white hover:border-leaf/50"
                   }`}
+                  aria-disabled={!isRegistered}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-[14.5px] text-ink">
+                        <span className={`font-semibold text-[14.5px] ${isRegistered ? "text-ink" : "text-muted"}`}>
                           {s.name}
                         </span>
-                        {isFirst && (
-                          <span className="rounded bg-leaf/15 px-2 py-0.5 text-[11px] font-semibold text-leaf">
-                            {t.nearestHospital}
+                        {isRegistered ? (
+                          <>
+                            {isRecommended && (
+                              <span className="rounded bg-leaf/15 px-2 py-0.5 text-[11px] font-semibold text-leaf">
+                                {t.nearestHospital}
+                              </span>
+                            )}
+                            <span className="rounded bg-mist px-2 py-0.5 text-[10.5px] font-medium text-deep">
+                              {t.activeDoctors}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="rounded border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider text-amber-800">
+                            {t.comingSoon}
                           </span>
                         )}
                         <span className="text-[12px] font-medium text-muted">
@@ -973,15 +1015,21 @@ export function ConcernChat() {
                         </span>
                       </div>
                       <p className="mt-1 text-[13px] text-muted line-clamp-1">
-                        {s.notes ?? s.area} · {s.emirate}
+                        {isRegistered
+                          ? `${s.notes ?? s.area} · ${s.emirate}`
+                          : `${s.notes ?? s.area} · ${s.emirate} — ${t.comingSoonDesc}`}
                       </p>
                     </div>
                     <span
                       className={`mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                        isSelected ? "border-deep bg-deep text-white" : "border-line bg-white"
+                        !isRegistered
+                          ? "border-muted/30 bg-paper/80 text-muted"
+                          : isSelected
+                          ? "border-deep bg-deep text-white"
+                          : "border-line bg-white"
                       }`}
                     >
-                      {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                      {isSelected && isRegistered && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
                     </span>
                   </div>
                 </div>
@@ -1171,13 +1219,22 @@ export function ConcernChat() {
       </div>
     );
   } else if (step === "outcome") {
+    const targetPid = caseId || (typeof window !== "undefined" ? window.sessionStorage.getItem("membrain.recent_concern_id") : null);
+    const caseTarget = targetPid
+      ? (appMode ? appCaseHref(targetPid) : `/clinician/case/?id=${encodeURIComponent(targetPid)}`)
+      : (appMode ? APP_HOME : "/clinician/");
+    const isClinician = session && session.user.role !== "participant";
+    const clinicianHref = !isClinician && targetPid && !appMode
+      ? `/signin/clinician/?next=${encodeURIComponent(`/clinician/case/?id=${targetPid}`)}`
+      : caseTarget;
+
     composer = (
       <div className="flex flex-wrap gap-2">
-        <Link href={caseId ? (appMode ? appCaseHref(caseId) : `/clinician/case/?id=${encodeURIComponent(caseId)}`) : appMode ? APP_HOME : "/clinician/"} className="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-deep px-5 py-3.5 text-[15px] font-medium text-white hover:bg-deep-hover sm:flex-none">
+        <Link href={clinicianHref} className="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-deep px-5 py-3.5 text-[15px] font-medium text-white hover:bg-deep-hover sm:flex-none">
           <Stethoscope size={18} /> {t.clinician}
         </Link>
         {outcome?.level !== "URGENT" && (
-          <Link href={caseId ? `/checkin/?id=${encodeURIComponent(caseId)}&lang=${lang}` : `/checkin/?lang=${lang}`} className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-line bg-white px-4 py-3.5 text-[15px] font-medium hover:bg-mist">
+          <Link href={targetPid ? `/checkin/?id=${encodeURIComponent(targetPid)}&lang=${lang}` : `/checkin/?lang=${lang}`} className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-line bg-white px-4 py-3.5 text-[15px] font-medium hover:bg-mist">
             {t.checkin}
           </Link>
         )}

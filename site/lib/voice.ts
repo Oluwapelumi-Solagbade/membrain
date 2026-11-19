@@ -64,11 +64,13 @@ export async function detectSpeech(base: string | null): Promise<Speech> {
       /* SDK did not load: keep the fallback */
     }
   }
-  const asr = await getJson<{ enabled: boolean; prefer: boolean; label?: string; in_uae?: boolean }>(base + "/api/asr/config");
-  if (asr?.enabled && ask !== "azure" && ask !== "browser" && (asr.prefer || ask === "local") && typeof MediaRecorder !== "undefined") {
-    // Say "in-country" only when the server confirms it runs in the UAE (the Hugging Face demo does not).
-    const where = asr.in_uae ? "self-hosted, in-country" : "self-hosted";
-    s = { engine: "local", label: asr.label ? `${asr.label.replace(/\s*\(in-country\)$/, "")} (${where})` : LABEL.local, base, locales: cfg?.locales, inUae: asr.in_uae === true };
+  const asr = await getJson<{ enabled: boolean; prefer: boolean; label?: string; in_uae?: boolean; engine?: string }>(base + "/api/asr/config");
+  if (asr?.enabled && ask !== "azure" && ask !== "browser" && typeof MediaRecorder !== "undefined") {
+    // Only switch to self-hosted Whisper if Azure is not configured, or if specifically requested with ?asr=local
+    if (ask === "local" || (!cfg?.enabled && asr.prefer)) {
+      const where = asr.in_uae ? "self-hosted, in-country" : "self-hosted";
+      s = { engine: "local", label: asr.label ? `${asr.label.replace(/\s*\(in-country\)$/, "")} (${where})` : LABEL.local, base, locales: cfg?.locales, inUae: asr.in_uae === true };
+    }
   }
   return s;
 }

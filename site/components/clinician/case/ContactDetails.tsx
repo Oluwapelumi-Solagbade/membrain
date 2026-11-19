@@ -21,7 +21,15 @@ export function ContactDetails({ pid, onClose }: { pid: string; onClose: () => v
     setBusy(true);
     setError(null);
     try {
-      setV(await reidentify(pid, reason.trim()));
+      const entry = await reidentify(pid, reason.trim());
+      setV(entry);
+      if (typeof window !== "undefined" && entry.identity?.full_name?.trim()) {
+        try {
+          const fn = entry.identity.full_name.trim();
+          window.sessionStorage.setItem(`membrain.registered_name.${pid}`, fn);
+          window.localStorage.setItem(`membrain.registered_name.${pid}`, fn);
+        } catch { /* storage disabled */ }
+      }
     } catch (e) {
       const m = e instanceof Error ? e.message : String(e);
       setError(/no identity|not found|no contact/i.test(m) ? "No contact details on file for this person (synthetic records have none)." : m);

@@ -8,6 +8,7 @@ import { Avatar, Card, cx, LiveBadge, Screen, SectionTitle, tap, type Tab } from
 import { useWorkspace } from "../clinician/WorkspaceProvider";
 import programmeData from "@/lib/generated/programme-data.json";
 import type { Lang } from "@/lib/mb";
+import { participantNameOf } from "@/lib/workspace/derive";
 import { FAQ_INTERVAL_WEEKS } from "@/lib/workspace/informant";
 import type { Case } from "@/lib/workspace/types";
 
@@ -60,7 +61,7 @@ const fmt = (d: string, lang: Lang) => {
   return s;
 };
 const addDays = (iso: string, d: number) => new Date(Date.parse(iso.slice(0, 10) + "T00:00:00Z") + d * 86400000).toISOString().slice(0, 10);
-const nameOf = (c: Case, lang: Lang) => (c.participant.enrolled === false ? "" : c.participant.display_name?.[lang] || c.participant.display_name?.en || "");
+const nameOf = (c: Case, lang: Lang) => participantNameOf(c.participant, lang);
 
 function statusKey(c: Case): string {
   const scored = [...c.history].reverse().find((h) => !h.intake && !h.informant_report);

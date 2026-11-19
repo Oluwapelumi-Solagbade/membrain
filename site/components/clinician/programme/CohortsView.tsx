@@ -8,7 +8,7 @@ import { Loading, PageHeader, Panel, Stat, SyntheticBadge, btnClass, downloadTex
 import { useWorkspace } from "../WorkspaceProvider";
 import { LevelBar, LEVEL_ORDER, selectClass } from "./common";
 import { EDUCATION_LABEL, LEVEL_LABEL, type Level } from "@/lib/mb";
-import { caseHref, fmtDate, HELD, isIntakeOnly, levelOf, matchesQuery, QUIET, sortCases } from "@/lib/workspace/derive";
+import { caseHref, fmtDate, HELD, isIntakeOnly, levelOf, matchesQuery, participantNameOf, QUIET, sortCases } from "@/lib/workspace/derive";
 import { ENTRY_LABEL } from "@/lib/workspace/concern";
 import { NAV, STATE_LABEL, stateTone } from "@/lib/workspace/navigator";
 import type { Case } from "@/lib/workspace/types";
@@ -25,7 +25,7 @@ function row(c: Case) {
   const ref = latestReferral(c);
   return {
     id: p.id,
-    name: isIntakeOnly(c) ? "New concern" : p.display_name?.en ?? "",
+    name: isIntakeOnly(c) ? "New concern" : (participantNameOf(p, "en") || p.id),
     age: ageBand(c),
     sex: p.sex === "F" ? "Female" : p.sex === "M" ? "Male" : "Not recorded",
     dialect: p.dialect,

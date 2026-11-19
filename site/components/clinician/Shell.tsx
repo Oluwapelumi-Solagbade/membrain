@@ -50,21 +50,21 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
           items={[
             { href: "/clinician/", label: "Review queue", icon: Inbox, badge: active },
             { href: "/clinician/referrals/", label: "Referrals", icon: Route },
-            { href: "/clinician/validation/", label: "Validation", icon: ChartColumn },
-            { href: "/clinician/live/", label: "Live data", icon: Activity },
             { href: "/clinician/enrol/", label: "Enrol a participant", icon: UserPlus },
             { href: "/concern/", label: "Raise a concern", icon: SquarePlus },
           ]}
         />
       </nav>
       <div className="mx-2 my-6 h-px bg-white/10" />
-      <p className="px-4 text-[14px] text-white/60">Programme</p>
-      <nav className="mt-3 space-y-1.5" aria-label="Programme">
+      <p className="px-4 text-[14px] text-white/60">Programme & Evidence</p>
+      <nav className="mt-3 space-y-1.5" aria-label="Programme and Evidence">
         <NavLinks
           onNavigate={onNavigate}
           items={[
             { href: "/clinician/cohorts/", label: "Cohorts", icon: UsersRound },
             { href: "/clinician/reports/", label: "Reports", icon: ChartNoAxesColumn },
+            { href: "/clinician/live/", label: "Live pilot data", icon: Activity },
+            { href: "/clinician/validation/", label: "Model validation", icon: ChartColumn },
             { href: "/clinician/settings/", label: "Settings", icon: Settings },
           ]}
         />

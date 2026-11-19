@@ -136,6 +136,7 @@ export type EnrolIdentity = { full_name: string; national_id?: string | null; ph
 export type EnrolInformant = { name: string; relation: string; phone?: string | null };
 export type InformantChange = { activity_key: string; change: string; when: string; who_took_over: string; why: string };
 export type EnrolIn = {
+  id?: string | null;
   date: string;
   age: number;
   sex: "F" | "M";
@@ -153,7 +154,7 @@ export type EnrolIn = {
   iqcode: number | null;
   apoe: string | null;
 };
-export type EnrolDone = { id: string; first_form: string; phone_linked: boolean; case?: Case };
+export type EnrolDone = { id: string; first_form: string; phone_linked: boolean; case?: Case; registered_name?: string };
 /** What re-identification returns (clinical staff only, a reason is required, and it is audited). */
 export type VaultEntry = { identity: EnrolIdentity | null; informant: EnrolInformant | null };
 
@@ -196,6 +197,7 @@ export interface Backend {
   mode: "server" | "browser";
   base: string | null;
   cases(): Promise<Case[]>;
+  getCase?(pid: string): Promise<Case>;
   act(taskId: string, action: TaskAction, note?: string, referralTo?: string | null): Promise<void>;
   refer(pid: string, body: ReferralIn): Promise<Referral>;
   advance(rid: string, state: ReferralState, date: string, reason?: string): Promise<Referral>;

@@ -133,12 +133,14 @@ LOCAL.clinicians = Object.values(LOCAL_USERS).map((u) => ({ email: u.email!, nam
 export const hospitalLabel = (name?: string | null) => (name ?? "").replace(/\s*\(synthetic\)\s*$/i, "");
 
 /** Whether the signed-in person may see a record: a clinician their own hospital's and those no hospital has yet. */
-export function canSee(u: User | null | undefined, p: { id: string; assigned_hospital?: unknown }): boolean {
+export function canSee(u: User | null | undefined, p: { id: string; assigned_hospital?: unknown; enrolled?: boolean }): boolean {
   if (!u) return false;
   if (u.role === "coordinator") return true;
   if (u.role === "participant") return u.pid === p.id;
   const h = p.assigned_hospital && typeof p.assigned_hospital === "object" ? (p.assigned_hospital as { id?: string | null }).id ?? null : null;
-  return !u.hospital_id || !h || h === u.hospital_id;
+  if (!u.hospital_id || !h || h === u.hospital_id) return true;
+  if (p.id.startsWith("MB-C") && p.enrolled === false) return true;
+  return false;
 }
 const localCodes = new Map<string, { phone: string; code: string; exp: number; tries: number }>();
 

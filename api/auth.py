@@ -75,7 +75,13 @@ class Principal:
             return True
         if self.role == "clinician":
             h = hospital_of(p)
-            return not self.hospital_id or h is None or h == self.hospital_id
+            if not self.hospital_id or h is None or h == self.hospital_id:
+                return True
+            # New intake concerns (MB-C...) or un-enrolled concerns can be viewed by clinicians
+            # during triage so cases are never missed
+            if p.get("id", "").startswith("MB-C") and not p.get("enrolled"):
+                return True
+            return False
         return self.role == "participant" and self.pid == p.get("id")
 
     def may_touch(self, pid: str) -> bool:
@@ -299,7 +305,9 @@ def patient_verify(body: PatientVerify):
     PHONES[phone] = pid
     VAULT.setdefault(pid, {"identity": {}, "informant": None})["identity"]["phone"] = phone   # identifiers stay in the vault
     p = DB["participants"][pid]
-    name = p.get("display_name", {}).get("en") if p.get("enrolled", True) else None
+    name = (VAULT.get(pid, {}).get("identity") or {}).get("full_name") or (p.get("display_name", {}).get("en") if p.get("enrolled", True) else None)
+    if name in ("Enrolled participant", "مشارك مسجّل"):
+        name = None
     user = {"id": "u-" + pid, "role": "participant", "pid": pid, "name": name, "phone": mask_phone(phone)}
     _audit(user["id"], "sign_in", pid, {"kind": "participant"})
     return _issue(user, PATIENT_TTL)

@@ -1,6 +1,7 @@
 "use client";
 
-import { AudioLines, CheckCircle2, FlaskConical, Gauge, ListChecks, Scale, Timer, UsersRound } from "lucide-react";
+import Link from "next/link";
+import { Activity, AudioLines, ChartColumn, CheckCircle2, FlaskConical, Gauge, ListChecks, Scale, Timer, UsersRound } from "lucide-react";
 import { PageHeader, Panel, Stat, SyntheticBadge } from "../parts";
 import { Fact, Note, ci, num, pct } from "./common";
 import programme from "@/lib/generated/programme-data.json";
@@ -64,6 +65,21 @@ export function ValidationView() {
   return (
     <>
       <PageHeader title="Validation" sub={`What has been measured, on a simulated cohort of ${V.n.toLocaleString("en-GB")} people and on held-out test sets`} aside={<SyntheticBadge />} />
+
+      <div className="mt-5 flex items-center gap-2 border-b border-line pb-4">
+        <Link
+          href="/clinician/live/"
+          className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-4 py-2 text-[14.5px] font-medium text-body transition-colors hover:bg-paper hover:text-ink"
+        >
+          <Activity size={17} /> Live pilot data
+        </Link>
+        <Link
+          href="/clinician/validation/"
+          className="inline-flex items-center gap-2 rounded-xl bg-deep px-4 py-2 text-[14.5px] font-semibold text-white shadow-sm"
+        >
+          <ChartColumn size={17} /> Model validation (Synthetic)
+        </Link>
+      </div>
 
       <div className="mt-6">
         <Note tone="warn">

@@ -238,6 +238,7 @@ class EnrolConcern(BaseModel):
 
 
 class Enrol(BaseModel):
+    id: str | None = None
     identity: Identity | None = None
     informant: Informant | None = None
     informant_profile: InformantProfile | None = None
@@ -352,10 +353,22 @@ def enrol(body: Enrol, who: Principal = Depends(principal)):
     review straight away."""
     r = who.actor   # audited under the signed-in account
     need(who.role, "coordinator", "clinician")
-    while True:
-        pid = "MB-" + uuid.uuid4().hex[:6].upper()
-        if pid not in DB["participants"]:
-            break
+    hid = who.hospital_id if who.role == "clinician" and who.hospital_id else body.hospital_id
+    hosp = _hospital(hid) if hid else None
+    if body.id and body.id in DB["participants"] and not DB["participants"][body.id].get("enrolled", True):
+        pid = body.id
+        existing_p = DB["participants"][pid]
+        existing_sessions = list(existing_p.get("sessions", []))
+        if not hid and existing_p.get("assigned_hospital"):
+            hosp = existing_p.get("assigned_hospital")
+        if not body.emirate and existing_p.get("emirate"):
+            body.emirate = existing_p.get("emirate")
+    else:
+        existing_sessions = []
+        while True:
+            pid = "MB-" + uuid.uuid4().hex[:6].upper()
+            if pid not in DB["participants"]:
+                break
     today = body.date or datetime.now(timezone.utc).date().isoformat()
     consent = {k: bool(v) for k, v in (body.consent or {}).items()}
     ctx = dict(body.context or {})
@@ -365,14 +378,12 @@ def enrol(body: Enrol, who: Principal = Depends(principal)):
     if not consent.get("family_history", True):
         ctx["family_history_dementia"] = None
     age = float(body.age)
-    hid = who.hospital_id if who.role == "clinician" and who.hospital_id else body.hospital_id
-    hosp = _hospital(hid) if hid else None
     prof = body.informant_profile
     helper_ok = prof is None or prof.type != "household_helper" or prof.consented
     p = {"id": pid, "display_name": {"en": "Enrolled participant", "ar": "مشارك مسجّل"}, "age": age,
          "age_band": "50-59" if age < 60 else "60-69" if age < 70 else "70-75", "sex": body.sex, "education": body.education,
          "dialect": body.dialect, "language": body.language, "languages": [body.language], "story": "", "context": ctx,
-         "consent": consent, "sessions": [], "referrals": [], "enrolled": True,
+         "consent": consent, "sessions": list(existing_sessions), "referrals": [], "enrolled": True,
          "entry_route": body.concern.route if body.concern else "programme", "emirate": body.emirate, "funding": body.funding,
          "preferred_channel": body.identity.preferred_channel if body.identity else "app",
          "pending_iqcode": body.iqcode, "has_informant": body.informant is not None or prof is not None,
@@ -386,9 +397,18 @@ def enrol(body: Enrol, who: Principal = Depends(principal)):
     flags = [f for f in dict.fromkeys(cz.red_flags) if f in C.RED_FLAGS]
     acts = sorted({str(t.get("activity_key")) for t in (prof.timeline if prof else []) if t.get("activity_key") in _IK.ACTIVITIES})
     if body.concern:   # the concern and the red-flag screen, recorded before any testing
-        p["sessions"].append({"session_id": f"{pid}-intake", "date": today, "type": "intake", "channel": "app",
-                            "concern": cz.text.strip() or "routine programme screening", "onset": cz.onset, "red_flags": flags,
-                            "reported_concern": {"reporter": ROUTE_REPORTER[cz.route], "domains": [], "activities_taken_over": acts}})
+        intake_sess = next((s for s in p["sessions"] if s.get("type") == "intake"), None)
+        if intake_sess:
+            if cz.text.strip():
+                intake_sess["concern"] = cz.text.strip()
+            if cz.onset:
+                intake_sess["onset"] = cz.onset
+            if flags:
+                intake_sess["red_flags"] = flags
+        else:
+            p["sessions"].append({"session_id": f"{pid}-intake", "date": today, "type": "intake", "channel": "app",
+                                "concern": cz.text.strip() or "routine programme screening", "onset": cz.onset, "red_flags": flags,
+                                "reported_concern": {"reporter": ROUTE_REPORTER[cz.route], "domains": [], "activities_taken_over": acts}})
     DB["participants"][pid] = p
     VAULT[pid] = {"identity": body.identity.model_dump() if body.identity else None,
                   "informant": body.informant.model_dump() if body.informant else None}   # identifiers never enter the record
@@ -403,8 +423,11 @@ def enrol(body: Enrol, who: Principal = Depends(principal)):
         _sync_tasks(p, evaluate(p, p["sessions"]))
     audit(r, "enrol", pid, {"consent": consent, "consent_version": body.consent_version, "programme": body.programme,
                             "entry_route": p["entry_route"], "red_flags": flags})
+    out_case = _case(p)
+    if body.identity and body.identity.full_name:
+        out_case["registered_name"] = body.identity.full_name.strip()
     return {"id": pid, "first_form": form_for_session(0, participant_seed(pid)), "phone_linked": phone_linked,
-            "schedule": {"baseline_1": "today", "baseline_2": "+2 weeks", "follow_up": "+12 weeks"}, "case": _case(p)}
+            "schedule": {"baseline_1": "today", "baseline_2": "+2 weeks", "follow_up": "+12 weeks"}, "case": out_case}
 
 
 @app.post("/participants/{pid}/reidentify")
@@ -791,9 +814,14 @@ def _task_for(p: dict, latest: dict | None) -> dict | None:
 
 
 def _case(p: dict, full: bool = False) -> dict:
+    pid = p.get("id", "")
+    p_out = dict(p)
+    reg_name = (VAULT.get(pid, {}).get("identity") or {}).get("full_name")
+    if reg_name:
+        p_out["display_name"] = {"en": reg_name, "ar": reg_name}
     ev = evaluate(p, p["sessions"]) if p["sessions"] else {"latest": None, "history": []}
     ctx = p.get("context") or {}
-    out = {"participant": p, "history": ev["history"], "latest": ev["latest"], "task": _task_for(p, ev["latest"]),
+    out = {"participant": p_out, "history": ev["history"], "latest": ev["latest"], "task": _task_for(p, ev["latest"]),
            "concern": concern_summary(p), "risk_context": risk_context(ctx) if ctx else None,
            "prevention": prevention_plan(ctx, p.get("language") or "en") if ctx else None}
     if full:

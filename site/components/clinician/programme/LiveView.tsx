@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Activity, CheckCircle2, Clock, Database, FileText, MessageSquareText, RefreshCw, Scale, ShieldCheck, UsersRound } from "lucide-react";
+import Link from "next/link";
+import { Activity, ChartColumn, CheckCircle2, Clock, Database, FileText, MessageSquareText, RefreshCw, Scale, ShieldCheck, UsersRound } from "lucide-react";
 import { PageHeader, Panel, Stat } from "../parts";
 import { Fact, LevelBar, Note, num, pct } from "./common";
 import { authHeader } from "@/lib/auth";
@@ -77,6 +78,20 @@ export function LiveView() {
     return (
       <div className="space-y-6">
         <PageHeader title="Live data" sub="What real visitors have done in MemBrain, kept and analysed as it happens." />
+        <div className="flex items-center gap-2 border-b border-line pb-4">
+          <Link
+            href="/clinician/live/"
+            className="inline-flex items-center gap-2 rounded-xl bg-deep px-4 py-2 text-[14.5px] font-semibold text-white shadow-sm"
+          >
+            <Activity size={17} /> Live pilot data
+          </Link>
+          <Link
+            href="/clinician/validation/"
+            className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-4 py-2 text-[14.5px] font-medium text-body transition-colors hover:bg-paper hover:text-ink"
+          >
+            <ChartColumn size={17} /> Model validation (Synthetic)
+          </Link>
+        </div>
         <Note>This copy of the site runs entirely in your browser, so there is no shared data to show. Open the live demo server (Hugging Face Space) to see live data.</Note>
       </div>
     );
@@ -88,6 +103,20 @@ export function LiveView() {
         sub="Every concern, check-in and clinician decision made in this demo, saved and analysed as it happens. Recomputed every 30 seconds."
         aside={badge}
       />
+      <div className="flex items-center gap-2 border-b border-line pb-4">
+        <Link
+          href="/clinician/live/"
+          className="inline-flex items-center gap-2 rounded-xl bg-deep px-4 py-2 text-[14.5px] font-semibold text-white shadow-sm"
+        >
+          <Activity size={17} /> Live pilot data
+        </Link>
+        <Link
+          href="/clinician/validation/"
+          className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-4 py-2 text-[14.5px] font-medium text-body transition-colors hover:bg-paper hover:text-ink"
+        >
+          <ChartColumn size={17} /> Model validation (Synthetic)
+        </Link>
+      </div>
       {err && <Note tone="warn">{err}</Note>}
       {!s ? (
         !err && <p className="text-body">Loading live data…</p>

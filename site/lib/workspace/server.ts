@@ -29,6 +29,7 @@ export function serverBackend(base: string): Backend {
     mode: "server",
     base,
     cases: () => call<Case[]>(base, "/cases"),
+    getCase: (pid: string) => call<Case>(base, `/cases/${encodeURIComponent(pid)}`),
     act: async (taskId: string, action: TaskAction, note = "", referralTo: string | null = null) => {
       await post(`/tasks/${encodeURIComponent(taskId)}/action`, { action, note, referral_to: referralTo });
       notifyWorkspaceSync({ action: "act", taskId });

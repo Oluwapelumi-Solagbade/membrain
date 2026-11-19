@@ -131,12 +131,38 @@ export const UAE_AREAS: UaeArea[] = [
   { id: "uaq-centre", emirate: "Umm Al Quwain", name: { en: "Umm Al Quwain / Al Salamah", ar: "أم القيوين / السلمة" }, lat: 25.526, lon: 55.558 },
 ];
 
-export function findNearbyHospitals(lat: number, lon: number, preferredPathway = "memory_clinic", directory = NAV.directory): (Service & { distanceKm: number })[] {
+export const REGISTERED_HOSPITAL_IDS: string[] = ["SVC-01", "SVC-02", "SVC-14"];
+
+export function isHospitalRegistered(id?: string | null): boolean {
+  if (!id) return false;
+  return REGISTERED_HOSPITAL_IDS.includes(id);
+}
+
+export function findNearbyHospitals(
+  lat: number,
+  lon: number,
+  preferredPathway = "memory_clinic",
+  directory = NAV.directory
+): (Service & { distanceKm: number; isRegistered: boolean })[] {
   return directory
     .filter((s) => s.pathways.includes(preferredPathway) || s.pathways.includes("primary_care"))
     .map((s) => {
       const d = s.lat && s.lon ? distanceKm(lat, lon, s.lat, s.lon) : 999;
-      return { ...s, distanceKm: d };
+      return { ...s, distanceKm: d, isRegistered: isHospitalRegistered(s.id) };
     })
-    .sort((a, b) => a.distanceKm - b.distanceKm);
+    .sort((a, b) => {
+      if (a.isRegistered !== b.isRegistered) return a.isRegistered ? -1 : 1;
+      return a.distanceKm - b.distanceKm;
+    });
+}
+
+export function findNearestRegisteredHospital(
+  lat: number,
+  lon: number,
+  preferredPathway = "memory_clinic",
+  directory = NAV.directory
+): Service & { distanceKm: number; isRegistered: boolean } {
+  const all = findNearbyHospitals(lat, lon, preferredPathway, directory);
+  const reg = all.find((s) => s.isRegistered);
+  return reg ?? all[0];
 }

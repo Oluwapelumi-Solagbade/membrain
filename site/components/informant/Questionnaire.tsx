@@ -11,9 +11,10 @@ import { APP_HOME, appCaseHref, homeHref, inApp } from "@/lib/app";
 import { useSession } from "@/lib/auth";
 import { getBackend, type Backend, type Case, type Respondent } from "@/lib/workspace/backend";
 import { FAQ_INTERVAL_WEEKS, FAQ_ITEMS, ITEM, NEVER, RESPONDENT, SCALE } from "@/lib/workspace/informant";
+import { participantNameOf } from "@/lib/workspace/derive";
 import { QCOPY } from "./copy";
 
-const nameOf = (c: Case, lang: Lang) => (c.participant.enrolled === false ? "" : c.participant.display_name?.[lang] || c.participant.display_name?.en || "");
+const nameOf = (c: Case, lang: Lang) => participantNameOf(c.participant, lang);
 const today = () => new Date().toISOString().slice(0, 10);
 
 /** The family questionnaire: who is answering, then one everyday activity per screen, then a thank-you (never a score). */

@@ -16,10 +16,12 @@ if ON_ZERO_GPU:
     def gpu_ready() -> bool:
         return True
 
+os.environ.setdefault("AZURE_SPEECH_KEY", os.getenv("AZURE_SPEECH_KEY", ""))
+os.environ.setdefault("AZURE_SPEECH_REGION", os.getenv("AZURE_SPEECH_REGION", "uaenorth"))
 os.environ.setdefault("WHISPER_MODEL", "Vulcan-Spark/membrain-whisper-gulf-ct2")
-os.environ.setdefault("ASR_PREFER_LOCAL", "1")
-os.environ.setdefault("PIPER_TTS", "1")   # instructions spoken by the server (api/tts.py): Android WebView and Chrome lack Arabic voices   # spoken check-in uses our Gulf Whisper, not the browser
-os.environ.setdefault("SERVER_IN_UAE", "0")   # this demo host is not in the UAE: the site words its privacy notes so
+os.environ.setdefault("ASR_PREFER_LOCAL", "0")
+os.environ.setdefault("PIPER_TTS", "1")   # instructions spoken by the server (api/tts.py)
+os.environ.setdefault("SERVER_IN_UAE", "1")   # Azure UAE North runs in-country in Dubai/Abu Dhabi
 # Live demo data is saved to this PRIVATE dataset (api/store.py) when the Space has a STORE_TOKEN secret
 # (fine-grained, write access to that dataset only). Without the secret, data stays in memory as before.
 os.environ.setdefault("STORE_REPO", "Vulcan-Spark/membrain-live-data")

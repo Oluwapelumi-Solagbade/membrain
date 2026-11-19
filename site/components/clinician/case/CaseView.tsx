@@ -53,7 +53,7 @@ import { FamilyMessage } from "./FamilyMessage";
 import { MocaPanel } from "./MocaPanel";
 import { ReviewPacket } from "./ReviewPacket";
 import { EDUCATION_LABEL, type Evaluation } from "@/lib/mb";
-import { caseHref, contactOf, dueOf, facilityOf, fmtDate, fmtRelTime, fmtTime, isIntakeOnly, levelOf } from "@/lib/workspace/derive";
+import { caseHref, contactOf, dueOf, facilityOf, fmtDate, fmtRelTime, fmtTime, isIntakeOnly, levelOf, participantNameOf, registeredNameOf } from "@/lib/workspace/derive";
 import { NAV, STATE_LABEL } from "@/lib/workspace/navigator";
 import type { AuditEntry, Case } from "@/lib/workspace/types";
 
@@ -110,27 +110,40 @@ type CaseTab = "overview" | "concern" | "cognitive" | "referral" | "timeline";
 export function CaseView() {
   const params = useSearchParams();
   const id = params.get("id") ?? "";
-  const { ready, byId, refresh, syncing } = useWorkspace();
-  const c = byId(id);
+  const { ready, byId, getCase, refresh, syncing } = useWorkspace();
+  const [directCase, setDirectCase] = useState<Case | null>(null);
+  const [loadingDirect, setLoadingDirect] = useState(false);
+  const [directError, setDirectError] = useState<string | null>(null);
 
-  // If case is not found in local workspace cache, trigger refresh once to fetch newly created cases from backend
-  const [attempted, setAttempted] = useState(false);
+  const c = byId(id) ?? directCase ?? undefined;
+
+  // Direct fetch fallback if the case is not yet in the general list cache
   useEffect(() => {
-    if (ready && !c && id && !attempted && !syncing) {
-      setAttempted(true);
-      void refresh();
+    if (ready && !byId(id) && id && !loadingDirect && !directCase && !directError) {
+      setLoadingDirect(true);
+      getCase(id)
+        .then((found) => {
+          setDirectCase(found);
+          setLoadingDirect(false);
+        })
+        .catch((err) => {
+          setDirectError(err instanceof Error ? err.message : String(err));
+          setLoadingDirect(false);
+        });
     }
-  }, [ready, c, id, attempted, syncing, refresh]);
+  }, [ready, id, byId, getCase, loadingDirect, directCase, directError]);
 
-  if (!ready || (syncing && !c && !attempted)) return <Loading label="Loading the case" />;
+  if (!ready || loadingDirect || (syncing && !c)) return <Loading label="Loading the case" />;
   if (!c) {
     if (syncing) return <Loading label="Retrieving latest case data..." />;
     return (
       <div className="rounded-2xl border border-[#ebece8] bg-white px-6 py-10 text-center">
         <p className="font-serif text-[26px] font-semibold">No case {id ? `“${id}”` : "selected"}</p>
-        <p className="mt-2 text-[15px] text-body">This person may be under another hospital, which only its own clinicians can see, or the demo data was reset.</p>
+        <p className="mt-2 text-[15px] text-body">
+          {directError || "This person may be under another hospital, which only its own clinicians can see, or the demo data was reset."}
+        </p>
         <div className="mt-5 flex justify-center gap-3">
-          <button type="button" onClick={() => void refresh()} className={btnClass.secondary}>
+          <button type="button" onClick={() => { setDirectError(null); void refresh(); }} className={btnClass.secondary}>
             <RotateCcw size={16} /> Refresh cases
           </button>
           <Link href="/clinician/" className={`${btnClass.primary}`}>
@@ -194,6 +207,7 @@ function CaseBody({ c }: { c: Case }) {
   const [referring, setReferring] = useState(false);
   const [contact, setContact] = useState(false);
   const [activity, setActivity] = useState<AuditEntry[] | null>(null);
+  const registeredName = participantNameOf(p, "en") || registeredNameOf(p.id) || null;
   const actionsTaken = c.task?.actions.length ?? 0;
   const refCount = p.referrals.length;
   const historyCount = p.referrals.reduce((n, r) => n + r.history.length, 0);
@@ -283,7 +297,10 @@ function CaseBody({ c }: { c: Case }) {
           <ArrowLeft size={17} /> Back to queue
         </Link>
         <div className="flex flex-wrap gap-2.5">
-          <Link href={`/checkin/?id=${encodeURIComponent(p.id)}`} className={btnClass.secondary}>
+          <Link
+            href={`/checkin/?id=${encodeURIComponent(p.id)}${registeredName ? `&name=${encodeURIComponent(registeredName)}` : ""}`}
+            className={btnClass.secondary}
+          >
             <Mic size={16} /> Start in-clinic check-in
           </Link>
           {p.enrolled !== false && !p.id.startsWith("MB-C") && (
@@ -306,7 +323,9 @@ function CaseBody({ c }: { c: Case }) {
       <section className="rounded-2xl border border-[#ebece8] bg-white p-5 sm:p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <p className="flex min-w-0 flex-wrap items-center gap-3">
-            <span className="text-[30px] font-semibold leading-none tracking-[-0.02em] sm:text-[34px]">{p.id}</span>
+            <span className="text-[30px] font-semibold leading-none tracking-[-0.02em] sm:text-[34px]">
+              {registeredName ? `${registeredName} (${p.id})` : p.id}
+            </span>
             <span className="[&>span]:px-3.5 [&>span]:py-1.5 [&>span]:text-[14.5px]">
               <LevelPill level={levelOf(c)} />
             </span>
@@ -327,7 +346,7 @@ function CaseBody({ c }: { c: Case }) {
         <p className="mt-2 text-[15.5px] text-body">
           {intakeOnly
             ? `Concern raised by ${c.concern.raised_by.toLowerCase()} on ${fmtDate(c.concern.date)} (${fmtRelTime(c.concern.date)}) · not yet enrolled`
-            : [`${p.age} years`, p.sex === "F" ? "Female" : p.sex === "M" ? "Male" : null, p.dialect && `${p.dialect} dialect`, p.education && `${EDUCATION_LABEL[p.education]} schooling`, p.emirate].filter(Boolean).join(" · ")}
+            : [registeredName, `${p.age} years`, p.sex === "F" ? "Female" : p.sex === "M" ? "Male" : null, p.dialect && `${p.dialect} dialect`, p.education && `${EDUCATION_LABEL[p.education]} schooling`, p.emirate].filter(Boolean).join(" · ")}
         </p>
 
         {/* Demographics & consent chips */}

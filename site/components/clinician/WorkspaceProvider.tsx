@@ -17,6 +17,7 @@ type Workspace = {
   query: string;
   setQuery: (q: string) => void;
   byId: (id: string) => Case | undefined;
+  getCase: (id: string) => Promise<Case>;
   refresh: () => Promise<void>;
   act: (taskId: string, action: TaskAction, note?: string, referralTo?: string | null) => Promise<void>;
   refer: (pid: string, body: ReferralIn) => Promise<void>;
@@ -85,6 +86,20 @@ function Workspace_({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const getCase = useCallback(async (pid: string): Promise<Case> => {
+    const b = await getBackend();
+    if (b.getCase) {
+      const found = await b.getCase(pid);
+      setCases((prev) => (prev.some((c) => c.participant.id === pid) ? prev.map((c) => (c.participant.id === pid ? found : c)) : [found, ...prev]));
+      return found;
+    }
+    const list = await b.cases();
+    setCases(list);
+    const found = list.find((c) => c.participant.id === pid);
+    if (!found) throw new Error("Case not found");
+    return found;
+  }, []);
+
   // 1. Initial mount
   useEffect(() => {
     void fetchCases();
@@ -143,6 +158,7 @@ function Workspace_({ children }: { children: ReactNode }) {
       query,
       setQuery,
       byId: (id) => cases.find((c) => c.participant.id === id),
+      getCase,
       refresh: () => fetchCases(),
       act: (taskId, action, note, referralTo) => run((b) => b.act(taskId, action, note, referralTo)),
       refer: (pid, body) => run((b) => b.refer(pid, body)),
@@ -159,7 +175,7 @@ function Workspace_({ children }: { children: ReactNode }) {
       reidentify: async (pid, reason) => (await getBackend()).reidentify(pid, reason),
       assignHospital: (pid, hospitalId) => run(async (b) => void (await b.assignHospital(pid, hospitalId))),
     }),
-    [backend, cases, error, fetchCases, query, run, syncedAt, syncing],
+    [backend, cases, error, fetchCases, getCase, query, run, syncedAt, syncing],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
