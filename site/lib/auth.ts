@@ -349,3 +349,16 @@ export function getHomeUrl(lang: "en" | "ar" = "en"): string {
   const sub = lang === "ar" ? "/ar/" : "/";
   return cleanBase ? `${cleanBase}${sub}` : sub;
 }
+
+/** Resolves the goodbye / signed-out confirmation page URL. */
+export function getSignedOutUrl(lang: "en" | "ar" = "en"): string {
+  let base = process.env.NEXT_PUBLIC_BASE_PATH || "";
+  if (typeof window !== "undefined" && !base) {
+    if (window.location.pathname.startsWith("/membrain")) {
+      base = "/membrain";
+    }
+  }
+  const cleanBase = base ? (base.endsWith("/") ? base.slice(0, -1) : base) : "";
+  const sub = `/signed-out/?lang=${lang}`;
+  return cleanBase ? `${cleanBase}${sub}` : sub;
+}

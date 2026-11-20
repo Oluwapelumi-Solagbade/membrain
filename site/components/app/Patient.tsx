@@ -8,7 +8,7 @@ import { Avatar, Card, cx, LiveBadge, Screen, SectionTitle, tap, type Tab } from
 import { useWorkspace } from "../clinician/WorkspaceProvider";
 import programmeData from "@/lib/generated/programme-data.json";
 import type { Lang } from "@/lib/mb";
-import { getHomeUrl, signOut } from "@/lib/auth";
+import { getHomeUrl, getSignedOutUrl, signOut } from "@/lib/auth";
 import { participantNameOf } from "@/lib/workspace/derive";
 import { FAQ_INTERVAL_WEEKS } from "@/lib/workspace/informant";
 import type { Case } from "@/lib/workspace/types";
