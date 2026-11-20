@@ -1,5 +1,5 @@
 // "MemBrain in your pocket": mobile app presentation on landing page.
-// Highlights the live Android APK build (with on-device offline engine) and the upcoming iOS app.
+// Highlights the live Android APK build (a live client of the MemBrain server) and the upcoming iOS app.
 import Image from "next/image";
 import {
   BellRing,
@@ -25,18 +25,18 @@ const T = {
     iosPill: "iOS Coming Soon",
     title: ["MemBrain, in your ", "pocket", "."],
     intro:
-      "One unified app for families and clinicians. Families report changes via voice or the family questionnaire; individuals complete the spoken check-in; clinicians manage triage alerts, catchment maps, referrals, and clinical summaries. The on-device engine works 100% offline with zero data egress.",
+      "One unified app for families and clinicians. Families report changes via voice or the family questionnaire; individuals complete the spoken check-in; clinicians manage triage alerts, catchment maps, referrals, and clinical summaries. Records stay on MemBrain's server, never on the phone.",
     badges: [
-      "100% Offline MoCA Engine",
+      "Six-minute spoken check-in",
       "Gulf Dialect Acoustic AI",
-      "Zero Data Egress",
+      "No records kept on the phone",
       "Direct Hospital Routing",
     ],
     features: [
       {
         icon: Mic,
         title: "Speak, don't type",
-        text: "Concerns and check-ins by voice, in Arabic or English, processed on-device as you speak.",
+        text: "Concerns and check-ins by voice, in Arabic or English, heard from the very first word.",
       },
       {
         icon: BellRing,
@@ -55,9 +55,9 @@ const T = {
       },
     ],
     androidTitle: "Download for Android",
-    androidSubtitle: "Direct APK install · Version 0.5.0 (6 MB)",
+    androidSubtitle: "Direct APK install · Version 1.3 (7 MB) · Android 5.1+",
     androidBadge: "Available Now",
-    androidOffline: "Works fully offline with on-device engine",
+    androidOffline: "If Play Protect asks: More details → Install anyway",
     iosTitle: "Apple iOS & iPadOS",
     iosSubtitle: "TestFlight pilot onboarding in progress",
     iosBadge: "Coming Soon",
@@ -84,18 +84,18 @@ const T = {
     iosPill: "آبل iOS قريبًا",
     title: ["MemBrain ", "في جيبك", "."],
     intro:
-      "تطبيق موحد للأسرة والكادر الطبي. تبلّغ الأسرة عن التغيّر بالصوت أو عبر استبيان الأسرة، ويُجري الشخص الفحص الصوتي، ويعمل الأطباء على قائمة التنبيهات وخريطة المستشفيات والإحالات. يعمل المحرك الداخلي بدون إنترنت بنسبة ١٠٠٪ وبخصوصية تامة.",
+      "تطبيق موحد للأسرة والكادر الطبي. تبلّغ الأسرة عن التغيّر بالصوت أو عبر استبيان الأسرة، ويُجري الشخص الفحص الصوتي، ويعمل الأطباء على قائمة التنبيهات وخريطة المستشفيات والإحالات. تبقى السجلات على خادم MemBrain، ولا تُحفظ على الهاتف.",
     badges: [
-      "محرك MoCA يعمل بدون إنترنت",
+      "فحص صوتي في ست دقائق",
       "ذكاء اصطناعي صوتي للهجات الخليجية",
-      "لا تغادر البيانات جهازك",
+      "لا تُحفظ السجلات على الهاتف",
       "توجيه مباشر لأقرب مستشفى",
     ],
     features: [
       {
         icon: Mic,
         title: "تحدّث بدلًا من الكتابة",
-        text: "البلاغات والفحوص بالصوت، بالعربية أو الإنجليزية، ويحللها الهاتف فور حديثك.",
+        text: "البلاغات والفحوص بالصوت، بالعربية أو الإنجليزية، ويُسمع كلامك من أول كلمة.",
       },
       {
         icon: BellRing,
@@ -114,9 +114,9 @@ const T = {
       },
     ],
     androidTitle: "حمّل التطبيق لأندرويد",
-    androidSubtitle: "تحميل ملف APK مباشر · الإصدار 0.5.0 (٦ ميجابايت)",
+    androidSubtitle: "تحميل ملف APK مباشر · الإصدار 1.3 (٧ ميجابايت) · أندرويد 5.1 فأحدث",
     androidBadge: "متاح الآن",
-    androidOffline: "يعمل بالكامل بدون الحاجة لإنترنت",
+    androidOffline: "إن ظهر تنبيه Play Protect: المزيد من التفاصيل ← التثبيت على أي حال",
     iosTitle: "أجهزة آبل (iOS & iPadOS)",
     iosSubtitle: "قيد الإطلاق التجريبي عبر منصة TestFlight",
     iosBadge: "قريبًا",

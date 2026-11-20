@@ -21,7 +21,7 @@ import { isActive, levelOf } from "@/lib/workspace/derive";
 import type { AuditEntry } from "@/lib/workspace/types";
 
 const LANG_KEY = "membrain.app.lang";
-const VERSION = "1.2";
+const VERSION = "1.3";
 type Layer = { kind: "case"; id: string } | { kind: "intake"; followPid: string | null };
 type Conn = "connecting" | "waking" | "ok" | "failed";
 
