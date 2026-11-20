@@ -355,7 +355,12 @@ def enrol(body: Enrol, who: Principal = Depends(principal)):
     engine, dashboard and analytics use carries a pseudonymous ID. A red flag at the safety screen opens an urgent
     review straight away."""
     r = who.actor   # audited under the signed-in account
-    is_self_enrol = bool(body.id and body.id in DB["participants"] and not DB["participants"][body.id].get("enrolled", True))
+    target_pid = body.id or (who.pid if who.role == "participant" else None)
+    is_self_enrol = bool(
+        target_pid and target_pid in DB["participants"] and not DB["participants"][target_pid].get("enrolled", True)
+    )
+    if is_self_enrol and not body.id:
+        body.id = target_pid
     if not is_self_enrol:
         need(who.role, "coordinator", "clinician")
     hid = who.hospital_id if who.role == "clinician" and who.hospital_id else body.hospital_id
@@ -374,6 +379,13 @@ def enrol(body: Enrol, who: Principal = Depends(principal)):
             pid = "MB-" + uuid.uuid4().hex[:6].upper()
             if pid not in DB["participants"]:
                 break
+    if not hosp:
+        # Route to nearest registered regional hospital with active clinician coverage
+        reg_hid = "SVC-14" if body.emirate in ("Dubai", "Sharjah", "Ajman", "Umm Al Quwain", "Ras Al Khaimah", "Fujairah") else "SVC-01"
+        try:
+            hosp = _hospital(reg_hid)
+        except Exception:
+            pass
     today = body.date or datetime.now(timezone.utc).date().isoformat()
     consent = {k: bool(v) for k, v in (body.consent or {}).items()}
     ctx = dict(body.context or {})

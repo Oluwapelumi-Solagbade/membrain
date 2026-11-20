@@ -151,6 +151,7 @@ export type EnrolIn = {
   context: Record<string, unknown>;
   emirate: string | null;
   funding: string | null;
+  hospital_id?: string | null;
   iqcode: number | null;
   apoe: string | null;
 };

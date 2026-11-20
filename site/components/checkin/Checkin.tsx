@@ -161,9 +161,10 @@ function writeJson(store: "local" | "session", key: string, v: unknown) {
 /* ── The page ── */
 
 export function Checkin() {
+  const { session: me } = useSession();
   const params = useSearchParams();
   const id = params.get("id");
-  const effectiveId = id || (typeof window !== "undefined" ? window.sessionStorage.getItem("membrain.recent_concern_id") : null);
+  const effectiveId = id || (me?.user?.role === "participant" ? me.user.pid : null) || (typeof window !== "undefined" ? window.sessionStorage.getItem("membrain.recent_concern_id") : null);
   const qLang = params.get("lang") === "ar" ? "ar" : params.get("lang") === "en" ? "en" : null;
   const qName = params.get("name");
   const [backend, setBackend] = useState<Backend | null>(null);
@@ -187,7 +188,7 @@ export function Checkin() {
     getBackend()
       .then(async (b) => {
         if (live) setBackend(b);
-        const target = id || (typeof window !== "undefined" ? window.sessionStorage.getItem("membrain.recent_concern_id") : null);
+        const target = id || (me?.user?.role === "participant" ? me.user.pid : null) || (typeof window !== "undefined" ? window.sessionStorage.getItem("membrain.recent_concern_id") : null);
         if (target && b.getCase) {
           try {
             const single = await b.getCase(target);
@@ -892,7 +893,21 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
       break;
 
     case "done":
-      body = result && <Done t={t} lang={lang} name={name} result={result} after={after} form={form} speechLabel={speech?.label ?? LABEL.typed} speaking={speaking} onRepeat={() => say(result.message.text)} />;
+      body = result && (
+        <Done
+          t={t}
+          lang={lang}
+          name={name}
+          result={result}
+          after={after}
+          form={form}
+          speechLabel={speech?.label ?? LABEL.typed}
+          speaking={speaking}
+          onRepeat={() => say(result.message.text)}
+          staff={staff}
+          exitHref={exitHref}
+        />
+      );
       break;
   }
 
@@ -1057,8 +1072,8 @@ const MESSAGE_TONE: Record<string, string> = {
   INVALID: "bg-white text-ink ring-1 ring-line",
 };
 
-function Done({ t, lang, name, result, after, form, speechLabel, speaking, onRepeat }: {
-  t: Copy; lang: Lang; name: string; result: CheckinResult; after: Case | null; form: string; speechLabel: string; speaking: boolean; onRepeat: () => void;
+function Done({ t, lang, name, result, after, form, speechLabel, speaking, onRepeat, staff, exitHref }: {
+  t: Copy; lang: Lang; name: string; result: CheckinResult; after: Case | null; form: string; speechLabel: string; speaking: boolean; onRepeat: () => void; staff?: boolean; exitHref?: string;
 }) {
   const [open, setOpen] = useState(false);
   const key = result.message.key;
@@ -1134,71 +1149,73 @@ function Done({ t, lang, name, result, after, form, speechLabel, speaking, onRep
       )}
 
       <div className="flex flex-wrap gap-2.5 pt-1">
-        <Link href={homeHref(lang)} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-deep px-6 py-3.5 text-[16px] font-semibold text-white hover:bg-deep-hover sm:flex-none">
-          {t.done}
+        <Link href={staff && exitHref ? exitHref : homeHref(lang)} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-deep px-6 py-3.5 text-[16px] font-semibold text-white hover:bg-deep-hover sm:flex-none">
+          {staff ? (lang === "ar" ? "العودة إلى ملف المشارك" : "Return to Case") : t.done}
         </Link>
         <Link href="/checkin/" className="inline-flex items-center justify-center gap-2 rounded-xl border border-line bg-white px-5 py-3.5 text-[15.5px] font-medium hover:bg-mist">
           <RotateCcw size={16} /> {t.again}
         </Link>
       </div>
 
-      {/* Demo only: the clinician's side of the same check-in. */}
-      <div className="rounded-2xl border border-dashed border-[#c9d2ce] bg-white/70" dir="ltr" lang="en">
-        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center justify-between gap-3 px-5 py-4 text-start">
-          <span className="flex items-center gap-2 text-[14.5px] font-semibold text-body">
-            <Stethoscope size={16} className="text-leaf" /> Behind the scenes (demo)
-          </span>
-          <ChevronDown size={18} className={`text-muted transition-transform ${open ? "rotate-180" : ""}`} />
-        </button>
-        {open && (
-          <div className="space-y-4 border-t border-line px-5 py-4 text-[14px] text-body">
-            <p className="text-muted">The person sees only the message above. This is what the clinician sees.</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-semibold text-ink">Triage level</span>
-              <LevelPill level={(key === "INVALID" ? "INVALID" : result.level) as Level} size="sm" />
-              {result.held_for_clinician && <span className="text-[13px] text-muted">Held for clinician review: the person sees no score.</span>}
-            </div>
-            {last?.raw && (
-              <div>
-                <p className="font-semibold text-ink">Scores, alternate form {form}</p>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  {Object.entries(last.raw).map(([k, v]) => {
-                    const max = DOMAINS[k]?.max ?? 10;
-                    return (
-                      <div key={k} className="rounded-xl bg-paper px-3 py-2.5">
-                        <div className="flex items-baseline justify-between gap-2">
-                          <span className="text-[13px]">{dl[k] ?? k}</span>
-                          <span className="font-mono text-[13px] font-semibold text-ink">{v}/{max}</span>
+      {/* Clinician view only: staff see the triage analysis and open case shortcut */}
+      {staff && (
+        <div className="rounded-2xl border border-dashed border-[#c9d2ce] bg-white/70" dir="ltr" lang="en">
+          <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center justify-between gap-3 px-5 py-4 text-start">
+            <span className="flex items-center gap-2 text-[14.5px] font-semibold text-body">
+              <Stethoscope size={16} className="text-leaf" /> Behind the scenes (clinician view)
+            </span>
+            <ChevronDown size={18} className={`text-muted transition-transform ${open ? "rotate-180" : ""}`} />
+          </button>
+          {open && (
+            <div className="space-y-4 border-t border-line px-5 py-4 text-[14px] text-body">
+              <p className="text-muted">The person sees only the message above. This is what the clinician sees.</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold text-ink">Triage level</span>
+                <LevelPill level={(key === "INVALID" ? "INVALID" : result.level) as Level} size="sm" />
+                {result.held_for_clinician && <span className="text-[13px] text-muted">Held for clinician review: the person sees no score.</span>}
+              </div>
+              {last?.raw && (
+                <div>
+                  <p className="font-semibold text-ink">Scores, alternate form {form}</p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {Object.entries(last.raw).map(([k, v]) => {
+                      const max = DOMAINS[k]?.max ?? 10;
+                      return (
+                        <div key={k} className="rounded-xl bg-paper px-3 py-2.5">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="text-[13px]">{dl[k] ?? k}</span>
+                            <span className="font-mono text-[13px] font-semibold text-ink">{v}/{max}</span>
+                          </div>
+                          <div className="mt-1.5 h-1.5 rounded-full bg-line">
+                            <div className="h-full rounded-full bg-leaf" style={{ width: `${Math.min(100, (v / max) * 100)}%` }} />
+                          </div>
                         </div>
-                        <div className="mt-1.5 h-1.5 rounded-full bg-line">
-                          <div className="h-full rounded-full bg-leaf" style={{ width: `${Math.min(100, (v / max) * 100)}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
-            {ev?.reasons?.length ? (
-              <div>
-                <p className="font-semibold text-ink">Why</p>
-                <ul className="mt-1.5 list-disc space-y-1 ps-5">
-                  {ev.reasons.map((r) => <li key={r}>{r}</li>)}
-                </ul>
-              </div>
-            ) : null}
-            <p>
-              <span className="font-semibold text-ink">Speech recognition:</span> {last?.input_mode === "voice" ? speechLabel : "Typed or demo answers"}
-              {last?.audio ? <span className="text-muted"> · SNR {last.audio.snr_db} dB · speech {Math.round(last.audio.speech_ratio * 100)}%</span> : null}
-            </p>
-            {p && (
-              <Link href={`/clinician/case/?id=${encodeURIComponent(p.id)}`} className="inline-flex items-center gap-2 rounded-xl bg-deep px-4 py-2.5 text-[14px] font-semibold text-white hover:bg-deep-hover">
-                <Stethoscope size={15} /> Open in the clinician view
-              </Link>
-            )}
-          </div>
-        )}
-      </div>
+              )}
+              {ev?.reasons?.length ? (
+                <div>
+                  <p className="font-semibold text-ink">Why</p>
+                  <ul className="mt-1.5 list-disc space-y-1 ps-5">
+                    {ev.reasons.map((r) => <li key={r}>{r}</li>)}
+                  </ul>
+                </div>
+              ) : null}
+              <p>
+                <span className="font-semibold text-ink">Speech recognition:</span> {last?.input_mode === "voice" ? speechLabel : "Typed or demo answers"}
+                {last?.audio ? <span className="text-muted"> · SNR {last.audio.snr_db} dB · speech {Math.round(last.audio.speech_ratio * 100)}%</span> : null}
+              </p>
+              {p && (
+                <Link href={`/clinician/case/?id=${encodeURIComponent(p.id)}`} className="inline-flex items-center gap-2 rounded-xl bg-deep px-4 py-2.5 text-[14px] font-semibold text-white hover:bg-deep-hover">
+                  <Stethoscope size={15} /> Open in the clinician view
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       <p className="text-center text-[13px] text-muted">{lang === "ar" ? "لا يقدّم MemBrain أي تشخيص." : "MemBrain does not diagnose."}</p>
     </div>
   );

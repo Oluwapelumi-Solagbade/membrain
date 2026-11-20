@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowUp, Building2, Check, CheckCircle2, Lock, Mail, MapPin, Mic, Navigation, Phone, RotateCcw, Send, ShieldAlert, Square, Stethoscope, Volume2 } from "lucide-react";
+import { ArrowLeft, ArrowUp, Building2, Check, CheckCircle2, Home, Lock, Mail, MapPin, Mic, Navigation, Phone, RotateCcw, Send, ShieldAlert, Square, Stethoscope, Volume2 } from "lucide-react";
 import { LogoMark, Mark } from "../Logo";
 import { Narrative } from "../Narrative";
 import { config, getEngine, getIntake, LEVEL_TONE, REPORTER_LABEL, type Evaluation, type IntakeResult, type Lang, type Reporter, type Span } from "@/lib/mb";
@@ -1255,16 +1255,13 @@ export function ConcernChat() {
       </div>
     );
   } else if (step === "outcome") {
-    const targetPid = caseId || (typeof window !== "undefined" ? window.sessionStorage.getItem("membrain.recent_concern_id") : null);
-    const checkinHref = targetPid ? `/checkin/?id=${encodeURIComponent(targetPid)}&lang=${lang}` : `/checkin/?lang=${lang}`;
-
     composer = (
       <div className="flex flex-wrap gap-2">
         <Link
-          href={checkinHref}
+          href={appMode ? APP_HOME : lang === "ar" ? "/ar/" : "/"}
           className="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-deep px-5 py-3.5 text-[15px] font-medium text-white hover:bg-deep-hover sm:flex-none shadow-sm"
         >
-          <CheckCircle2 size={18} /> {t.checkin}
+          <Home size={18} /> {t.home}
         </Link>
         <button
           type="button"

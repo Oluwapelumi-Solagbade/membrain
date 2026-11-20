@@ -104,6 +104,7 @@ type Form = {
   dialect: string;
   emirate: string;
   funding: string;
+  hospital_id: string;
   hearingAid: boolean;
   glasses: boolean;
   digital: "none" | "some" | "confident";
@@ -133,7 +134,7 @@ type Form = {
 const blank = (): Form => ({
   route: "programme", text: "", onset: "none", flags: {},
   name: "", nationalId: "", phone: "", channel: "whatsapp",
-  age: "", sex: "F", years: "", language: "ar", dialect: "Emirati", emirate: "Abu Dhabi", funding: "thiqa", hearingAid: false, glasses: false, digital: "some",
+  age: "", sex: "F", years: "", language: "ar", dialect: "Emirati", emirate: "Abu Dhabi", funding: "thiqa", hospital_id: "SVC-01", hearingAid: false, glasses: false, digital: "some",
   consent: Object.fromEntries(CONSENT.map((c) => [c.key, c.dflt])),
   infType: "family", helperConsent: false, infLanguage: "ar", infName: "", infRelation: "", infPhone: "", iqcode: "", timeline: [],
   sbp: "", dbp: "", hba1c: "", ldl: "", bmi: "", activity: "", district: "", cond: {}, smoker: false, isolated: false, famHistory: false, apoe: "",
@@ -175,6 +176,9 @@ function initialForm(prefilledCase?: Case, initialLang: Lang = "ar"): Form {
   const language = (p.language as Lang) || initialLang || "ar";
   const emirate = p.emirate || (typeof c?.emirate === "string" ? c.emirate : "Abu Dhabi");
   const funding = p.funding || "thiqa";
+  const rawHosp = p.assigned_hospital;
+  const pAssignedId = typeof rawHosp === "string" ? rawHosp : rawHosp?.id;
+  const hospital_id = pAssignedId || (c as unknown as { assigned_hospital?: { id?: string } })?.assigned_hospital?.id || (emirate === "Dubai" ? "SVC-14" : "SVC-01");
 
   return {
     ...base,
@@ -191,6 +195,7 @@ function initialForm(prefilledCase?: Case, initialLang: Lang = "ar"): Form {
     dialect,
     emirate,
     funding,
+    hospital_id,
     channel: (p as unknown as { preferred_channel?: "app" | "whatsapp" | "phone" }).preferred_channel || "whatsapp",
   };
 }
@@ -341,6 +346,7 @@ export function EnrolForm({
       },
       emirate: f.emirate,
       funding: f.funding,
+      hospital_id: f.hospital_id || undefined,
       iqcode: f.infType === "none" ? null : num(f.iqcode),
       apoe: f.consent.genomics && f.apoe ? f.apoe : null,
     };
@@ -485,6 +491,13 @@ export function EnrolForm({
           </Field>
           <Field label="Funding route" hint="Only to find accessible services. Never used to withhold a needed referral.">
             <select value={f.funding} onChange={(e) => upd("funding", e.target.value)} className={field}>{Object.entries(NAV.funding).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+          </Field>
+          <Field label={f.language === "ar" ? "المستشفى أو المركز المعتمد" : "Assigned hospital / clinic"} hint={f.language === "ar" ? "المستشفيات المسجلة التي تضم أطباء معتمدين" : "Registered facilities with active clinicians"}>
+            <select value={f.hospital_id} onChange={(e) => upd("hospital_id", e.target.value)} className={field}>
+              <option value="SVC-01">Cleveland Clinic Abu Dhabi (Abu Dhabi)</option>
+              <option value="SVC-02">Tawam Hospital (Al Ain)</option>
+              <option value="SVC-14">Rashid Hospital (Dubai)</option>
+            </select>
           </Field>
         </div>
         <div className="grid gap-2.5 sm:grid-cols-2">
