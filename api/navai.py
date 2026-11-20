@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 
 from api.auth import Principal, principal
 from membrain import intake as I
+from membrain import navigator as NAV
 
 router = APIRouter(prefix="/api", tags=["navigator-ai"])
 
@@ -183,6 +184,17 @@ def referral_draft_for_case(pid: str, who: Principal = Depends(principal)):
                "latency_ms": round((time.perf_counter() - t) * 1000)}
 
     out["facts"] = {k: conf.get(k) for k in ("reporter", "domains", "onset", "timeline", "red_flags", "confounders", "checkin")}
+    # The full letter in the usual memory-service layout: MedGemma's checked sentences are the reason for referral;
+    # every other section is filled from the record (membrain/letter.py).
+    from api import auth as AU
+    from membrain.dossier import build_dossier
+    from membrain.letter import build as build_letter
+    u = next((x for x in AU.USERS.values() if x.get("id") == who.user_id), {}) if who.user_id else {}
+    ref = next((r for r in reversed(p.get("referrals") or []) if NAV.is_unresolved(r)), None) or (p.get("referrals") or [None])[-1]
+    svc = {s["id"]: s for s in NAV.directory()}.get((ref or {}).get("service_id") or (p.get("assigned_hospital") or {}).get("id"))
+    lt = build_letter(p, ev, build_dossier(p, ev), reason=out["sentences"] if out["engine"] != "template" else None,
+                      service=svc, referrer={"name": u.get("name") or who.name, "title": u.get("title"), "org": u.get("org")})
+    out["letter"], out["sections"] = lt["text"], lt["sections"]
     from api.main import audit
     audit(who.actor, "referral_drafted", pid, {"engine": "medgemma" if out["engine"] != "template" else "template",
                                                "checked": out.get("checked", 0), "removed": len(out.get("removed", [])),
@@ -192,8 +204,8 @@ def referral_draft_for_case(pid: str, who: Principal = Depends(principal)):
 
 
 class ApproveIn(BaseModel):
-    draft: str = Field(..., max_length=4000)
-    final: str = Field(..., min_length=10, max_length=4000)
+    draft: str = Field(..., max_length=12000)
+    final: str = Field(..., min_length=10, max_length=12000)
     engine: str = Field("template", max_length=40)
 
 

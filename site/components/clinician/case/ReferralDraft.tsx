@@ -17,6 +17,7 @@ type Draft = {
   engine: string;
   engine_label?: string;
   sentences: string[];
+  letter?: string; // the full letter in the memory-service layout (membrain/letter.py); sentences = reason for referral
   removed: { text: string; reasons: string[] }[];
   checked?: number;
   fallback_reason?: string | null;
@@ -96,7 +97,7 @@ export function ReferralDraft({ pid, caseData }: { pid: string; caseData?: Case 
       const j = (await r.json()) as Draft & { detail?: string };
       if (!r.ok) throw new Error(j.detail || `Server answered ${r.status}`);
       setD(j);
-      const t = j.sentences.map((x) => (/[.!?…”"]$/.test(x.trim()) ? x.trim() : x.trim() + ".")).join(" ");
+      const t = j.letter ?? j.sentences.map((x) => (/[.!?…”"]$/.test(x.trim()) ? x.trim() : x.trim() + ".")).join(" ");
       setText(t);
       setOriginal(t);
       setApproved(null);
@@ -218,8 +219,8 @@ export function ReferralDraft({ pid, caseData }: { pid: string; caseData?: Case 
                 setText(e.target.value);
                 setApproved(null);
               }}
-              rows={8}
-              className="mt-1 w-full rounded-xl border border-line bg-white p-3.5 text-[15px] leading-relaxed outline-none focus:border-leaf"
+              rows={d?.letter ? 28 : 8}
+              className="mt-1 w-full whitespace-pre-wrap rounded-xl border border-line bg-white p-3.5 text-[14.5px] leading-relaxed outline-none focus:border-leaf"
             />
           </label>
           <div className="flex flex-wrap items-center gap-3">
