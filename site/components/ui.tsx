@@ -27,7 +27,7 @@ export function LevelPill({ level, lang = "en", size = "md", label }: { level: L
   );
 }
 
-export function SectionHeading({ eyebrow, title, intro, id }: { eyebrow: string; title: ReactNode; intro?: ReactNode; id?: string }) {
+export function SectionHeading({ eyebrow, title, intro, id }: { eyebrow: ReactNode; title: ReactNode; intro?: ReactNode; id?: string }) {
   return (
     <div className="max-w-[680px]">
       <Eyebrow>{eyebrow}</Eyebrow>

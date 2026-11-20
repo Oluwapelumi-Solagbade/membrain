@@ -32,6 +32,7 @@ const COPY: Record<
     backToTop: string;
     trustPills: { icon: "shield" | "lock" | "sparkles"; text: string }[];
     groups: { title: string; items: Item[] }[];
+    bots: { title: string; desc: string; badge: string; cta: string };
     lang: Item;
     rights: string;
     disclaimer: string;
@@ -57,6 +58,7 @@ const COPY: Record<
           { label: "Raise a concern", href: "/concern/" },
           { label: "Six-minute check-in", href: "/checkin/" },
           { label: "MyLife Care Profile", href: "/mylife/", badge: "Coming Soon" },
+          { label: "Telegram & WhatsApp Bot", href: "#chat", badge: "Coming Soon" },
           { label: "Family informant report", href: "/informant/" },
           { label: "Sign in with phone", href: "/signin/patient/" },
         ],
@@ -88,6 +90,12 @@ const COPY: Record<
         ],
       },
     ],
+    bots: {
+      title: "Telegram & WhatsApp Bot",
+      desc: "Raise a concern via voice notes or text directly from your everyday chat app.",
+      badge: "Coming Soon",
+      cta: "Preview channels",
+    },
     lang: { label: "العربية", href: "/ar/" },
     rights: "MemBrain · UAE Health Pilot",
     disclaimer:
@@ -113,6 +121,7 @@ const COPY: Record<
           { label: "أبلغ عن تغيّر في الذاكرة", href: "/concern/?lang=ar" },
           { label: "فحص الست دقائق الصوتي", href: "/checkin/?lang=ar" },
           { label: "ملف MyLife للرعاية", href: "/mylife/?lang=ar", badge: "قريبًا" },
+          { label: "بوت تيليجرام وواتساب", href: "#chat", badge: "قريبًا" },
           { label: "استبيان أفراد الأسرة", href: "/informant/?lang=ar" },
           { label: "تسجيل الدخول برقم الهاتف", href: "/signin/patient/?lang=ar" },
         ],
@@ -144,12 +153,34 @@ const COPY: Record<
         ],
       },
     ],
+    bots: {
+      title: "بوت تيليجرام وواتساب",
+      desc: "أبلغ عن المخاوف والتغيرات برسائل صوتية أو نصية عبر تطبيقات المحادثة المعتادة لعائلتك.",
+      badge: "قريبًا",
+      cta: "معاينة القنوات",
+    },
     lang: { label: "English", href: "/" },
     rights: "MemBrain · مبادرة صحة الدماغ · دولة الإمارات",
     disclaimer:
       "MemBrain هو نظام بحثي لدعم القرار السريري والمساعدة في التوجيه الطبي؛ يقوم برصد مؤشرات التغيّر والمخاطر لدعم الأطباء ولا يُعد تشخيصًا طبيًا بديلًا. في حالات الطوارئ الطبية، يُرجى الاتصال فورًا بالرقم ٩٩٨.",
   },
 };
+
+function WhatsAppIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden fill="currentColor">
+      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.2h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2Zm4.52 11.99c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.13-.15.17-.25.25-.42.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.23.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.17 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.14-1.18-.06-.1-.22-.16-.47-.28Z" />
+    </svg>
+  );
+}
+
+function TelegramIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden fill="currentColor">
+      <path d="M9.04 15.28 8.7 19.6c.48 0 .69-.21.94-.46l2.26-2.16 4.68 3.43c.86.47 1.47.22 1.7-.79l3.08-14.43c.28-1.27-.46-1.77-1.3-1.46L1.95 10.7c-1.24.48-1.22 1.17-.21 1.48l4.62 1.44L17.1 6.9c.5-.33.96-.15.58.18" />
+    </svg>
+  );
+}
 
 function FooterLink({ item }: { item: Item }) {
   const cls =
@@ -274,6 +305,46 @@ export function SiteFooter({ lang = "en" }: { lang?: Lang }) {
               </div>
             ))}
           </nav>
+        </div>
+
+        {/* Telegram & WhatsApp Bot Feature (Coming Soon) */}
+        <div className="mt-8 flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3.5">
+            <div className="flex -space-x-1.5 rtl:space-x-reverse shrink-0">
+              <span
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#25d366] text-white shadow ring-2 ring-[#0a271c]"
+                aria-hidden
+              >
+                <WhatsAppIcon size={18} />
+              </span>
+              <span
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#229ed9] text-white shadow ring-2 ring-[#0a271c]"
+                aria-hidden
+              >
+                <TelegramIcon size={17} />
+              </span>
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[15px] font-semibold text-white">
+                  {t.bots.title}
+                </span>
+                <span className="rounded-full bg-amber-400/20 border border-amber-400/40 px-2 py-0.5 text-[10.5px] font-bold text-amber-300">
+                  {t.bots.badge}
+                </span>
+              </div>
+              <p className="mt-0.5 text-[13px] text-white/70">
+                {t.bots.desc}
+              </p>
+            </div>
+          </div>
+          <a
+            href="#chat"
+            className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-xl border border-white/20 bg-white/10 px-3.5 py-2 text-[13px] font-medium text-white transition-colors hover:bg-white/20"
+          >
+            <span>{t.bots.cta}</span>
+            <ArrowRight size={14} className="rtl:-scale-x-100 opacity-80" />
+          </a>
         </div>
 
         {/* Bottom Utility Bar: Disclaimer, Rights, Language & Back-to-Top */}

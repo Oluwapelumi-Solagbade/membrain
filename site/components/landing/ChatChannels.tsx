@@ -375,7 +375,14 @@ export function ChatChannels({ lang = "en" }: { lang?: Lang }) {
       <div className="mx-auto max-w-[1320px] px-4 sm:px-6">
         <SectionHeading
           id="chat-title"
-          eyebrow={t.eyebrow}
+          eyebrow={
+            <span className="inline-flex flex-wrap items-center gap-2.5">
+              <span>{t.eyebrow}</span>
+              <span className="rounded-full bg-amber-500/15 border border-amber-500/35 px-2.5 py-0.5 text-[11px] font-bold tracking-normal text-amber-700">
+                {lang === "ar" ? "قريبًا" : "Coming Soon"}
+              </span>
+            </span>
+          }
           title={
             <>
               {t.title[0]}
@@ -388,7 +395,12 @@ export function ChatChannels({ lang = "en" }: { lang?: Lang }) {
 
         <div className="mt-12 grid gap-14 md:grid-cols-2 md:gap-8 lg:gap-14" dir="ltr">
           <div className="flex flex-col items-center">
-            <div ref={waRef} className="w-full">
+            <div ref={waRef} className="relative w-full">
+              <div className="absolute -top-3 end-4 z-10">
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-md">
+                  {lang === "ar" ? "قريبًا" : "Coming Soon"}
+                </span>
+              </div>
               <AndroidPhone label="A WhatsApp chat in Gulf Arabic: a daughter's voice note about her father, the facts MemBrain picked out, and the next step">
                 <WhatsAppChat shown={waShown} typing={waTyping} />
               </AndroidPhone>
@@ -399,13 +411,21 @@ export function ChatChannels({ lang = "en" }: { lang?: Lang }) {
                   <WhatsAppIcon />
                 </span>
                 {t.wa[0]}
+                <span className="rounded-full bg-amber-500/15 border border-amber-500/35 px-2 py-0.5 text-[11px] font-bold text-amber-700">
+                  {lang === "ar" ? "قريبًا" : "Coming Soon"}
+                </span>
               </p>
               <p className="mt-1.5 text-[14px] leading-snug text-body">{t.wa[1]}</p>
             </div>
           </div>
 
           <div className="flex flex-col items-center">
-            <div ref={tgRef} className="w-full">
+            <div ref={tgRef} className="relative w-full">
+              <div className="absolute -top-3 end-4 z-10">
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-md">
+                  {lang === "ar" ? "قريبًا" : "Coming Soon"}
+                </span>
+              </div>
               <IPhone label="A Telegram chat in English: a son describes his father's changes, MemBrain lists the facts with quotes, and explains the clinician review">
                 <TelegramChat shown={tgShown} typing={tgTyping} />
               </IPhone>
@@ -416,6 +436,9 @@ export function ChatChannels({ lang = "en" }: { lang?: Lang }) {
                   <TelegramIcon />
                 </span>
                 {t.tg[0]}
+                <span className="rounded-full bg-amber-500/15 border border-amber-500/35 px-2 py-0.5 text-[11px] font-bold text-amber-700">
+                  {lang === "ar" ? "قريبًا" : "Coming Soon"}
+                </span>
               </p>
               <p className="mt-1.5 text-[14px] leading-snug text-body">{t.tg[1]}</p>
             </div>
