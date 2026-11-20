@@ -182,6 +182,14 @@ function TelegramIcon({ size = 15 }: { size?: number }) {
   );
 }
 
+function AppleIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 170 170" width={size} height={size} fill="currentColor" aria-hidden>
+      <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.7-3.04-7.58-7.71-11.65-14.01-6.1-9.47-10.9-19.98-14.41-31.54-3.51-11.55-5.27-22.37-5.27-32.46 0-14.37 3.59-26.17 10.77-35.4 7.18-9.23 16.19-13.91 27.03-14.05 4.8 0 10.14 1.23 16.02 3.69 5.88 2.46 9.77 3.69 11.66 3.69 1.66 0 5.8-1.32 12.42-3.95 6.62-2.63 12.4-3.81 17.34-3.53 13.06.82 23.36 5.56 30.91 14.22-11.53 7.02-17.18 16.82-16.96 29.41.22 9.87 3.99 18.06 11.31 24.58 7.32 6.52 16.04 10.16 26.16 10.93-2.39 7.39-5.3 14.59-8.74 21.61zM119.22 31.84c0-7.72 2.76-14.99 8.27-21.81 5.52-6.82 12.44-10.97 20.77-12.46.22 1.3.33 2.45.33 3.44 0 7.6-2.94 15.02-8.83 22.25-5.88 7.23-12.83 11.23-20.85 12.01-.11-1.12-.17-2.13-.17-3.43z" />
+    </svg>
+  );
+}
+
 function FooterLink({ item }: { item: Item }) {
   const cls =
     "group inline-flex items-center gap-1.5 py-1 text-[14.5px] text-white/70 transition-colors hover:text-white";
@@ -255,17 +263,41 @@ export function SiteFooter({ lang = "en" }: { lang?: Lang }) {
             </div>
 
             {/* Quick Action Badges */}
-            <div className="mt-7 flex flex-wrap gap-3">
+            <div className="mt-7 flex flex-wrap items-center gap-3">
               <a
                 href={APK_URL}
-                className="group inline-flex items-center gap-3 rounded-2xl bg-white px-4 py-2.5 text-deep shadow-sm transition-transform hover:-translate-y-0.5"
+                download
+                className="group inline-flex items-center gap-3 rounded-2xl bg-white px-4 py-2.5 text-deep shadow-sm transition-transform hover:-translate-y-0.5 ring-1 ring-emerald-400"
               >
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-deep text-white">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#3ddc84] text-[#0d2a1d]">
                   <Smartphone size={18} />
                 </span>
                 <span className="leading-tight">
-                  <span className="block text-[14px] font-semibold">{t.app}</span>
+                  <span className="flex items-center gap-1.5 text-[14px] font-semibold">
+                    {t.app}
+                    <span className="rounded-full bg-emerald-100 px-1.5 py-0.2 text-[10px] font-bold text-emerald-800">
+                      APK
+                    </span>
+                  </span>
                   <span className="block text-[11.5px] text-body">{t.appSub}</span>
+                </span>
+              </a>
+
+              <a
+                href="#app"
+                className="inline-flex items-center gap-2.5 rounded-2xl border border-white/15 bg-white/5 px-3.5 py-2.5 text-[13px] text-white/80 transition-colors hover:bg-white/10"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 text-white">
+                  <AppleIcon size={16} />
+                </span>
+                <span className="leading-tight">
+                  <span className="flex items-center gap-1.5 font-semibold text-white">
+                    iOS App
+                    <span className="rounded-full bg-amber-400/20 border border-amber-400/40 px-1.5 py-0.2 text-[9.5px] font-bold text-amber-300">
+                      {lang === "ar" ? "قريبًا" : "Coming Soon"}
+                    </span>
+                  </span>
+                  <span className="block text-[11px] text-white/60">TestFlight</span>
                 </span>
               </a>
 
