@@ -1,0 +1,11 @@
+s01|This is MemBrain for Android: one app for families and clinicians, in Arabic and English. It spots changes in memory early, and makes sure the person reaches the right care. It never diagnoses.
+s02|A person, or a family member, signs in with a mobile number and a six-digit code. There is no password to remember.
+s03|Their home screen shows when the next check-in is due, and a personal plan, written in plain language.
+s04|The spoken check-in takes about six minutes. Each instruction is read aloud, and the person simply answers by speaking.
+s05|Here, ten words are read out. A little later, the person says the ones they remember, and the app hears them from the very first word.
+s06|Everything works in Arabic too, right to left, with speech recognised in the person's own dialect.
+s07|Clinicians sign in with their work account. Each doctor sees only the patients of their own hospital.
+s08|The home screen puts urgent reviews first: who needs attention, what is overdue, and which referrals are still open.
+s09|Every case explains itself. Change is measured against the person's own baseline, with the reasons shown, and the next step is one tap away: check again, order tests, or refer.
+s10|A live map of the Emirates shows where people need attention, and new concerns arrive in real time.
+s11|MemBrain flags change. The clinician decides. Download the Android app from the MemBrain website.

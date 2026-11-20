@@ -77,6 +77,9 @@ const T = {
       },
     ],
     note: "MemBrain is an investigational screening navigation tool; it flags risk and change to support physicians and never replaces medical diagnosis.",
+    videoTitle: "Watch the app in two minutes",
+    videoNote: "Recorded on the real Android app with synthetic demo data: a person's spoken check-in in English and Arabic, then a clinician's alerts, cases and map.",
+    videoDownload: "Download the video (MP4, 7 MB)",
   },
   ar: {
     eyebrow: "تطبيق الهاتف الذكي",
@@ -136,6 +139,9 @@ const T = {
       },
     ],
     note: "نظام بحثي لدعم القرار السريري والمساعدة في التوجيه الطبي؛ يرصد مؤشرات التغيّر والمخاطر ولا يشخّص أبدًا.",
+    videoTitle: "شاهد التطبيق في دقيقتين",
+    videoNote: "مسجّل من تطبيق أندرويد الفعلي ببيانات تجريبية: فحص صوتي بالعربية والإنجليزية، ثم تنبيهات الطبيب وحالاته وخريطته. التعليق الصوتي بالإنجليزية.",
+    videoDownload: "حمّل الفيديو (MP4، ٧ ميجابايت)",
   },
 };
 
@@ -383,6 +389,29 @@ export function AppSection({ lang }: { lang: Lang }) {
           />
         </div>
       </div>
+
+      {/* The app in two minutes: recorded on the real Android app, narrated */}
+      <figure className="relative mx-auto mt-16 max-w-[1100px] px-4 sm:px-6 lg:mt-20 lg:px-8">
+        <h3 className="mb-5 text-center font-serif text-[24px] font-semibold tracking-[-0.01em] sm:text-[28px]">{t.videoTitle}</h3>
+        <video
+          id="app-video"
+          className="aspect-video w-full rounded-[22px] bg-black/30 shadow-[0_32px_70px_-30px_rgb(0_0_0/0.7)] ring-1 ring-white/15"
+          src={asset("/demo/membrain-app-demo.mp4")}
+          poster={asset("/demo/membrain-app-demo-poster.jpg")}
+          controls
+          playsInline
+          preload="none"
+          aria-describedby="app-video-note"
+        >
+          <a href={asset("/demo/membrain-app-demo.mp4")}>{t.videoDownload}</a>
+        </video>
+        <figcaption id="app-video-note" className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[13.5px] text-white/60">
+          <span>{t.videoNote}</span>
+          <a href={asset("/demo/membrain-app-demo.mp4")} download className="font-medium text-sand hover:underline">
+            {t.videoDownload}
+          </a>
+        </figcaption>
+      </figure>
     </section>
   );
 }
