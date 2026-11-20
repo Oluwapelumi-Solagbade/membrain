@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Activity, AlertTriangle, BellRing, Building2, CalendarClock, CheckCircle2, ChevronRight, ClipboardCheck, ClipboardList, Clock3, Copy,
-  FileText, FlaskConical, HeartPulse, Home, Lock, Map as MapIcon, MessageSquarePlus, Mic, MoreHorizontal, Route, Search, Send, Share2,
+  FileText, FlaskConical, HeartPulse, Home, Lock, LogOut, Map as MapIcon, MessageSquarePlus, Mic, MoreHorizontal, Route, Search, Send, Share2,
   ShieldCheck, Sparkles, Stethoscope, UserPlus, X,
 } from "lucide-react";
 import { Avatar, Bars, Card, Chip, Donut, Empty, LiveBadge, Pill, relTime, Screen, SectionTitle, Segmented, Sheet, SheetAction, Skeleton, tap, useToast, type Tab } from "./kit";
@@ -16,7 +16,7 @@ import { useWorkspace } from "../clinician/WorkspaceProvider";
 import programmeData from "@/lib/generated/programme-data.json";
 import { ACTIVITY, DOMAIN, label } from "@/lib/labels";
 import { LEVEL_LABEL, type Level } from "@/lib/mb";
-import { hospitalLabel, useSession } from "@/lib/auth";
+import { hospitalLabel, signOutAndGoHome, useSession } from "@/lib/auth";
 import { dueOf, fmtDate, isActive, isIntakeOnly, levelOf, ORDER, participantNameOf, profileLine, TODAY } from "@/lib/workspace/derive";
 import { NAV, nav } from "@/lib/workspace/navigator";
 import type { Case, VaultEntry } from "@/lib/workspace/types";
@@ -123,9 +123,19 @@ export function ClinicianHome({ onOpen, onTab, onProfile }: { onOpen: (id: strin
       <div className="relative">
         <div className="flex items-center justify-between">
           <LiveBadge dark syncedAt={syncedAt} syncing={syncing} onSync={() => void refresh()} />
-          <button type="button" onClick={() => { tap(); onProfile(); }} aria-label="Profile and settings" className="rounded-full ring-2 ring-white/25 transition-transform active:scale-95">
-            <Avatar name={session?.user.name} color="#2a6045" size={38} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={async () => { tap(); await signOutAndGoHome("en"); }}
+              aria-label="Sign out"
+              className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[12.5px] font-medium text-white/90 transition-colors active:bg-white/20"
+            >
+              <LogOut size={14} /> <span>Sign out</span>
+            </button>
+            <button type="button" onClick={() => { tap(); onProfile(); }} aria-label="Profile and settings" className="rounded-full ring-2 ring-white/25 transition-transform active:scale-95">
+              <Avatar name={session?.user.name} color="#2a6045" size={38} />
+            </button>
+          </div>
         </div>
         <p className="mt-6 text-[14.5px] text-white/70">{hello}{first ? `, ${first}` : ""}</p>
         <h1 className="mt-1 text-[28px] font-semibold leading-[1.15] tracking-[-0.03em]">

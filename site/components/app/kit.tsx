@@ -135,17 +135,19 @@ export function Screen({ title, sub, right, onBack, onRefresh, refreshing = fals
   };
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
-      <div className={cx("absolute inset-x-0 top-0 z-30 transition-[background-color,box-shadow] duration-200", scrolled ? "bg-[#f5f6f3]/88 shadow-[0_1px_0_rgb(15_35_30/0.07)] backdrop-blur-xl" : "bg-transparent")}
+      {/* Until the page scrolls, the bar is see-through and must not take the taps meant for the header under it
+          (the hero's sign-out and profile buttons): only its own buttons catch them. */}
+      <div className={cx("absolute inset-x-0 top-0 z-30 transition-[background-color,box-shadow] duration-200", scrolled ? "bg-[#f5f6f3]/88 shadow-[0_1px_0_rgb(15_35_30/0.07)] backdrop-blur-xl" : "pointer-events-none bg-transparent")}
         style={{ paddingTop: "var(--mb-sat)" }}>
         <div className="flex h-[52px] items-center gap-1 ps-1.5 pe-3">
           {onBack ? (
             <button type="button" onClick={() => { tap(); onBack(); }} aria-label={backLabel}
-              className={cx("flex h-10 w-10 items-center justify-center rounded-full transition-colors", hero && !scrolled ? "bg-white/15 text-white backdrop-blur" : "text-ink active:bg-black/5")}>
+              className={cx("pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full transition-colors", hero && !scrolled ? "bg-white/15 text-white backdrop-blur" : "text-ink active:bg-black/5")}>
               <ChevronLeft size={24} className="rtl:-scale-x-100" />
             </button>
           ) : <span className="w-2.5" />}
           <p className={cx("min-w-0 flex-1 truncate text-[16.5px] font-semibold tracking-[-0.01em] transition-opacity duration-200", scrolled ? "opacity-100" : "opacity-0")}>{title}</p>
-          <div className="flex items-center gap-1.5">{right}</div>
+          <div className="pointer-events-auto flex items-center gap-1.5">{right}</div>
         </div>
       </div>
       {onRefresh && (pull > 6 || busy) && (
