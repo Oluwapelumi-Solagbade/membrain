@@ -156,6 +156,8 @@ def tts(request: Request, text: str = Query(..., min_length=1, max_length=MAX_CH
         except Exception as ex:
             log.warning("TTS failed (%s): %s", e, ex)
             raise HTTPException(503, "Server speech failed; the device voice is used instead")
+        if not data:   # Azure answers 200 with no audio for text it cannot say in that voice: never keep or send silence
+            raise HTTPException(503, "Server speech returned no audio; the device voice is used instead")
         _cache[key] = (data, mime)
         while len(_cache) > 400:
             _cache.popitem(last=False)

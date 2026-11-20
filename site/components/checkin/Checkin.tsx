@@ -8,7 +8,7 @@ import { Mark } from "../Logo";
 import { LevelPill } from "../ui";
 import engineData from "@/lib/generated/engine-data.json";
 import { DEMO_TODAY, getEngine, type Lang, type Level } from "@/lib/mb";
-import { detectSpeech, LABEL, Recorder, speak, stopSpeaking, type Audio, type Recording, type Speech, type VoiceFeatures } from "@/lib/voice";
+import { detectSpeech, LABEL, preloadSpeech, Recorder, speak, stopSpeaking, type Audio, type Recording, type Speech, type VoiceFeatures } from "@/lib/voice";
 import { appCaseHref, homeHref } from "@/lib/app";
 import { useSession, currentSession, signOutAndGoHome, getHomeUrl } from "@/lib/auth";
 import { getBackend } from "@/lib/workspace/backend";
@@ -472,6 +472,17 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, lang, prefs.voice, result]);
+
+  /* Fetch the server's audio for the rest of the check-in ahead of time, in the order it will be heard, so each
+   * instruction starts at once and the ten words come at an even pace. */
+  useEffect(() => {
+    if (!prefs.voice) return;
+    const at = Math.max(0, flow.indexOf(step));
+    const texts = flow.slice(at).flatMap((s) => [promptOf(s), ...(s === "words_listen" ? words : s === "story_listen" ? [story] : [])]);
+    void preloadSpeech(texts, lang, prefs.slow);
+    // Once per language and pace; the screen being shown goes first.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang, prefs.voice, prefs.slow, flow, words, story]);
 
   /* Moving through the screens. */
   const go = (s: Step) => {

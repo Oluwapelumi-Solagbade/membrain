@@ -69,10 +69,10 @@ export const LABEL: Record<Engine, string> = {
   typed: "Typed answers (no speech recognition here)",
 };
 
-async function getJson<T>(url: string): Promise<T | null> {
+async function getJson<T>(url: string, ms = 3000): Promise<T | null> {
   try {
     const ctl = new AbortController();
-    const t = window.setTimeout(() => ctl.abort(), 3000);
+    const t = window.setTimeout(() => ctl.abort(), ms);
     const r = await fetch(url, { signal: ctl.signal });
     window.clearTimeout(t);
     return r.ok ? ((await r.json()) as T) : null;
@@ -92,8 +92,25 @@ function loadScript(src: string): Promise<void> {
   });
 }
 
+/* Azure Speech tokens from the server's broker last ten minutes. Fetching one takes a second or two, so one is kept
+ * (and fetched ahead, as soon as the engine is known) instead of being asked for each time the microphone opens. */
+let azToken: { base: string; at: number; p: Promise<{ token: string; region: string } | null> } | null = null;
+function azureToken(base: string): Promise<{ token: string; region: string } | null> {
+  if (azToken && azToken.base === base && Date.now() - azToken.at < 8 * 60_000) return azToken.p;
+  const p = getJson<{ token: string; region: string }>(base + "/api/speech/token", 8000);
+  azToken = { base, at: Date.now(), p };
+  void p.then((t) => { if (!t && azToken?.p === p) azToken = null; }); // a failed fetch is tried again next time
+  return p;
+}
+
 /** Which recognition engine to use. `base` is the MemBrain API ("" on the same origin), or null with no server. */
 export async function detectSpeech(base: string | null): Promise<Speech> {
+  const s = await pickSpeech(base);
+  if (s.engine === "azure" && !s.key && s.base !== null) void azureToken(s.base);
+  return s;
+}
+
+async function pickSpeech(base: string | null): Promise<Speech> {
   const browser = !!(win().SpeechRecognition || win().webkitSpeechRecognition);
   let s: Speech = { engine: browser ? "browser" : "typed", label: LABEL[browser ? "browser" : "typed"], base };
 
@@ -178,10 +195,51 @@ async function serverVoice(): Promise<boolean> {
   return ttsOn;
 }
 
+/* Server audio is fetched once per sentence and kept for the visit, so a sentence said again, or one fetched ahead
+ * (the word list, the story, the next instruction: see `preloadSpeech`), starts at once instead of after the
+ * second or two the server takes to make it. Words of a list then come at an even pace. */
+const clips = new Map<string, Promise<string | null>>();
+const clipKey = (text: string, lang: Lang, slow: boolean) => `${lang}|${slow ? 1 : 0}|${text}`;
+function clip(text: string, lang: Lang, slow: boolean): Promise<string | null> {
+  const k = clipKey(text, lang, slow);
+  let p = clips.get(k);
+  if (!p) {
+    const q = new URLSearchParams({ text, lang, ...(slow ? { slow: "true" } : {}) });
+    p = (async () => {
+      const ctl = new AbortController();
+      const t = window.setTimeout(() => ctl.abort(), 20000);
+      try {
+        const r = await fetch(`${ttsBase}/api/speech/tts?${q}`, { signal: ctl.signal });
+        const b = r.ok ? await r.blob() : null;
+        return b && b.size > 0 ? URL.createObjectURL(b) : null;
+      } catch {
+        return null;
+      } finally {
+        window.clearTimeout(t);
+      }
+    })();
+    clips.set(k, p);
+    void p.then((u) => { if (!u && clips.get(k) === p) clips.delete(k); }); // a failure is tried again next time
+  }
+  return p;
+}
+
+/** Fetches the server's audio for these sentences ahead of time, a couple at a time, in the order given. */
+export async function preloadSpeech(texts: string[], lang: Lang, slow = false): Promise<void> {
+  if (!(await serverVoice())) return;
+  const todo = [...new Set(texts.filter(Boolean))];
+  const worker = async () => {
+    for (let t = todo.shift(); t !== undefined; t = todo.shift()) await clip(t, lang, slow);
+  };
+  await Promise.all([worker(), worker()]);
+}
+
+/** Whether this device can speak by itself (Android's WebView cannot). */
+const deviceVoice = () => typeof window !== "undefined" && "speechSynthesis" in window;
+
 function playServer(text: string, lang: Lang, slow: boolean): Promise<boolean> {
   return new Promise((resolve) => {
-    const q = new URLSearchParams({ text, lang, ...(slow ? { slow: "true" } : {}) });
-    const a = new Audio(`${ttsBase}/api/speech/tts?${q}`);
+    const a = new Audio();
     let started = false;
     let settled = false;
     const finish = (ok: boolean) => {
@@ -195,9 +253,15 @@ function playServer(text: string, lang: Lang, slow: boolean): Promise<boolean> {
     a.onplaying = () => { started = true; };
     a.onended = () => finish(true);
     a.onerror = () => finish(started);
-    // The first Arabic sentence can take a few seconds while the server voice wakes up; after that, the device speaks.
-    window.setTimeout(() => { if (!started) { a.pause(); a.removeAttribute("src"); finish(false); } }, 9000);
-    a.play().catch(() => finish(false));   // autoplay refused: the device voice takes over
+    // The first Arabic sentence can take a few seconds while the server voice wakes up; past this, the device speaks.
+    // A device with no voice of its own (the Android app) waits longer: the server is then the only voice there is.
+    window.setTimeout(() => { if (!started) { a.pause(); a.removeAttribute("src"); finish(false); } }, deviceVoice() ? 9000 : 25000);
+    void clip(text, lang, slow).then((url) => {
+      if (settled) return; // stopped, or given up, while it was being fetched
+      if (!url) return finish(false);
+      a.src = url;
+      a.play().catch(() => finish(false)); // autoplay refused: the device voice takes over
+    });
   });
 }
 
@@ -319,6 +383,8 @@ export class Recorder {
       this.stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
       const Ctx = window.AudioContext ?? win().webkitAudioContext;
       this.ctx = new Ctx({ sampleRate: 16000 }) as AudioContext;
+      // A context made outside a tap can start suspended (autoplay rules): it would hear nothing at all.
+      if (this.ctx.state === "suspended") void this.ctx.resume().catch(() => {});
       this.src = this.ctx.createMediaStreamSource(this.stream);
       const an = this.ctx.createAnalyser();
       an.fftSize = 1024;
@@ -348,7 +414,10 @@ export class Recorder {
       this.onText?.(this.text);
     };
     const sp = o.speech;
-    this.locale = o.lang === "ar" ? (o.dialect && sp.locales?.[o.dialect]) || "ar-AE" : "en-GB";
+    // The dialect picks the Arabic variety; a person whose profile says "English" but who answers in Arabic is heard
+    // as Arabic (Emirati), not with the English recogniser.
+    const dialectLocale = (o.dialect && sp.locales?.[o.dialect]) || "";
+    this.locale = o.lang === "ar" ? (dialectLocale.startsWith("ar") ? dialectLocale : "ar-AE") : "en-GB";
 
     if (sp.engine === "local" && sp.base !== null) {
       try {
@@ -366,19 +435,9 @@ export class Recorder {
     if (sp.engine === "azure" && (sp.key || sp.base !== null) && win().SpeechSDK) {
       try {
         const sdk = win().SpeechSDK;
-        let cfg;
-        if (sp.key) {
-          cfg = sdk.SpeechConfig.fromSubscription(sp.key, sp.region || "uaenorth");
-        } else if (sp.base !== null) {
-          const tok = await getJson<{ token: string; region: string }>(sp.base + "/api/speech/token");
-          if (!tok) throw new Error("token");
-          cfg = sdk.SpeechConfig.fromAuthorizationToken(tok.token, tok.region);
-        } else {
-          throw new Error("No speech key or token available");
-        }
-        cfg.speechRecognitionLanguage = this.locale;
+        // Capture starts now, before the connection to Azure is ready: the push stream holds the audio until the
+        // recogniser reads it, so the first words of an answer (said as soon as the button is tapped) are not lost.
         this.push = sdk.AudioInputStream.createPushStream();
-        this.az = new sdk.SpeechRecognizer(cfg, sdk.AudioConfig.fromStreamInput(this.push));
         // Feed the same microphone audio to Azure as 16 kHz 16-bit PCM.
         this.proc = this.ctx!.createScriptProcessor(4096, 1, 1);
         this.proc.onaudioprocess = (e) => {
@@ -393,6 +452,19 @@ export class Recorder {
         };
         this.src!.connect(this.proc);
         this.proc.connect(this.ctx!.destination);
+        let cfg;
+        if (sp.key) {
+          cfg = sdk.SpeechConfig.fromSubscription(sp.key, sp.region || "uaenorth");
+        } else if (sp.base !== null) {
+          const tok = await azureToken(sp.base);
+          if (!tok) throw new Error("token");
+          cfg = sdk.SpeechConfig.fromAuthorizationToken(tok.token, tok.region);
+        } else {
+          throw new Error("No speech key or token available");
+        }
+        if (!this.active || !this.push) return true; // stopped while connecting
+        cfg.speechRecognitionLanguage = this.locale;
+        this.az = new sdk.SpeechRecognizer(cfg, sdk.AudioConfig.fromStreamInput(this.push));
         this.az.recognizing = (_: unknown, e: any) => e.result?.text && emit(e.result.text);
         this.az.recognized = (_: unknown, e: any) => {
           if (e.result?.reason === sdk.ResultReason.RecognizedSpeech && e.result.text) {
@@ -420,6 +492,14 @@ export class Recorder {
       } catch (err) {
         console.warn("Azure Speech init failed, falling back to browser:", err);
         this.az = null;
+        try {
+          this.proc?.disconnect();
+          this.push?.close();
+        } catch {
+          /* ignore */
+        }
+        this.proc = null;
+        this.push = null;
       }
     }
     this.browser(o.lang);
