@@ -131,7 +131,7 @@ const COPY: Record<
         items: [
           { label: "بوابة الطبيب السريرية", href: "/clinician/" },
           { label: "شبكة الإحالات الطبية", href: "/clinician/referrals/" },
-          { label: "تسجيل مشارك جديد", href: "/clinician/enrol/" },
+          { label: "تسجيل مشارك جديد", href: "/clinician/enrol/?lang=ar" },
           { label: "التحقق السريري ومؤشرات ROC", href: "/clinician/validation/" },
         ],
       },

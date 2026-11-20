@@ -659,6 +659,7 @@ function Run({ c, backend, initialLang }: { c: Case; backend: Backend; initialLa
           <EnrolForm
             backend={backend}
             prefilledCase={currentCase}
+            lang={lang}
             initialLang={lang}
             embedded
             title={t.profileTitle}
