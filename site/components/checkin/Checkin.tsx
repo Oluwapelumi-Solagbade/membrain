@@ -3,14 +3,14 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, ChevronDown, ClipboardCheck, HeartHandshake, MessageSquarePlus, Keyboard, Leaf, Volume1, Loader2, Phone, Play, RotateCcw, Settings2, Stethoscope, Users, MapPinned, ListChecks } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, ClipboardCheck, HeartHandshake, MessageSquarePlus, Keyboard, Leaf, Volume1, Loader2, LogOut, Phone, Play, RotateCcw, Settings2, Stethoscope, Users, MapPinned, ListChecks } from "lucide-react";
 import { Mark } from "../Logo";
 import { LevelPill } from "../ui";
 import engineData from "@/lib/generated/engine-data.json";
 import { DEMO_TODAY, getEngine, type Lang, type Level } from "@/lib/mb";
 import { detectSpeech, LABEL, Recorder, speak, stopSpeaking, type Audio, type Recording, type Speech, type VoiceFeatures } from "@/lib/voice";
 import { appCaseHref, homeHref } from "@/lib/app";
-import { useSession } from "@/lib/auth";
+import { useSession, signOut } from "@/lib/auth";
 import { getBackend } from "@/lib/workspace/backend";
 import { notifyWorkspaceSync } from "@/lib/workspace/sync";
 import type { Backend, Case, CheckinResult, Participant, SessionIn } from "@/lib/workspace/types";
@@ -266,6 +266,20 @@ function TopBar({ t, lang, setLang, subtitle, exitHref, right }: { t: Copy; lang
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          onClick={async () => {
+            stopSpeaking();
+            await signOut();
+            window.location.href = lang === "ar" ? "/ar/" : "/";
+          }}
+          title={lang === "ar" ? "تسجيل الخروج ومسح كافة البيانات" : "Sign out and leave no trace"}
+          aria-label={lang === "ar" ? "تسجيل الخروج" : "Sign out"}
+          className="flex items-center gap-1.5 rounded-full border border-rose-200/90 bg-rose-50/70 px-2.5 py-1.5 text-[12.5px] font-medium text-rose-700 transition-colors hover:bg-rose-100 hover:text-rose-800 sm:px-3"
+        >
+          <LogOut size={15} className="rtl:-scale-x-100" />
+          <span className="hidden sm:inline">{lang === "ar" ? "تسجيل الخروج" : "Sign out"}</span>
+        </button>
       </div>
     </header>
   );
@@ -1155,6 +1169,17 @@ function Done({ t, lang, name, result, after, form, speechLabel, speaking, onRep
         <Link href="/checkin/" className="inline-flex items-center justify-center gap-2 rounded-xl border border-line bg-white px-5 py-3.5 text-[15.5px] font-medium hover:bg-mist">
           <RotateCcw size={16} /> {t.again}
         </Link>
+        <button
+          type="button"
+          onClick={async () => {
+            stopSpeaking();
+            await signOut();
+            window.location.href = lang === "ar" ? "/ar/" : "/";
+          }}
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50/70 px-5 py-3.5 text-[15.5px] font-medium text-rose-700 hover:bg-rose-100 transition-colors"
+        >
+          <LogOut size={16} className="rtl:-scale-x-100" /> {lang === "ar" ? "تسجيل الخروج ومسح الجلسة" : "Sign out & leave no trace"}
+        </button>
       </div>
 
       {/* Clinician view only: staff see the triage analysis and open case shortcut */}

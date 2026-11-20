@@ -4,9 +4,10 @@
 // screen is highlighted. On phones the menu opens as a full-screen panel with the main actions at hand.
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, ChevronRight, Menu, Phone, Smartphone, Stethoscope, UserRound, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, ChevronRight, LogOut, Menu, Phone, Smartphone, Stethoscope, UserRound, X } from "lucide-react";
 import type { Lang } from "@/lib/mb";
 import { APK_URL } from "@/lib/app";
+import { useSession, signOut } from "@/lib/auth";
 import { LANDING } from "./landing/copy";
 import { Logo } from "./Logo";
 
@@ -26,6 +27,13 @@ export function SiteHeader({ lang = "en" }: { lang?: Lang }) {
   const other = t.switchLang as Lang;
   const signInHref = lang === "ar" ? "/signin/patient/?lang=ar" : "/signin/";
   const close = () => setOpen(false);
+  const { session, ready } = useSession();
+  const user = ready ? session?.user : null;
+  const handleSignOut = async () => {
+    close();
+    await signOut();
+    window.location.href = lang === "ar" ? "/ar/" : "/";
+  };
   const toggle = () => {
     // the menu starts right under the header, wherever the header is (the prototype banner can sit above it)
     if (!open && bar.current) setMenuTop(Math.round(bar.current.getBoundingClientRect().bottom));
@@ -96,13 +104,46 @@ export function SiteHeader({ lang = "en" }: { lang?: Lang }) {
           <Link href={t.switchHref} lang={other} hrefLang={other} className="rounded-full px-3 py-2 text-[15px] font-medium text-ink transition-colors hover:bg-mist">
             {t.switchLabel}
           </Link>
-          <Link href="/clinician/" target="_blank" className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[15px] font-medium text-ink transition-colors hover:bg-mist">
-            {t.clinicianView} <ArrowUpRight size={15} className="rtl:-scale-x-100" />
-            <span className="sr-only">{t.newTab}</span>
-          </Link>
-          <Link href={signInHref} className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[15px] font-medium text-ink transition-colors hover:bg-mist">
-            <UserRound size={17} /> {t.signIn}
-          </Link>
+          {user ? (
+            <>
+              {user.role === "participant" ? (
+                <Link
+                  href={lang === "ar" ? "/checkin/?lang=ar" : "/checkin/"}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-3.5 py-2 text-[14.5px] font-medium text-deep shadow-[0_1px_2px_rgb(0_0_0/0.04)] hover:border-leaf/40 hover:bg-mist transition-colors"
+                >
+                  <UserRound size={16} className="text-leaf" />
+                  <span className="max-w-[130px] truncate">{user.name || (lang === "ar" ? "فحصي" : "My Check-in")}</span>
+                </Link>
+              ) : (
+                <Link
+                  href="/clinician/"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-3.5 py-2 text-[14.5px] font-medium text-deep shadow-[0_1px_2px_rgb(0_0_0/0.04)] hover:border-leaf/40 hover:bg-mist transition-colors"
+                >
+                  <Stethoscope size={16} className="text-leaf" />
+                  <span className="max-w-[130px] truncate">{user.name || (lang === "ar" ? "العيادة" : "Clinician View")}</span>
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="inline-flex items-center gap-1.5 rounded-full border border-rose-200/90 bg-rose-50/70 px-3.5 py-2 text-[14px] font-medium text-rose-700 transition-colors hover:bg-rose-100 hover:text-rose-800"
+                title={lang === "ar" ? "تسجيل الخروج ومسح كافة البيانات" : "Sign out and leave no trace"}
+              >
+                <LogOut size={15} className="rtl:-scale-x-100" />
+                <span>{lang === "ar" ? "تسجيل الخروج" : "Sign out"}</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <Link href="/clinician/" target="_blank" className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[15px] font-medium text-ink transition-colors hover:bg-mist">
+                {t.clinicianView} <ArrowUpRight size={15} className="rtl:-scale-x-100" />
+                <span className="sr-only">{t.newTab}</span>
+              </Link>
+              <Link href={signInHref} className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[15px] font-medium text-ink transition-colors hover:bg-mist">
+                <UserRound size={17} /> {t.signIn}
+              </Link>
+            </>
+          )}
           <Link href={t.concernHref} className="ms-1 inline-flex items-center gap-2 rounded-full bg-deep px-5 py-3 text-[15px] font-semibold text-white shadow-[0_10px_24px_-12px_rgb(15_63_44/0.8)] transition-colors hover:bg-deep-hover">
             {t.raise} <ArrowRight size={17} className="rtl:-scale-x-100" />
           </Link>
@@ -135,16 +176,49 @@ export function SiteHeader({ lang = "en" }: { lang?: Lang }) {
             </ul>
 
             <div className="mt-6 grid gap-2.5">
-              <Link href="/clinician/" onClick={close} className="flex items-center gap-3.5 rounded-2xl bg-[#f4f6f3] px-4 py-3.5">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-deep shadow-sm"><Stethoscope size={19} /></span>
-                <span className="min-w-0 flex-1"><span className="block text-[15.5px] font-semibold">{t.clinicianView}</span><span className="block truncate text-[13px] text-muted">{x.clinicianSub}</span></span>
-                <ChevronRight size={18} className="text-muted rtl:-scale-x-100" />
-              </Link>
-              <Link href={signInHref} onClick={close} className="flex items-center gap-3.5 rounded-2xl bg-[#f4f6f3] px-4 py-3.5">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-deep shadow-sm"><UserRound size={19} /></span>
-                <span className="min-w-0 flex-1"><span className="block text-[15.5px] font-semibold">{t.signIn}</span><span className="block truncate text-[13px] text-muted">{x.signInSub}</span></span>
-                <ChevronRight size={18} className="text-muted rtl:-scale-x-100" />
-              </Link>
+              {user ? (
+                <div className="rounded-2xl border border-line bg-[#f4f6f3] p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-deep text-white shadow-sm">
+                      {user.role === "participant" ? <UserRound size={20} /> : <Stethoscope size={20} />}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[15.5px] font-semibold text-ink">{user.name || (user.role === "participant" ? (lang === "ar" ? "مشارك مسجّل" : "Participant") : (lang === "ar" ? "طبيب مسجّل" : "Clinician"))}</p>
+                      <p className="truncate text-[12.5px] text-muted">{user.role === "participant" ? (user.phone || (lang === "ar" ? "فحص صوتي" : "Voice check-in")) : (user.hospital_name || user.title || "Clinical Staff")}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <Link
+                      href={user.role === "participant" ? (lang === "ar" ? "/checkin/?lang=ar" : "/checkin/") : "/clinician/"}
+                      onClick={close}
+                      className="flex-1 rounded-xl bg-deep py-2.5 text-center text-[14px] font-medium text-white shadow-sm hover:bg-deep-hover transition-colors"
+                    >
+                      {user.role === "participant" ? (lang === "ar" ? "ابدأ الفحص" : "Go to Check-in") : (lang === "ar" ? "مساحة العمل" : "Workspace")}
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleSignOut}
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-[14px] font-medium text-rose-700 hover:bg-rose-100 transition-colors"
+                    >
+                      <LogOut size={16} className="rtl:-scale-x-100" />
+                      <span>{lang === "ar" ? "تسجيل الخروج" : "Sign out"}</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <Link href="/clinician/" onClick={close} className="flex items-center gap-3.5 rounded-2xl bg-[#f4f6f3] px-4 py-3.5">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-deep shadow-sm"><Stethoscope size={19} /></span>
+                    <span className="min-w-0 flex-1"><span className="block text-[15.5px] font-semibold">{t.clinicianView}</span><span className="block truncate text-[13px] text-muted">{x.clinicianSub}</span></span>
+                    <ChevronRight size={18} className="text-muted rtl:-scale-x-100" />
+                  </Link>
+                  <Link href={signInHref} onClick={close} className="flex items-center gap-3.5 rounded-2xl bg-[#f4f6f3] px-4 py-3.5">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-deep shadow-sm"><UserRound size={19} /></span>
+                    <span className="min-w-0 flex-1"><span className="block text-[15.5px] font-semibold">{t.signIn}</span><span className="block truncate text-[13px] text-muted">{x.signInSub}</span></span>
+                    <ChevronRight size={18} className="text-muted rtl:-scale-x-100" />
+                  </Link>
+                </>
+              )}
               <a href={APK_URL} className="flex items-center gap-3.5 rounded-2xl bg-[#f4f6f3] px-4 py-3.5">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-deep text-white"><Smartphone size={19} /></span>
                 <span className="min-w-0 flex-1"><span className="block text-[15.5px] font-semibold">{x.app}</span><span className="block truncate text-[13px] text-muted">{x.appSub}</span></span>

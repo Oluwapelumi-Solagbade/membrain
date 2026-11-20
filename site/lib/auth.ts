@@ -50,10 +50,92 @@ export function currentSession(): AuthSession | null {
   return cache.value && cache.value.exp > Date.now() ? cache.value : null;
 }
 
-function store(s: AuthSession | null) {
+/**
+ * Completely purges all stored credentials, participant data, in-progress check-ins,
+ * cached names, speech configuration, and session storage. Leaves zero trace on shared
+ * clinic tablets, kiosks, or personal devices.
+ */
+export function purgeClientStorage() {
+  if (typeof window === "undefined") return;
+
+  // 1. Purge all localStorage keys created by MemBrain
   try {
-    if (s) window.localStorage.setItem(KEY, JSON.stringify(s));
-    else window.localStorage.removeItem(KEY);
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (
+        k &&
+        (k.startsWith("membrain.") ||
+          k.startsWith("mb_") ||
+          k.startsWith("mb-") ||
+          k.includes("checkin") ||
+          k.includes("membrain"))
+      ) {
+        keysToRemove.push(k);
+      }
+    }
+    keysToRemove.forEach((k) => {
+      try {
+        window.localStorage.removeItem(k);
+      } catch {
+        /* ignore */
+      }
+    });
+
+    // Explicitly guarantee removal of known storage keys
+    window.localStorage.removeItem(KEY);
+    window.localStorage.removeItem(CLAIM_KEY);
+    window.localStorage.removeItem("membrain.sync_tick");
+    window.localStorage.removeItem("membrain.workspace.v2");
+    window.localStorage.removeItem("membrain.azure_speech_key");
+    window.localStorage.removeItem("membrain.azure_speech_region");
+    window.localStorage.removeItem("membrain.checkin.prefs");
+    window.localStorage.removeItem("membrain.app.lang");
+  } catch {
+    /* storage access error */
+  }
+
+  // 2. Purge all sessionStorage completely
+  try {
+    window.sessionStorage.clear();
+  } catch {
+    /* ignore */
+  }
+
+  // 3. Clear any cookies
+  try {
+    const cookies = document.cookie.split(";");
+    for (const c of cookies) {
+      const eqPos = c.indexOf("=");
+      const name = eqPos > -1 ? c.substring(0, eqPos).trim() : c.trim();
+      if (name) {
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;`;
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname};`;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  // 4. Reset in-memory cache
+  cache = { raw: null, value: null };
+
+  // 5. Broadcast change so all external stores and tabs re-evaluate
+  try {
+    window.dispatchEvent(new Event(EVENT));
+    window.dispatchEvent(new Event("storage"));
+  } catch {
+    /* ignore */
+  }
+}
+
+function store(s: AuthSession | null) {
+  if (s === null) {
+    purgeClientStorage();
+    return;
+  }
+  try {
+    window.localStorage.setItem(KEY, JSON.stringify(s));
   } catch {
     /* storage unavailable: the session lasts until the page closes */
   }
@@ -228,11 +310,20 @@ export async function verifyPatient(challengeId: string, code: string): Promise<
 
 export async function signOut() {
   const s = currentSession();
-  store(null);
   if (s?.mode === "server") {
-    const base = await server();
-    if (base !== null) fetch(base + "/auth/logout", { method: "POST", headers: { Authorization: `Bearer ${s.token}` } }).catch(() => {});
+    try {
+      const base = await server();
+      if (base !== null) {
+        await fetch(base + "/auth/logout", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${s.token}` },
+        }).catch(() => {});
+      }
+    } catch {
+      /* ignore server network failures during logout */
+    }
   }
+  purgeClientStorage();
 }
 
 /** Kept after raising a concern, so signing in afterwards can link that concern to the person's own record. */

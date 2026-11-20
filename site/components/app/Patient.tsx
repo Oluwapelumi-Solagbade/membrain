@@ -87,7 +87,24 @@ export function PatientHome({ c, lang, onTab, onReport }: { c: Case; lang: Lang;
       <div className="relative">
         <div className="flex items-center justify-between">
           <LiveBadge dark syncedAt={syncedAt} syncing={syncing} onSync={() => void refresh()} />
-          <button type="button" onClick={() => { tap(); onTab("me"); }} aria-label={t.me} className="rounded-full ring-2 ring-white/25"><Avatar name={name || c.participant.id} color="#2a6045" size={38} /></button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                tap();
+                const { signOut } = await import("@/lib/auth");
+                await signOut();
+                window.location.href = lang === "ar" ? "/ar/" : "/";
+              }}
+              title={t.signOut}
+              aria-label={t.signOut}
+              className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[12.5px] font-medium text-white/90 hover:bg-white/20 transition-colors"
+            >
+              <LogOut size={14} className="rtl:-scale-x-100" />
+              <span>{t.signOut}</span>
+            </button>
+            <button type="button" onClick={() => { tap(); onTab("me"); }} aria-label={t.me} className="rounded-full ring-2 ring-white/25"><Avatar name={name || c.participant.id} color="#2a6045" size={38} /></button>
+          </div>
         </div>
         <p className="mt-6 text-[14.5px] text-white/70">{t.hello(new Date().getHours())}</p>
         <h1 className={cx("mt-1 text-[28px] font-semibold tracking-[-0.03em]", lang === "ar" ? "leading-[1.4]" : "leading-[1.15]")}>{name || c.participant.id}</h1>
@@ -220,7 +237,7 @@ export function PatientMe({ c, lang, setLang, onSignOut }: { c: Case; lang: Lang
           <p className="flex items-center gap-2 text-[14.5px] font-semibold"><ShieldCheck size={17} className="text-leaf" /> {t.privacy}</p>
           <p className={cx("mt-1.5 text-[13.5px] text-body", lang === "ar" ? "leading-[1.85]" : "leading-relaxed")}>{t.privacyBody}</p>
         </Card>
-        <button type="button" onClick={() => { tap(); onSignOut(); }} className="flex h-[52px] w-full items-center justify-center gap-2 rounded-[18px] border border-[#e3e6e1] bg-white text-[15px] font-semibold text-lv-review active:bg-[#f3f5f1]"><LogOut size={17} /> {t.signOut}</button>
+        <button type="button" onClick={() => { tap(); onSignOut(); }} className="flex h-[52px] w-full items-center justify-center gap-2 rounded-[18px] border border-rose-200 bg-rose-50/70 text-[15px] font-semibold text-rose-700 hover:bg-rose-100 transition-colors"><LogOut size={17} className="rtl:-scale-x-100" /> {t.signOut}</button>
       </div>
     </Screen>
   );

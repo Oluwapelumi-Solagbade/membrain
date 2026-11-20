@@ -84,6 +84,17 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
             <ChevronDown size={18} className="text-white/70" />
           </span>
         </UserMenu>
+        <button
+          type="button"
+          onClick={async () => {
+            onNavigate?.();
+            await signOut();
+            window.location.href = "/signin/clinician/";
+          }}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[13.5px] font-medium text-rose-300 hover:bg-rose-500/20 hover:text-white transition-colors"
+        >
+          <LogOut size={15} /> Sign out
+        </button>
       </div>
     </>
   );
@@ -153,7 +164,7 @@ function UserMenu({ align, children }: { align: "top" | "bottom"; children: Reac
             onClick={async () => {
               setOpen(false);
               await signOut();
-              router.replace("/signin/clinician/");
+              window.location.href = "/signin/clinician/";
             }}
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-start text-[14.5px] font-medium text-lv-urgent hover:bg-lv-urgent-soft"
           >
@@ -289,6 +300,19 @@ export function Shell({ children }: { children: ReactNode }) {
             <SearchBox />
             <Alerts />
             <span aria-hidden className="hidden h-8 w-px bg-line sm:block" />
+            <button
+              type="button"
+              onClick={async () => {
+                await signOut();
+                window.location.href = "/signin/clinician/";
+              }}
+              title="Sign out and leave no trace"
+              aria-label="Sign out"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-rose-200/90 bg-rose-50/70 px-3 py-1.5 text-[13px] font-medium text-rose-700 transition-colors hover:bg-rose-100 hover:text-rose-800"
+            >
+              <LogOut size={15} />
+              <span>Sign out</span>
+            </button>
             <UserMenu align="top">
               <span className="flex items-center gap-2">
                 <MeAvatar size={44} />
