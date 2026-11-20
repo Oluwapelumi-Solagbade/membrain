@@ -33,7 +33,7 @@ function LoopClip() {
       loop
       playsInline
       preload="metadata"
-      aria-label="The concern chat: a family member describes changes in their father, MemBrain picks out the facts with the words they came from, and sets a clinician review within 21 days"
+      aria-label="The concern chat: a family member describes changes in their father, MemBrain picks out the facts with the words they came from, and sets a clinician review within 24 hours"
     />
   );
 }

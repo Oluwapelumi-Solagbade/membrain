@@ -165,7 +165,7 @@ await scrollInside("main .overflow-y-auto", "end", 1600);
 await wait(1800);
 await click(page.locator('button:has-text("That\'s right")'));
 await wait(2000);
-await cap(4, "Two everyday tasks are now done by someone else, so a clinician reviews it within 21 days, without waiting for a test.", "top");
+await cap(4, "Two everyday tasks are now done by someone else, so a clinician reviews it within 24 hours, without waiting for a test.", "top");
 await scrollInside("main .overflow-y-auto", "end", 900);
 mark("outcome");
 await wait(5200);

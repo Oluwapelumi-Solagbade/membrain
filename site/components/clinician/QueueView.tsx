@@ -450,7 +450,7 @@ function QueueDetail({ c }: { c: Case }) {
           )}
         </p>
 
-        {/* Assigned Healthcare Facility & 21-Day Callback SLA */}
+        {/* Assigned Healthcare Facility & 24-Hour Callback SLA */}
         {(() => {
           const fac = facilityOf(c);
           const con = contactOf(c);
@@ -471,7 +471,7 @@ function QueueDetail({ c }: { c: Case }) {
                     )}
                   </div>
                   <p className="mt-1 text-[13px] text-body">
-                    Assigned Catchment Center · Clinical SLA: <b>Review & callback within 21 days</b>
+                    Assigned Catchment Center · Clinical SLA: <b>Review & callback within 24 hours</b>
                   </p>
                   <div className="mt-2.5 flex flex-wrap items-center gap-3 text-[13px]">
                     {con.phone ? (

@@ -18,7 +18,7 @@ Code: [`api/telegram.py`](../api/telegram.py). Tests: [`tests/test_telegram.py`]
 4. **That's right** sends it on. **Add more detail** lets them write more, and everything is read together.
 5. **The outcome.** One of three, decided by the triage engine on the server:
    - get help now (urgent: 998, clinician follow-up within 3 days);
-   - clinician review within 21 days, with the reason;
+   - clinician review within 24 hours, with the reason;
    - the spoken check-in as the next step.
 
    They also get a reference number.

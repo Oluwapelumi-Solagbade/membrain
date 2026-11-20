@@ -79,7 +79,7 @@ The engine computes this for the composite and for each domain, using each test'
 |---|---|---|
 | Stable | Composite RCI > −1.645 and delayed-recall RCI > −1.96 | Reassurance, prevention plan, routine repeat (6 months) |
 | Check again | One decline signal, or a decline with a confounder, or an invalid recording | Alternate-form repeat in 2–4 weeks |
-| Clinician review | Very low first-visit score (≤ −2.0 for age and education, no waiting for baseline); the same decline signal confirmed on the next session; or decline plus an informant functional flag; or entry composite ≤ −1.5 for age and education | Review Task, 21-day target |
+| Clinician review | Very low first-visit score (≤ −2.0 for age and education, no waiting for baseline); the same decline signal confirmed on the next session; or decline plus an informant functional flag; or entry composite ≤ −1.5 for age and education | Review Task, 24-hour target |
 | Urgent review | Red flags for an acute presentation at intake (sudden onset, fluctuating confusion, new neurological symptoms, fall or head injury, rapid worsening, safety risk), which follow the emergency protocol with no testing first; composite RCI ≤ −2.576 or a drop of ≥ 1.5 SD within 120 days; new informant-reported functional loss (IQCODE above 3.34 and rising ≥ 0.3); safety concern | Review Task, 3-day target, clinician call |
 
 **Design decisions found through simulation.**

@@ -102,7 +102,7 @@ flowchart TD
 1. **Public Concern Intake (`/concern/`)**:
    * *Entry:* Public web, unauthenticated.
    * *User Flow:* Conversational intake captures what changed, when it started, trajectory, and functional disruption. The user selects the nearest registered partner hospital with verified active doctors and provides contact phone/email.
-   * *Terminal State:* Confirmation card displays the hospital's review commitment (e.g. 21-day target). **Strictly terminates the process** with only "Return Home" and "Start Again" options.
+   * *Terminal State:* Confirmation card displays the hospital's review commitment (e.g. 24-hour target). **Strictly terminates the process** with only "Return Home" and "Start Again" options.
    * *Clinical Logging:* An open triage review task is logged to the assigned hospital's clinician queue.
 
 2. **Self-Service Check-in (`/checkin/`)**:
@@ -190,7 +190,7 @@ $$g(n) = \text{Expected Practice Gain Per Session} \cdot \min(n, 3)$$
 | :--- | :--- | :--- | :--- |
 | **1. STABLE** | Composite RCI > -1.645 AND Delayed Recall RCI > -1.96 | Reassuring feedback; educational brain-health guidance; schedule routine re-check in 6–12 months. | Routine (6–12 mos) |
 | **2. REPEAT / CLARIFY** | Single domain drop, transient confounder (sleep < 5h, PHQ-2 ≥ 3), or poor audio SNR (< 15 dB) | Withhold alarming notice; explain potential confounders; automatically schedule alternate-form repeat in 2–4 weeks. | Repeat Window (2–4 weeks) |
-| **3. CLINICIAN REVIEW** | Confirmed drop on repeat (RCI ≤ -1.645); first-visit z ≤ -2.0; baseline z ≤ -1.5; or functional dependency | Route to clinician workspace queue; compile Clinical Review Packet; patient receives notification of clinician review. | Target Target **21 Days** |
+| **3. CLINICIAN REVIEW** | Confirmed drop on repeat (RCI ≤ -1.645); first-visit z ≤ -2.0; baseline z ≤ -1.5; or functional dependency | Route to clinician workspace queue; compile Clinical Review Packet; patient receives notification of clinician review. | Target Target **24 Hours** |
 | **4. URGENT ASSESSMENT** | Sudden confusion, unilateral motor weakness, facial droop, acute speech loss, rapid acute drop | Immediate emergency redirection; display 998 hotline; urgent clinical task notification flagged in red. | Emergency **Immediate / 24h** |
 
 ---
@@ -200,7 +200,7 @@ $$g(n) = \text{Expected Practice Gain Per Session} \cdot \min(n, 3)$$
 ```mermaid
 stateDiagram-v2
     [*] --> Recommended: Algorithmic Triage Trigger
-    Recommended --> ClinicianApproved: Physician Review & Sign-Off (SLA: 21 Days)
+    Recommended --> ClinicianApproved: Physician Review & Sign-Off (SLA: 24 Hours)
     ClinicianApproved --> ReferralSent: FHIR ServiceRequest to Facility
     ReferralSent --> Accepted: Facility Accepts
     ReferralSent --> Declined: Facility Declines / Re-route

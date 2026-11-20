@@ -48,7 +48,7 @@ const waMessages: Msg[] = [
     id: "w5",
     side: "in",
     time: "٨:١٣ م",
-    body: <>شكرًا لك. بما أن أخاك أصبح يقوم بأمرين عنه، سنرسل الحالة إلى طبيب ليراجعها خلال ٢١ يومًا، دون انتظار أي فحص. والقرار للطبيب.</>,
+    body: <>شكرًا لك. بما أن أخاك أصبح يقوم بأمرين عنه، سنرسل الحالة إلى طبيب ليراجعها خلال ٢٤ ساعة، دون انتظار أي فحص. والقرار للطبيب.</>,
   },
 ];
 
@@ -168,7 +168,7 @@ const tgMessages: Msg[] = [
     time: "19:03",
     body: (
       <>
-        Thank you. Two everyday activities are now done by someone else, so a clinician will review this within <b>21 days</b>, without waiting for any test. MemBrain does not diagnose.
+        Thank you. Two everyday activities are now done by someone else, so a clinician will review this within <b>24 hours</b>, without waiting for any test. MemBrain does not diagnose.
       </>
     ),
   },

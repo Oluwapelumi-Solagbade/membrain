@@ -21,7 +21,7 @@ from .prevention import risk_context
 
 LEVEL_URGENCY = {
     "URGENT": ("URGENT", "please see within 3 days"),
-    "CLINICIAN_REVIEW": ("Soon", "please see within 21 days"),
+    "CLINICIAN_REVIEW": ("Soon", "please review and contact within 24 hours"),
     "CHECK_AGAIN": ("Routine", "repeat check-in in 2 to 4 weeks; referral at the clinician's discretion"),
 }
 LEVEL_WORDS = {"URGENT": "urgent review", "CLINICIAN_REVIEW": "clinician review", "CHECK_AGAIN": "check again",
@@ -210,7 +210,7 @@ def build(p: dict, ev: dict, dossier: dict, *, reason: list[str] | None = None, 
     sections.append(("REQUESTED FROM THE SERVICE", [
         "Specialist memory assessment to establish the cause of the reported change and advise on management.",
         "Please confirm receipt; MemBrain tracks this referral until an assessment and follow-up plan are recorded "
-        "(21-day target)."]))
+        "(24-hour target)."]))
 
     sections.append(("NOTES", [
         "MemBrain is a screening and navigation tool. Its results are a signal for clinical assessment, not a diagnosis.",

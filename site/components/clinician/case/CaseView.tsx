@@ -382,7 +382,7 @@ function CaseBody({ c }: { c: Case }) {
               <div>
                 <span className="text-[14.5px] font-semibold text-deep">{fac.name}</span>
                 {fac.area && <span className="ms-2 text-[13px] text-muted">· {fac.area}</span>}
-                <span className="ms-2 text-[12.5px] font-medium text-leaf">· 21-Day Review SLA</span>
+                <span className="ms-2 text-[12.5px] font-medium text-leaf">· 24-Hour Review SLA</span>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -619,7 +619,7 @@ function CaseBody({ c }: { c: Case }) {
                     )}
                   </div>
                   <p className="mt-1 text-[13.5px] text-body">
-                    Assigned Memory Clinic & Catchment · Clinical commitment: <b>Review and patient callback within 21 days</b>
+                    Assigned Memory Clinic & Catchment · Clinical commitment: <b>Review and patient callback within 24 hours</b>
                   </p>
                   <div className="mt-3 flex flex-wrap items-center gap-3">
                     {con.phone && (

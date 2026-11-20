@@ -82,7 +82,7 @@ def test_family_concern_reaches_the_clinician_queue():
     assert "t:domain:memory" in data and "ok" in data and "more" in data
     run(bot, press("ok", review_id(bot)))
     out = tg.last()["text"]
-    assert "A clinician will review this within 21 days" in out
+    assert "A clinician will review this within 24 hours" in out
     assert "An everyday activity is now done by someone else" in out
     pid = bot.chats[CHAT].last_case
     p = DB["participants"][pid]
@@ -228,7 +228,7 @@ def test_a_second_report_from_the_same_chat_can_be_added_to_the_first():
     assert "same person as your earlier report" in tg.last()["text"] and pid in tg.last()["text"]
     run(bot, press("same:y", 1))
     out = tg.last()["text"]
-    assert "Added to your earlier report" in out and "A clinician will review this within 21 days" in out
+    assert "Added to your earlier report" in out and "A clinician will review this within 24 hours" in out
     p = DB["participants"][pid]
     intakes = [s for s in p["sessions"] if s["type"] == "intake"]
     assert len(intakes) == 2 and intakes[1]["channel"] == "telegram"

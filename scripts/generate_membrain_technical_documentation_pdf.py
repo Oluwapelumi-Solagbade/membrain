@@ -424,7 +424,7 @@ def build_technical_documentation_pdf(output_path: str):
             Paragraph("<b>1. Public Concern Intake</b>", tbl_cell_bold),
             Paragraph("Public `/concern/`<br/>No login required<br/>Optional claim token", tbl_cell),
             Paragraph("Conversational interview captures concern, onset, timeline, and functional impact. User picks nearest registered hospital with verified active doctors and provides contact info.", tbl_cell),
-            Paragraph("<b>Strict Process Termination:</b> Shows hospital commitment (e.g. 21-day target). Offers only 'Return Home' and 'Start Again'. Triage task automatically logged to hospital queue.", tbl_cell),
+            Paragraph("<b>Strict Process Termination:</b> Shows hospital commitment (e.g. 24-hour target). Offers only 'Return Home' and 'Start Again'. Triage task automatically logged to hospital queue.", tbl_cell),
         ],
         [
             Paragraph("<b>2. Self-Service Check-in</b>", tbl_cell_bold),
@@ -809,7 +809,7 @@ def build_technical_documentation_pdf(output_path: str):
             Paragraph("<b>3. CLINICIAN REVIEW</b>", tbl_cell_bold),
             Paragraph("Confirmed drop on repeat (RCI ≤ -1.645); first-visit z ≤ -2.0; baseline z ≤ -1.5; or functional dependency", tbl_cell),
             Paragraph("Route to clinician workspace queue; compile Clinical Review Packet; patient receives notification of clinician review.", tbl_cell),
-            Paragraph("Target Target<br/><b>21 Days</b>", tbl_cell),
+            Paragraph("Target Target<br/><b>24 Hours</b>", tbl_cell),
         ],
         [
             Paragraph("<b>4. URGENT ASSESSMENT</b>", tbl_cell_bold),

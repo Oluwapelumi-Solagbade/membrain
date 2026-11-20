@@ -84,7 +84,7 @@ T = {
         "urgentOutcome": "Please get help now",
         "urgentOutcomeBody": lambda d: "What you described can be a sign of a medical problem that needs care today, not only a memory problem. "
                                        f"If the person is unwell, call 998 or go to the nearest emergency department. A clinician is alerted to follow up within {d} days.",
-        "reviewOutcome": lambda d: f"A clinician will review this within {d} days",
+        "reviewOutcome": lambda d: "A clinician will review this within 24 hours",
         "reviewOutcomeBody": "You don't need to wait for any test first. This is why:",
         "reviewOutcomeAfter": "The first spoken check-in can still go ahead in the meantime.",
         "routineOutcome": "Next step: a short spoken check-in",
@@ -145,7 +145,7 @@ T = {
         "urgentOutcome": "يُرجى طلب المساعدة الآن",
         "urgentOutcomeBody": lambda d: "ما وصفته قد يكون علامة على مشكلة صحية تحتاج إلى رعاية اليوم، وليس مشكلة في الذاكرة فقط. "
                                        f"إذا كان الشخص متعبًا، فاتصل على ٩٩٨ أو توجّه إلى أقرب قسم طوارئ. وسيُنبَّه طبيب لمتابعة الحالة خلال {ar_digits(d)} أيام.",
-        "reviewOutcome": lambda d: f"سيراجع الطبيب الحالة خلال {ar_digits(d)} يومًا",
+        "reviewOutcome": lambda d: "سيراجع الطبيب الحالة خلال ٢٤ ساعة",
         "reviewOutcomeBody": "لا حاجة إلى انتظار أي فحص قبل ذلك. والسبب:",
         "reviewOutcomeAfter": "ويمكن إجراء الفحص الصوتي الأول في الوقت نفسه.",
         "routineOutcome": "الخطوة التالية: فحص صوتي قصير",
