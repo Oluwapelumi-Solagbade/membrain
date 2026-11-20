@@ -3,8 +3,8 @@
 The Android app is the site's mobile build (`NEXT_PUBLIC_MOBILE=1`: the home screen is the app in
 `site/components/app/`) packaged with [Capacitor](https://capacitorjs.com) 6. The same app runs in a browser at `/app/`.
 
-- Talks to the live MemBrain server (`MEMBRAIN_API_URL`, default the Hugging Face Space) when it answers, and runs on the
-  phone (the browser-only engine, data kept on the device) when it does not.
+- Works against the live MemBrain server only (`MEMBRAIN_API_URL`, default the Hugging Face Space). The splash waits for a
+  server that is waking up; if it cannot be reached the app says so and offers to retry, and never shows an offline copy.
 - Clinicians: home dashboard, map of the emirates, alert queue, written programme reports, case screen, new concerns by
   voice or typing. People and families: next check-in, the spoken check-in, report a change, the family questionnaire.
 - Microphone: asked for the first time it is used (spoken check-in, dictation).

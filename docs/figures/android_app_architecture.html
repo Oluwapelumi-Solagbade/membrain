@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MemBrain Android App</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0b1220; --body: #475467; --muted: #667085; --line: #e4e7ec;
+    --blue: #0ea5e9; --blue-soft: #e0f2fe; --blue-tag: #0369a1;
+    --violet: #a855f7; --violet-soft: #f3e8ff; --violet-tag: #7e22ce;
+    --green: #22c55e; --green-soft: #ecfdf3; --green-tag: #15803d;
+    --amber-soft: #fef9e7; --amber-line: #f5d565; --amber-ink: #92400e;
+    --red-soft: #fef2f2; --red-line: #fca5a5; --red-ink: #b91c1c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Inter, system-ui, sans-serif; color: var(--ink); background: #fff; width: 1280px; padding: 30px 32px 28px; }
+  code, .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+  h1 { text-align: center; font-size: 29px; font-weight: 800; letter-spacing: -0.02em; }
+  .sub { text-align: center; color: var(--muted); font-size: 14.5px; margin-top: 6px; }
+
+  .row { display: flex; align-items: stretch; gap: 14px; }
+  .top { margin-top: 24px; align-items: center; }
+  .who { background: var(--ink); color: #fff; border-radius: 10px; padding: 13px 16px; display: flex; gap: 12px; align-items: center; width: 236px; }
+  .who .ic { width: 34px; height: 34px; border-radius: 8px; background: #fff2; display: grid; place-items: center; font-size: 18px; }
+  .who b { display: block; font-size: 14.5px; } .who span { font-size: 12px; color: #cbd5e1; }
+  .arrow { color: #64748b; font-size: 24px; }
+  .step { flex: 1; border: 1px solid var(--line); border-radius: 10px; padding: 11px 14px; }
+  .step b { font-size: 14.5px; display: flex; align-items: center; gap: 8px; }
+  .step p { font-size: 12.5px; color: var(--body); margin-top: 5px; line-height: 1.35; }
+  .n { display: inline-grid; place-items: center; width: 21px; height: 21px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 11.5px; font-weight: 700; flex: none; }
+  .flowlbl { display: flex; justify-content: space-around; font-size: 11.5px; color: var(--blue); padding: 6px 0 4px 240px; }
+
+  .lane { border: 2px dashed; border-radius: 14px; padding: 14px 16px 16px; margin-top: 10px; }
+  .lane.blue { border-color: #7dd3fc; } .lane.violet { border-color: #d8b4fe; } .lane.green { border-color: #86efac; }
+  .lane-t { font-size: 12.5px; font-weight: 800; letter-spacing: 0.04em; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .lane-t::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .blue .lane-t { color: var(--blue-tag); } .violet .lane-t { color: var(--violet-tag); } .green .lane-t { color: var(--green-tag); }
+
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .card { border: 1.5px solid; border-radius: 10px; padding: 12px 13px; background: #fff; }
+  .blue .card { border-color: #bae6fd; } .violet .card { border-color: #e9d5ff; } .green .card { border-color: #bbf7d0; }
+  .tag { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 0.06em; color: #fff; padding: 2px 6px; border-radius: 4px; margin-bottom: 8px; }
+  .blue .tag { background: #0284c7; } .violet .tag { background: #9333ea; } .green .tag { background: #16a34a; }
+  .card h3 { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .card p { font-size: 12.3px; color: var(--body); line-height: 1.42; margin-top: 6px; }
+  .card code { font-size: 11px; background: #f2f4f7; padding: 0 4px; border-radius: 3px; color: #1d2939; }
+  .card .em { color: var(--ink); font-weight: 600; }
+
+  .note { margin-top: 12px; border-radius: 8px; padding: 8px 12px; font-size: 12.5px; text-align: center; }
+  .blue .note { background: var(--blue-soft); color: #075985; } .violet .note { background: var(--violet-soft); color: #6b21a8; } .green .note { background: var(--green-soft); color: #166534; }
+  .bar { margin-top: 10px; background: var(--ink); color: #fff; border-radius: 8px; padding: 10px 14px; text-align: center; }
+  .bar .mono { font-size: 13.5px; font-weight: 700; } .bar small { display: block; font-size: 11.5px; color: #94a3b8; margin-top: 2px; }
+
+  .install { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1.25fr; gap: 12px; }
+  .why { background: var(--amber-soft); border: 1.5px solid var(--amber-line); border-radius: 10px; padding: 12px 14px; }
+  .why h3 { font-size: 15px; color: var(--amber-ink); display: flex; gap: 8px; align-items: center; }
+  .why p { font-size: 12.2px; color: var(--amber-ink); line-height: 1.4; margin-top: 6px; }
+  .why ul { list-style: none; margin-top: 7px; }
+  .why li { font-size: 12px; color: #3f3f46; line-height: 1.35; padding-left: 16px; position: relative; margin-top: 3px; }
+  .why li::before { content: "✓"; position: absolute; left: 0; color: #15803d; font-weight: 700; }
+  .shot { margin-top: 8px; border-radius: 7px; background: #1f2937; color: #e5e7eb; padding: 8px 10px; font-size: 11.2px; line-height: 1.35; }
+  .shot b { color: #fff; } .shot .btn { display: inline-block; margin-top: 5px; margin-right: 6px; padding: 2px 8px; border-radius: 999px; border: 1px solid #6b7280; font-size: 10.5px; color: #e5e7eb; }
+  .shot .btn.go { border-color: #86efac; color: #bbf7d0; }
+
+  .run { display: flex; align-items: stretch; gap: 8px; }
+  .run .card { flex: 1; }
+  .run .tri { align-self: center; color: var(--green); font-size: 16px; }
+  .chips { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+  .chip { font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: #f2f4f7; color: #344054; }
+
+  .sect { font-size: 12px; font-weight: 800; letter-spacing: 0.06em; color: #98a2b3; margin: 18px 0 8px; }
+  .plat { display: flex; align-items: center; gap: 10px; }
+  .pc { flex: 1; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; text-align: center; }
+  .pc b { font-size: 14px; } .pc p { font-size: 11.8px; color: var(--muted); margin-top: 4px; line-height: 1.35; }
+  .pc.uae { background: var(--green-soft); border-color: #bbf7d0; }
+  .tri2 { color: #475467; font-size: 14px; }
+  .foot { margin-top: 14px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; text-align: center; font-size: 13.5px; color: #344054; background: #fcfcfd; }
+</style>
+</head>
+<body>
+  <h1>MemBrain Android App</h1>
+  <p class="sub">One codebase → an APK on every push → installed on the phone in about a minute · a live client of the in-country server</p>
+
+  <div class="row top">
+    <div class="who"><div class="ic">👩‍💻</div><div><b>Team pushes code</b><span>git push to main</span></div></div>
+    <div class="arrow">→</div>
+    <div class="step"><b><span class="n">1</span> GitHub Actions build ⚙️</b><p>Node 22 · JDK 17 · runs on every push to <code class="mono">main</code></p></div>
+    <div class="step"><b><span class="n">2</span> android-latest release 📦</b><p>MemBrain.apk (≈ 7 MB) replaced on each build</p></div>
+    <div class="step"><b><span class="n">3</span> Download button 📲</b><p>Landing page → “Download for Android”</p></div>
+  </div>
+
+  <div class="lane blue">
+    <div class="lane-t">BUILD · ONE CODEBASE, THREE SURFACES · ON EVERY PUSH</div>
+    <div class="grid4">
+      <div class="card"><span class="tag">NEXT.JS</span><h3><span class="n">1</span> Mobile web build</h3><p><code>NEXT_PUBLIC_MOBILE=1</code> makes the home screen the app (<code>site/components/app/</code>). Same engine, triage and hospital rules as the website.</p></div>
+      <div class="card"><span class="tag">CAPACITOR 6</span><h3><span class="n">2</span> Native wrapper</h3><p><code>npx cap sync android</code> copies the bundle into the Android project. App ID <code>ae.membrain.app</code>, served from <code>https://localhost</code>.</p></div>
+      <div class="card"><span class="tag">GRADLE</span><h3><span class="n">3</span> APK build</h3><p><code>./gradlew assembleDebug</code>. Minimum Android 5.1 (SDK 22); targets Android 14 (SDK 34).</p></div>
+      <div class="card"><span class="tag">NATIVE BRIDGE</span><h3><span class="n">4</span> MainActivity.java</h3><p>Edge-to-edge screens, hardware back button, haptics, and the server’s spoken instructions allowed to play.</p></div>
+    </div>
+    <div class="note">Website, the in-browser app at <span class="mono">/app/</span> and the APK share one codebase · a fix to one reaches all three</div>
+    <div class="bar"><span class="mono">→ MemBrain.apk · ae.membrain.app · v1.2</span><small>published to the android-latest GitHub release; the landing page’s download button links to it</small></div>
+  </div>
+
+  <div class="lane violet">
+    <div class="lane-t">INSTALL · ON THE PERSON’S OR CLINICIAN’S PHONE · ABOUT ONE MINUTE</div>
+    <div class="install">
+      <div class="card"><span class="tag">STEP 1</span><h3><span class="n">1</span> Download</h3><p>Tap <span class="em">Download for Android</span> on the landing page. Chrome may ask to keep the file.</p>
+        <div class="shot"><b>Chrome:</b> “This type of file can harm your device”<br><span class="btn go">Download anyway</span></div></div>
+      <div class="card"><span class="tag">STEP 2</span><h3><span class="n">2</span> Allow this source</h3><p>Open the file. Android asks once to allow installs from Chrome.</p>
+        <div class="shot"><b>Settings:</b> Install unknown apps → Chrome<br><span class="btn go">Allow from this source</span></div></div>
+      <div class="card"><span class="tag">STEP 3</span><h3><span class="n">3</span> Play Protect</h3><p>Play Protect may say it doesn’t recognise the developer. This is expected for an app from outside Google Play.</p>
+        <div class="shot"><b>Play Protect:</b> unknown developer<br><span class="btn">More details</span><span class="btn go">Install anyway</span></div></div>
+      <div class="card"><span class="tag">STEP 4</span><h3><span class="n">4</span> Open &amp; sign in</h3><p>The app connects to the server, then sign-in. Microphone access is asked the first time a spoken check-in starts.</p>
+        <div class="shot"><b>Android:</b> Allow MemBrain to record audio?<br><span class="btn go">While using the app</span></div></div>
+      <div class="why">
+        <h3>🛡️ Why Play Protect warns</h3>
+        <p>It flags every app installed from outside Google Play by a developer it has not verified. It is <b>not</b> a malware finding.</p>
+        <ul>
+          <li>Demo build signed with a development key, not by Google Play</li>
+          <li>Asks for 3 permissions only: internet, microphone, audio settings</li>
+          <li>No contacts, location, camera, SMS or file access</li>
+          <li>All traffic is HTTPS to the MemBrain server</li>
+          <li>A Google Play release (Play App Signing) removes the warning</li>
+        </ul>
+      </div>
+    </div>
+    <div class="note">If Play Protect blocks it outright, tap <b>More details → Install anyway</b>, or send the app for scanning; nothing on the phone needs to be switched off</div>
+  </div>
+
+  <div class="lane green">
+    <div class="lane-t">RUN · A LIVE CLIENT OF THE MEMBRAIN SERVER · NOTHING KEPT OFFLINE</div>
+    <div class="run">
+      <div class="card"><h3><span class="n">1</span> Connect</h3><p>Splash checks <code>/health</code> up to 3 times (5, 9, 14 s) while a sleeping server wakes. No server → “Try again”, never stale data.</p></div>
+      <div class="tri">▶</div>
+      <div class="card"><h3><span class="n">2</span> Sign in</h3><p>People: mobile number + 6-digit code. Staff: work email; each doctor sees only their hospital.</p><div class="chips"><span class="chip">Abu Dhabi</span><span class="chip">Al Ain</span><span class="chip">Dubai</span><span class="chip">Coordinator: all</span></div></div>
+      <div class="tri">▶</div>
+      <div class="card"><h3><span class="n">3</span> Work</h3><p>Clinician: Home, Map, Alerts, Reports, Create. Person: spoken check-in, family questionnaire, report a change.</p></div>
+      <div class="tri">▶</div>
+      <div class="card"><h3><span class="n">4</span> Speak &amp; listen</h3><p>Instructions in the server’s voice, fetched ahead. Answers heard by Azure Speech UAE North from the first word.</p></div>
+      <div class="tri">▶</div>
+      <div class="card"><h3><span class="n">5</span> Sign out</h3><p>On the home screen. Clears the session and every MemBrain item kept on the phone.</p></div>
+    </div>
+  </div>
+
+  <div class="sect">PLATFORM</div>
+  <div class="plat">
+    <div class="pc"><b>📱 Android WebView</b><p>Chromium on the phone · Arabic &amp; English, right-to-left</p></div>
+    <div class="tri2">▶</div>
+    <div class="pc"><b>🔌 Capacitor bridge</b><p>back button · haptics · status bars</p></div>
+    <div class="tri2">▶</div>
+    <div class="pc"><b>⚙️ FastAPI server</b><p>per-hospital access · audit log · FHIR R4 · demo on Hugging Face</p></div>
+    <div class="tri2">▶</div>
+    <div class="pc uae"><b>🇦🇪 Azure UAE North</b><p>pilot server · AI Speech recognition &amp; voices · in-country</p></div>
+  </div>
+
+  <div class="foot">1 codebase · 3 surfaces · 3 permissions · ≈ 7 MB APK · built on every push · 2 languages · records never stored on the phone</div>
+</body>
+</html>

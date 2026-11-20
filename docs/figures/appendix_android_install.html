@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MemBrain · Appendix A · Installing the Android app</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 0; }
+  :root { --g: #133d2b; --g2: #1d6b45; --pill: #e4efe8; --ink: #101828; --body: #344054; --muted: #667085; --line: #e3e7e4; --bg: #f8f8f6; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); }
+  body { font-family: Inter, system-ui, sans-serif; color: var(--ink); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { width: 210mm; height: 297mm; padding: 15mm 13.5mm 0; position: relative; page-break-after: always; overflow: hidden; }
+  .page:last-child { page-break-after: auto; }
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9mm; }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 16px; color: var(--g); }
+  .logo i { width: 15px; height: 15px; border-radius: 50%; background: linear-gradient(90deg, #e2b33c 50%, var(--g2) 50%); display: inline-block; }
+  .pills { display: flex; gap: 6px; }
+  .pill { background: var(--pill); color: var(--g); font-size: 8.5px; font-weight: 700; padding: 5px 10px; border-radius: 999px; }
+  h2 { display: flex; align-items: center; gap: 9px; font-size: 15.5px; font-weight: 700; color: var(--g); margin-bottom: 5px; }
+  h2 .b { min-width: 24px; height: 24px; padding: 0 6px; border-radius: 999px; background: var(--g2); color: #fff; font-size: 11px; display: grid; place-items: center; }
+  h3 { font-size: 12px; font-weight: 700; color: var(--g); margin: 12px 0 5px; }
+  p { font-size: 10.3px; line-height: 1.5; color: var(--body); }
+  code { font-family: "JetBrains Mono", monospace; font-size: 8.6px; background: #e8f0eb; color: var(--g); padding: 1px 4px; border-radius: 3px; }
+  .fig { margin-top: 8px; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+  .fig img { width: 100%; display: block; border-radius: 6px; }
+  .cap { font-size: 8.8px; color: var(--muted); margin-top: 6px; text-align: center; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-top: 6px; }
+  th { text-align: left; font-size: 8px; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; padding: 7px 10px; background: #f3f6f4; border-bottom: 1px solid var(--line); }
+  td { font-size: 9.6px; line-height: 1.45; color: var(--body); padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  td b { color: var(--ink); }
+  td.k { font-weight: 700; color: var(--ink); width: 23%; }
+  .callout { margin-top: 10px; border-left: 3px solid #d39b1b; background: #fff8e6; border-radius: 0 8px 8px 0; padding: 9px 12px; }
+  .callout .t { font-size: 8.5px; font-weight: 800; letter-spacing: 0.08em; color: #8a5a00; margin-bottom: 3px; }
+  .callout p { color: #4a3b12; }
+  .callout.blue { border-color: #3a7bd5; background: #eef4fc; } .callout.blue .t { color: #1f4f96; } .callout.blue p { color: #1d2b44; }
+  .quote { margin-top: 6px; background: #fff; border: 1px dashed #d8c27a; border-radius: 6px; padding: 7px 10px; font-size: 9.8px; line-height: 1.5; color: #3d3418; font-style: italic; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  footer { position: absolute; left: 13.5mm; right: 13.5mm; bottom: 9mm; border-top: 1px solid var(--line); padding-top: 6px; display: flex; justify-content: space-between; font-size: 7.5px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<section class="page">
+  <header><div class="logo"><i></i>MemBrain</div><div class="pills"><span class="pill">Technical documentation · Installing the Android app</span><span class="pill">v0.5.0</span></div></header>
+  <h2><span class="b">A</span> Appendix A · Installing the MemBrain Android app</h2>
+  <p>This appendix extends Section 2.2. It shows how the APK is built and published, how a person or clinician installs it on an Android phone in about a minute, why Google Play Protect may warn during installation and what to say about it, and how the app behaves once it is running.</p>
+  <div class="fig"><img src="android_app_architecture.png" alt="MemBrain Android app: build, install and run"></div>
+  <p class="cap">Figure A1 · The MemBrain Android app: built from the same codebase on every push, installed from the android-latest release, and run as a live client of the MemBrain server.</p>
+  <footer><span>Confidential · MemBrain v0.5.0 · Team Cerebro Spark</span><span>A1 / A2</span></footer>
+</section>
+
+<section class="page">
+  <header><div class="logo"><i></i>MemBrain</div><div class="pills"><span class="pill">Technical documentation · Installing the Android app</span><span class="pill">v0.5.0</span></div></header>
+
+  <h3>A.1 Installing on an Android phone (Android 5.1 or newer)</h3>
+  <table>
+    <tr><th>STEP</th><th>WHAT THE PERSON DOES</th><th>WHAT ANDROID SHOWS</th></tr>
+    <tr><td class="k">1 · Download</td><td>Open the MemBrain landing page in Chrome and tap <b>Download for Android</b>. The link fetches <code>MemBrain.apk</code> from the <code>android-latest</code> GitHub release.</td><td>Chrome may say the file type can harm the device: tap <b>Download anyway</b>.</td></tr>
+    <tr><td class="k">2 · Allow this source</td><td>Tap the finished download to open it.</td><td>The first time, Android asks to allow installs from Chrome: <b>Settings → Allow from this source</b>, then go back.</td></tr>
+    <tr><td class="k">3 · Play Protect</td><td>Tap <b>Install</b>.</td><td>Play Protect may warn that it does not recognise the developer, or offer to scan the app: tap <b>More details → Install anyway</b>, or <b>Scan app</b> and then install.</td></tr>
+    <tr><td class="k">4 · Open &amp; sign in</td><td>Tap <b>Open</b>. The splash connects to the server (up to a minute if it was asleep), then sign in.</td><td>The microphone permission is asked the first time a spoken check-in or dictation starts: choose <b>While using the app</b>.</td></tr>
+  </table>
+
+  <div class="callout">
+    <div class="t">WHY GOOGLE PLAY PROTECT MAY FLAG MEMBRAIN, AND WHY IT IS SAFE</div>
+    <p>Play Protect warns about apps installed from outside Google Play by a developer Google has not verified. The MemBrain APK is a demonstration build signed with a development key and distributed from the team's GitHub release, so it meets both conditions. The warning is about where the app came from, not about anything the app does: it is not a malware detection. The app requests only three permissions (<code>INTERNET</code>, <code>RECORD_AUDIO</code>, <code>MODIFY_AUDIO_SETTINGS</code>), has no access to contacts, location, camera, SMS or files, sends everything over HTTPS to the MemBrain server, and keeps no clinical records on the phone. Its full source and build pipeline are public in the repository (<code>mobile/</code>, <code>.github/workflows/android.yml</code>).</p>
+    <div class="quote">What to tell people: “Android warns about any app that doesn't come from the Play Store. MemBrain is our pilot app, built by the team; it only uses the internet and the microphone. Tap More details, then Install anyway.”</div>
+  </div>
+
+  <h3>A.2 Troubleshooting</h3>
+  <table>
+    <tr><th>WHAT HAPPENS</th><th>WHY</th><th>WHAT TO DO</th></tr>
+    <tr><td class="k">“App not installed” when updating</td><td>Each automated build is signed with a fresh development key, so Android refuses to install a new copy over an older one.</td><td>Uninstall the old MemBrain first (long-press the icon → <b>Uninstall</b>), then install the new APK.</td></tr>
+    <tr><td class="k">“Can't reach the MemBrain server”</td><td>No internet, or the demo server is still waking up.</td><td>Check the connection and tap <b>Try again</b>; the first start after a quiet period can take up to a minute.</td></tr>
+    <tr><td class="k">No microphone in the check-in</td><td>The microphone permission was refused.</td><td>Settings → Apps → MemBrain → Permissions → Microphone → <b>Allow</b>. Answers can also be typed.</td></tr>
+    <tr><td class="k">Instructions are not heard</td><td>Media volume is low; spoken instructions are audio from the server.</td><td>Turn up the media volume and tap <b>Say it again</b>; the text is always on screen.</td></tr>
+    <tr><td class="k">Signing out</td><td>One phone may be shared, for example by clinic staff.</td><td><b>Sign out</b> is at the top of the home screen (and in the clinician profile and the person's <b>Me</b> tab); it clears the session and everything MemBrain kept on the phone.</td></tr>
+  </table>
+
+  <div class="two">
+    <div class="callout blue">
+      <div class="t">FROM DEMO TO PILOT</div>
+      <p>A Google Play release removes the warnings: a Play Console account, a fixed upload key with Play App Signing, a store listing with the Data safety form and health-app declaration, and an internal or closed testing track so pilot clinicians install from the Play Store. A fixed signing key also lets new versions install over old ones.</p>
+    </div>
+    <div class="callout blue">
+      <div class="t">iPHONE</div>
+      <p>The same Capacitor project can produce an iOS build; it has not been produced yet. Until then, iPhone users use the same app in Safari at <code>/app/</code> on the website, with the same sign-in, check-in and hospital rules.</p>
+    </div>
+  </div>
+  <footer><span>Confidential · MemBrain v0.5.0 · Team Cerebro Spark</span><span>A2 / A2</span></footer>
+</section>
+
+</body>
+</html>
