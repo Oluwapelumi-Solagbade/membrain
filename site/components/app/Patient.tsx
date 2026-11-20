@@ -8,7 +8,7 @@ import { Avatar, Card, cx, LiveBadge, Screen, SectionTitle, tap, type Tab } from
 import { useWorkspace } from "../clinician/WorkspaceProvider";
 import programmeData from "@/lib/generated/programme-data.json";
 import type { Lang } from "@/lib/mb";
-import { getHomeUrl, getSignedOutUrl, signOut } from "@/lib/auth";
+import { getHomeUrl, signOutAndGoHome } from "@/lib/auth";
 import { participantNameOf } from "@/lib/workspace/derive";
 import { FAQ_INTERVAL_WEEKS } from "@/lib/workspace/informant";
 import type { Case } from "@/lib/workspace/types";
@@ -93,9 +93,8 @@ export function PatientHome({ c, lang, onTab, onReport }: { c: Case; lang: Lang;
               type="button"
               onClick={async () => {
                 tap();
-                const { signOut } = await import("@/lib/auth");
-                await signOut();
-                window.location.href = getSignedOutUrl(lang, "participant");
+                const { signOutAndGoHome } = await import("@/lib/auth");
+                await signOutAndGoHome(lang);
               }}
               title={t.signOut}
               aria-label={t.signOut}

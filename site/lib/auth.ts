@@ -310,20 +310,24 @@ export async function verifyPatient(challengeId: string, code: string): Promise<
 
 export async function signOut() {
   const s = currentSession();
+  purgeClientStorage();
   if (s?.mode === "server") {
     try {
       const base = await server();
       if (base !== null) {
+        const controller = new AbortController();
+        const timer = window.setTimeout(() => controller.abort(), 1200);
         await fetch(base + "/auth/logout", {
           method: "POST",
           headers: { Authorization: `Bearer ${s.token}` },
+          signal: controller.signal,
         }).catch(() => {});
+        window.clearTimeout(timer);
       }
     } catch {
       /* ignore server network failures during logout */
     }
   }
-  purgeClientStorage();
 }
 
 /** Kept after raising a concern, so signing in afterwards can link that concern to the person's own record. */
@@ -339,15 +343,30 @@ export const homeFor = (u: User) => (u.role === "participant" ? "/checkin/" : "/
 
 /** Resolves the correct landing page URL, respecting GitHub Pages / custom subpath deployments. */
 export function getHomeUrl(lang: "en" | "ar" = "en"): string {
-  let base = process.env.NEXT_PUBLIC_BASE_PATH || "";
-  if (typeof window !== "undefined" && !base) {
-    if (window.location.pathname.startsWith("/membrain")) {
-      base = "/membrain";
-    }
-  }
-  const cleanBase = base ? (base.endsWith("/") ? base.slice(0, -1) : base) : "";
   const sub = lang === "ar" ? "/ar/" : "/";
-  return cleanBase ? `${cleanBase}${sub}` : sub;
+  if (typeof window === "undefined") {
+    const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
+    const cleanBase = base ? (base.endsWith("/") ? base.slice(0, -1) : base) : "";
+    return cleanBase ? `${cleanBase}${sub}` : sub;
+  }
+  const origin = window.location.origin;
+  const isMembrain =
+    window.location.pathname.startsWith("/membrain") ||
+    process.env.NEXT_PUBLIC_BASE_PATH === "/membrain" ||
+    origin.includes("github.io");
+  const prefix = isMembrain ? "/membrain" : "";
+  return `${origin}${prefix}${sub}`;
+}
+
+/**
+ * Safely signs out, purges all client credentials and cached data,
+ * and redirects immediately to the landing page base URL.
+ */
+export async function signOutAndGoHome(lang: "en" | "ar" = "en") {
+  await signOut();
+  if (typeof window !== "undefined") {
+    window.location.href = getHomeUrl(lang);
+  }
 }
 
 /** Resolves the goodbye / signed-out confirmation page URL. */

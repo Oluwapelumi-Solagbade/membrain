@@ -8,7 +8,7 @@ import { Logo, Mark } from "../Logo";
 import { LevelPill } from "../ui";
 import { Avatar, usePopover } from "./parts";
 import { useWorkspace } from "./WorkspaceProvider";
-import { hospitalLabel, signOut, useSession, getHomeUrl, getSignedOutUrl } from "@/lib/auth";
+import { hospitalLabel, signOutAndGoHome, useSession, getHomeUrl } from "@/lib/auth";
 import { caseHref, fmtDate, isActive, isIntakeOnly, isWaiting, levelOf, matchesQuery, dueOf } from "@/lib/workspace/derive";
 import { STALLED, STATE_LABEL } from "@/lib/workspace/navigator";
 
@@ -88,8 +88,7 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
           type="button"
           onClick={async () => {
             onNavigate?.();
-            await signOut();
-            window.location.href = getSignedOutUrl("en", "clinician");
+            await signOutAndGoHome("en");
           }}
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[13.5px] font-medium text-rose-300 hover:bg-rose-500/20 hover:text-white transition-colors"
         >
@@ -163,8 +162,7 @@ function UserMenu({ align, children }: { align: "top" | "bottom"; children: Reac
             role="menuitem"
             onClick={async () => {
               setOpen(false);
-              await signOut();
-              window.location.href = getSignedOutUrl("en", "clinician");
+              await signOutAndGoHome("en");
             }}
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-start text-[14.5px] font-medium text-lv-urgent hover:bg-lv-urgent-soft"
           >
@@ -303,8 +301,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <button
               type="button"
               onClick={async () => {
-                await signOut();
-                window.location.href = getSignedOutUrl("en", "clinician");
+                await signOutAndGoHome("en");
               }}
               title="Sign out and leave no trace"
               aria-label="Sign out"

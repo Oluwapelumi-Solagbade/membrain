@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Logo } from "../Logo";
 import type { Lang } from "@/lib/mb";
+import { getHomeUrl } from "@/lib/auth";
 
 const T = {
   en: {
@@ -91,9 +92,9 @@ export function SignedOutView() {
     <div dir={lang === "ar" ? "rtl" : "ltr"} lang={lang} className="flex min-h-dvh flex-col justify-between bg-paper px-4 py-8 sm:px-6">
       {/* Top Bar with Logo & Language Toggle */}
       <header className="mx-auto flex w-full max-w-[580px] items-center justify-between">
-        <Link href={homeRoute} aria-label="MemBrain home">
+        <a href={getHomeUrl(lang)} aria-label="MemBrain home">
           <Logo size="md" />
-        </Link>
+        </a>
         <div className="flex rounded-full bg-mist p-1" role="group" aria-label="Language">
           {(["en", "ar"] as Lang[]).map((l) => (
             <button
@@ -132,13 +133,13 @@ export function SignedOutView() {
 
           {/* Action Buttons */}
           <div className="mt-8 space-y-3">
-            <Link
-              href={homeRoute}
+            <a
+              href={getHomeUrl(lang)}
               className="flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-deep text-[16px] font-semibold text-white shadow-[0_10px_24px_-10px_rgb(15_63_44/0.7)] hover:bg-deep-hover transition-colors"
             >
               <Home size={18} />
               <span>{t.returnHome}</span>
-            </Link>
+            </a>
 
             <Link
               href={primarySignInRoute}
