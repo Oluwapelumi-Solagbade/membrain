@@ -44,9 +44,9 @@ const T = {
     whyBody:
       "When people with cognitive decline are hospitalised or meet new carers, unfamiliar environments frequently trigger delirium and acute agitation. MyLife gives hospital staff an immediate, compassionate understanding of who the person is — and how to keep them calm.",
     tabs: {
-      card: "Quick Care Card",
-      story: "Life Story",
-      rhythms: "Daily Rhythms",
+      story: "1. Life Story",
+      rhythms: "2. Daily Rhythms",
+      card: "3. Quick Care Card",
     },
     storyTitle: "Life Background & Meaningful Memories",
     storyDesc: "Key milestones, cultural roots, and lifetime passions that ground the person.",
@@ -86,9 +86,9 @@ const T = {
     whyBody:
       "عند تنويم كبار السن ذوي التغيّر الإدراكي في المستشفى أو لقائهم بمقدمي رعاية جدد، تسبب البيئة غير المألوفة التشوّش والهلع أحيانًا. تمنح بطاقة MyLife طواقم التمريض نظرة فورية رحيمة حول من يكون المريض وكيفية الحفاظ على سكينته.",
     tabs: {
-      card: "بطاقة الرعاية",
-      story: "قصة الحياة",
-      rhythms: "الروتين اليومي",
+      story: "١. قصة حياتي",
+      rhythms: "٢. الروتين اليومي",
+      card: "٣. بطاقة الرعاية",
     },
     storyTitle: "محطات الحياة والذكريات القريبة إلى القلب",
     storyDesc: "الجذور والمهنة والشغف والأشخاص المهمون الذين يشعرون الشخص بالأمان.",
@@ -120,9 +120,9 @@ const T = {
 };
 
 const TAB_ICONS = {
-  card: Shield,
   story: BookOpen,
   rhythms: Clock,
+  card: Shield,
 };
 
 export function MyLifeView() {
@@ -130,7 +130,7 @@ export function MyLifeView() {
   const pid = params.get("id") || "MB-1041";
   const initialLang: Lang = params.get("lang") === "ar" ? "ar" : "en";
   const [lang, setLang] = useState<Lang>(initialLang);
-  const [activeTab, setActiveTab] = useState<"card" | "story" | "rhythms">("card");
+  const [activeTab, setActiveTab] = useState<"card" | "story" | "rhythms">("story");
 
   const t = T[lang];
   const isAr = lang === "ar";
@@ -237,7 +237,7 @@ export function MyLifeView() {
 
         {/* ── Tab navigation ── */}
         <div className="mt-8 flex gap-2 overflow-x-auto pb-1" role="tablist">
-          {(["card", "story", "rhythms"] as const).map((tab) => {
+          {(["story", "rhythms", "card"] as const).map((tab) => {
             const Icon = TAB_ICONS[tab];
             const isActive = activeTab === tab;
             return (
