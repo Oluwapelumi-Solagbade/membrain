@@ -19,6 +19,7 @@ import {
   FileClock,
   FileText,
   HandHelping,
+  HeartHandshake,
   HeartPulse,
   LineChart,
   ListChecks,
@@ -105,7 +106,7 @@ const pretty = (k: string) => k.replace(/_/g, " ").replace(/^\w/, (m) => m.toUpp
 type Z = { domains?: Record<string, number>; composite?: number };
 const zOf = (h: Evaluation | null) => (h as unknown as { z?: Z } | null)?.z;
 
-type CaseTab = "overview" | "concern" | "cognitive" | "referral" | "timeline";
+type CaseTab = "overview" | "concern" | "cognitive" | "referral" | "mylife" | "timeline";
 
 export function CaseView() {
   const params = useSearchParams();
@@ -200,7 +201,7 @@ function CaseBody({ c }: { c: Case }) {
   // Tab State: prioritize query param -> hash -> intelligent default
   const paramTab = params.get("tab") as CaseTab | null;
   const [activeTab, setActiveTab] = useState<CaseTab>(() => {
-    if (paramTab && ["overview", "concern", "cognitive", "referral", "timeline"].includes(paramTab)) return paramTab;
+    if (paramTab && ["overview", "concern", "cognitive", "referral", "mylife", "timeline"].includes(paramTab)) return paramTab;
     return "overview";
   });
 
@@ -229,7 +230,7 @@ function CaseBody({ c }: { c: Case }) {
       setActiveTab("cognitive");
     } else if (hash === "#timeline" || hash === "#activity") {
       setActiveTab("timeline");
-    } else if (paramTab && ["overview", "concern", "cognitive", "referral", "timeline"].includes(paramTab)) {
+    } else if (paramTab && ["overview", "concern", "cognitive", "referral", "mylife", "timeline"].includes(paramTab)) {
       setActiveTab(paramTab);
     }
   }, [c.task?.status, referred, paramTab]);
@@ -281,11 +282,12 @@ function CaseBody({ c }: { c: Case }) {
   const z = zOf(ev);
   const scoredHistory = [...c.history].reverse();
 
-  const TABS: { id: CaseTab; label: string; icon: typeof Compass; count?: number | string }[] = [
+  const TABS: { id: CaseTab; label: string; icon: typeof Compass; count?: number | string; badge?: string }[] = [
     { id: "overview", label: "Overview & Decision", icon: Compass },
     { id: "concern", label: "The Concern & Family", icon: MessageSquareText, count: intakeOnly ? "New" : undefined },
     { id: "cognitive", label: "Cognitive Assessments", icon: ListChecks, count: c.history.length > 0 ? c.history.length : undefined },
     { id: "referral", label: "Referral & Care Plan", icon: Route, count: p.referrals.length > 0 ? p.referrals.length : undefined },
+    { id: "mylife", label: "MyLife Profile", icon: HeartHandshake, badge: "Coming Soon" },
     { id: "timeline", label: "Timeline & Audit", icon: FileClock, count: activity?.length },
   ];
 
@@ -428,6 +430,15 @@ function CaseBody({ c }: { c: Case }) {
                   }`}
                 >
                   {t.count}
+                </span>
+              )}
+              {t.badge && (
+                <span
+                  className={`rounded-full border px-2 py-0.5 text-[10.5px] font-bold ${
+                    active ? "border-amber-200/50 bg-white/20 text-white" : "border-amber-300 bg-amber-50 text-amber-800"
+                  }`}
+                >
+                  {t.badge}
                 </span>
               )}
             </button>
@@ -916,6 +927,54 @@ function CaseBody({ c }: { c: Case }) {
       {/* =========================================================================
           TAB 5: TIMELINE & AUDIT TRAIL
           ========================================================================= */}
+            {activeTab === "mylife" && (
+        <section aria-labelledby="mylife-heading" className="space-y-6">
+          <Panel title="MyLife Care Profile & Quick Care Card" icon={HeartHandshake} aside={<span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-800">Coming Soon</span>}>
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-amber-900">
+                    <HeartHandshake size={20} className="text-amber-700" />
+                    <h3 id="mylife-heading" className="text-[16.5px] font-bold">Person-Centred Life Story & Quick Care Card</h3>
+                  </div>
+                  <Link
+                    href={`/mylife/?id=${encodeURIComponent(p.id)}`}
+                    target="_blank"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-white px-3.5 py-1.5 text-[13px] font-semibold text-amber-900 shadow-sm hover:bg-amber-100/50 transition-colors"
+                  >
+                    <span>Open MyLife Preview</span>
+                    <ArrowUpRight size={14} />
+                  </Link>
+                </div>
+                <p className="mt-2 text-[14px] leading-relaxed text-amber-950/80">
+                  Designed to prevent acute hospital-induced delirium, disorientation, and behavioural distress by giving clinical teams and ward nurses immediate access to the person's identity, distress triggers, and calming anchors.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-rose-200/80 bg-rose-50/30 p-4">
+                  <p className="text-[13px] font-bold uppercase tracking-wider text-rose-800">What Triggers Distress</p>
+                  <ul className="mt-2 space-y-1.5 text-[14px] text-ink">
+                    <li>• Sharp unexpected clinical beeps and alarms</li>
+                    <li>• Fast English speech without face-to-face introduction</li>
+                    <li>• Abrupt unannounced physical touching</li>
+                  </ul>
+                </div>
+
+                <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/30 p-4">
+                  <p className="text-[13px] font-bold uppercase tracking-wider text-emerald-800">What Calms & Grounds</p>
+                  <ul className="mt-2 space-y-1.5 text-[14px] text-ink">
+                    <li>• Speaking in calm, slow Gulf Arabic</li>
+                    <li>• Having the designated family supporter present</li>
+                    <li>• Familiar tea with cardamom / prayer beads</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </Panel>
+        </section>
+      )}
+
       {activeTab === "timeline" && (
         <div id="activity" className="space-y-5">
           <Panel

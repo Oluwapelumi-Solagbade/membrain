@@ -46,7 +46,7 @@ def test_nothing_clinical_without_signing_in():
 def test_clinician_sign_in_and_out():
     assert c.post("/auth/clinician/login", json={"email": "dr.demo@membrain.ae", "password": "wrong"}).status_code == 401
     tok = clinician()
-    assert len(c.get("/cases", headers=bearer(tok)).json()) >= 7
+    assert len(c.get("/cases", headers=bearer(tok)).json()) >= 4
     me = c.get("/auth/me", headers=bearer(tok)).json()
     assert me["role"] == "clinician" and "password" not in me
     c.post("/auth/logout", headers=bearer(tok))

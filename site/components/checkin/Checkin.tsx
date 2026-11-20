@@ -10,7 +10,7 @@ import engineData from "@/lib/generated/engine-data.json";
 import { DEMO_TODAY, getEngine, type Lang, type Level } from "@/lib/mb";
 import { detectSpeech, LABEL, Recorder, speak, stopSpeaking, type Audio, type Recording, type Speech, type VoiceFeatures } from "@/lib/voice";
 import { appCaseHref, homeHref } from "@/lib/app";
-import { useSession, signOut } from "@/lib/auth";
+import { useSession, signOut, getHomeUrl } from "@/lib/auth";
 import { getBackend } from "@/lib/workspace/backend";
 import { notifyWorkspaceSync } from "@/lib/workspace/sync";
 import type { Backend, Case, CheckinResult, Participant, SessionIn } from "@/lib/workspace/types";
@@ -271,7 +271,7 @@ function TopBar({ t, lang, setLang, subtitle, exitHref, right }: { t: Copy; lang
           onClick={async () => {
             stopSpeaking();
             await signOut();
-            window.location.href = lang === "ar" ? "/ar/" : "/";
+            window.location.href = getHomeUrl(lang);
           }}
           title={lang === "ar" ? "تسجيل الخروج ومسح كافة البيانات" : "Sign out and leave no trace"}
           aria-label={lang === "ar" ? "تسجيل الخروج" : "Sign out"}
@@ -1149,6 +1149,7 @@ function Done({ t, lang, name, result, after, form, speechLabel, speaking, onRep
               { href: `/informant/?id=${encodeURIComponent(p.id)}&lang=${lang}`, icon: ClipboardCheck, title: t.alsoFamily, body: t.alsoFamilyBody },
               { href: `/checkin/route/?id=${encodeURIComponent(p.id)}&lang=${lang}`, icon: MapPinned, title: t.alsoRoute, body: t.alsoRouteBody },
               { href: `/my/?id=${encodeURIComponent(p.id)}&lang=${lang}`, icon: ListChecks, title: t.alsoNext, body: t.alsoNextBody },
+              { href: `/mylife/?id=${encodeURIComponent(p.id)}&lang=${lang}`, icon: HeartHandshake, title: (lang === "ar" ? "ملف MyLife للرعاية (قريبًا)" : "MyLife Care Profile (Coming Soon)"), body: (lang === "ar" ? "قصة حياتك والروتين اليومي وبطاقة الرعاية المهدئة لطواقم المستشفى." : "Your life story, daily routines, and quick care card for hospital teams.") },
             ].map(({ href, icon: I, title, body }) => (
               <Link key={href} href={href} className="group flex gap-3.5 rounded-2xl border border-line bg-white p-4 transition-colors hover:border-leaf/50 hover:bg-[#fbfcfb]">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-mist text-deep"><I size={18} /></span>
@@ -1174,7 +1175,7 @@ function Done({ t, lang, name, result, after, form, speechLabel, speaking, onRep
           onClick={async () => {
             stopSpeaking();
             await signOut();
-            window.location.href = lang === "ar" ? "/ar/" : "/";
+            window.location.href = getHomeUrl(lang);
           }}
           className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50/70 px-5 py-3.5 text-[15.5px] font-medium text-rose-700 hover:bg-rose-100 transition-colors"
         >

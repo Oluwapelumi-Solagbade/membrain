@@ -3,11 +3,12 @@
 // The person's (and their family's) app, in English and Modern Standard Arabic: what happens next, the spoken
 // check-in, reporting a change, the family questionnaire, and their plan. Never a score.
 import Link from "next/link";
-import { CalendarClock, ChevronRight, ClipboardCheck, Globe2, HeartPulse, Home, Leaf, LogOut, Mic, Phone, ShieldCheck, User } from "lucide-react";
+import { CalendarClock, ChevronRight, ClipboardCheck, Globe2, HeartHandshake, HeartPulse, Home, Leaf, LogOut, Mic, Phone, ShieldCheck, User } from "lucide-react";
 import { Avatar, Card, cx, LiveBadge, Screen, SectionTitle, tap, type Tab } from "./kit";
 import { useWorkspace } from "../clinician/WorkspaceProvider";
 import programmeData from "@/lib/generated/programme-data.json";
 import type { Lang } from "@/lib/mb";
+import { getHomeUrl, signOut } from "@/lib/auth";
 import { participantNameOf } from "@/lib/workspace/derive";
 import { FAQ_INTERVAL_WEEKS } from "@/lib/workspace/informant";
 import type { Case } from "@/lib/workspace/types";
@@ -94,7 +95,7 @@ export function PatientHome({ c, lang, onTab, onReport }: { c: Case; lang: Lang;
                 tap();
                 const { signOut } = await import("@/lib/auth");
                 await signOut();
-                window.location.href = lang === "ar" ? "/ar/" : "/";
+                window.location.href = getHomeUrl(lang);
               }}
               title={t.signOut}
               aria-label={t.signOut}
@@ -233,6 +234,27 @@ export function PatientMe({ c, lang, setLang, onSignOut }: { c: Case; lang: Lang
             ))}
           </div>
         </Card>
+        <Link href={`/mylife/?id=${encodeURIComponent(c.participant.id)}&lang=${lang}`} className="block">
+          <Card className="flex items-center justify-between p-4 hover:border-leaf/50 transition-colors">
+            <span className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100/70 text-amber-800">
+                <HeartHandshake size={20} />
+              </span>
+              <span className="min-w-0">
+                <span className="flex items-center gap-1.5 text-[15px] font-semibold text-ink">
+                  {lang === "ar" ? "ملف MyLife للرعاية" : "MyLife Care Profile"}
+                  <span className="rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10.5px] font-bold text-amber-800">
+                    {lang === "ar" ? "قريبًا" : "Coming Soon"}
+                  </span>
+                </span>
+                <span className="block truncate text-[12.5px] text-muted">
+                  {lang === "ar" ? "قصة حياتك وبطاقة الرعاية لطواقم المستشفى" : "Life story & quick care card for hospital teams"}
+                </span>
+              </span>
+            </span>
+            <ChevronRight size={18} className="text-muted rtl:-scale-x-100" />
+          </Card>
+        </Link>
         <Card className="p-4">
           <p className="flex items-center gap-2 text-[14.5px] font-semibold"><ShieldCheck size={17} className="text-leaf" /> {t.privacy}</p>
           <p className={cx("mt-1.5 text-[13.5px] text-body", lang === "ar" ? "leading-[1.85]" : "leading-relaxed")}>{t.privacyBody}</p>

@@ -7,7 +7,7 @@ import Link from "next/link";
 import { ArrowRight, ArrowUpRight, ChevronRight, LogOut, Menu, Phone, Smartphone, Stethoscope, UserRound, X } from "lucide-react";
 import type { Lang } from "@/lib/mb";
 import { APK_URL } from "@/lib/app";
-import { useSession, signOut } from "@/lib/auth";
+import { useSession, signOut, getHomeUrl } from "@/lib/auth";
 import { LANDING } from "./landing/copy";
 import { Logo } from "./Logo";
 
@@ -32,7 +32,7 @@ export function SiteHeader({ lang = "en" }: { lang?: Lang }) {
   const handleSignOut = async () => {
     close();
     await signOut();
-    window.location.href = lang === "ar" ? "/ar/" : "/";
+    window.location.href = getHomeUrl(lang);
   };
   const toggle = () => {
     // the menu starts right under the header, wherever the header is (the prototype banner can sit above it)

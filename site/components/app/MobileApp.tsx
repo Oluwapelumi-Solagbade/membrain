@@ -5,7 +5,7 @@
 // showing an offline copy. Then sign-in, and the clinician's or the person's app. Screens opened on top of a tab (a case,
 // a new concern) are a small stack tied to the browser history, so Android's back button closes them.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ClipboardCheck, CloudOff, HeartPulse, Loader2, LogOut, Mic, RefreshCw, ScrollText, Server, ShieldCheck, Wifi } from "lucide-react";
+import { ClipboardCheck, CloudOff, HeartHandshake, HeartPulse, Loader2, LogOut, Mic, RefreshCw, ScrollText, Server, ShieldCheck, Wifi } from "lucide-react";
 import { Avatar, Frame, Sheet, SheetAction, TabBar, Toasts, relTime, tap, useStatusBar, useToast } from "./kit";
 import { CaseScreen, CLIN_TABS, ClinicianAlerts, ClinicianHome, ClinicianMap, ClinicianPlus, ClinicianReports } from "./Clinician";
 import { Intake } from "./Intake";
@@ -14,7 +14,7 @@ import { Welcome } from "./SignIn";
 import { WorkspaceProvider, useWorkspace } from "../clinician/WorkspaceProvider";
 import { LogoMark } from "../Logo";
 import { markInApp } from "@/lib/app";
-import { signOut, useSession } from "@/lib/auth";
+import { signOut, useSession, getHomeUrl } from "@/lib/auth";
 import { config, type Lang } from "@/lib/mb";
 import { getBackend, requireServer, resetBackend } from "@/lib/workspace/backend";
 import { isActive, levelOf } from "@/lib/workspace/derive";
@@ -248,7 +248,7 @@ function Profile({ open, onClose }: { open: boolean; onClose: () => void }) {
         <SheetAction icon={RefreshCw} title="Sync now" sub="Read every case again from the server" onClick={() => void refresh()} />
         <SheetAction icon={ScrollText} title="Audit log" sub="Every action on the server, newest first" onClick={() => void openAudit()} tone="bg-[#f1f2ef] text-ink" />
         <SheetAction icon={ShieldCheck} title="Privacy and safety" sub="Names stay in the identity vault; every action is audited. MemBrain flags risk and change; it never diagnoses." tone="bg-[#eef0f6] text-[#2b3a55]" />
-        <SheetAction icon={LogOut} title="Sign out" onClick={async () => { onClose(); await signOut(); window.location.href = "/signin/clinician/"; }} tone="bg-lv-review-soft text-lv-review" danger />
+        <SheetAction icon={LogOut} title="Sign out" onClick={async () => { onClose(); await signOut(); window.location.href = getHomeUrl("en"); }} tone="bg-lv-review-soft text-lv-review" danger />
       </div>
       <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[11.5px] text-muted"><Server size={12} /> MemBrain v{VERSION} · demo records are synthetic</p>
     </Sheet>
@@ -298,12 +298,13 @@ function PatientShell({ lang, setLang, pid }: { lang: Lang; setLang: (l: Lang) =
             {tab === "home" && <PatientHome c={c} lang={lang} onTab={setTab} onReport={report} />}
             {tab === "checkin" && <PatientCheckin c={c} lang={lang} />}
             {tab === "family" && <PatientFamily c={c} lang={lang} />}
-            {tab === "me" && <PatientMe c={c} lang={lang} setLang={setLang} onSignOut={async () => { await signOut(); window.location.href = lang === "ar" ? "/ar/" : "/"; }} />}
+            {tab === "me" && <PatientMe c={c} lang={lang} setLang={setLang} onSignOut={async () => { await signOut(); window.location.href = getHomeUrl(lang); }} />}
             <TabBar tabs={patientTabs(lang)} current={tab} onTab={setTab} onPlus={() => setPlus(true)} plusLabel={t.plus} />
             <Sheet open={plus} onClose={() => setPlus(false)} title={lang === "ar" ? "ماذا تريد أن تفعل؟" : "What would you like to do?"}>
               <SheetAction icon={HeartPulse} title={t.reportTitle} sub={t.reportBody} tone="bg-lv-review-soft text-lv-review" onClick={() => { setPlus(false); report(); }} />
               <SheetAction icon={Mic} title={t.checkinTitle} sub={t.nextSub} href={`/checkin/?id=${encodeURIComponent(pid)}&lang=${lang}`} onClick={() => setPlus(false)} />
               <SheetAction icon={ClipboardCheck} title={t.familyTitle} sub={lang === "ar" ? "عشرة أسئلة قصيرة لأحد أفراد الأسرة" : "Ten short questions for a family member"} href={`/informant/?id=${encodeURIComponent(pid)}&lang=${lang}`} onClick={() => setPlus(false)} tone="bg-[#e9eef8] text-[#4a6fb0]" />
+              <SheetAction icon={HeartHandshake} title={lang === "ar" ? "ملف MyLife وبطاقة الرعاية (قريبًا)" : "MyLife Care Profile (Coming Soon)"} sub={lang === "ar" ? "قصة حياتك والروتين المهدئ لطواقم المستشفى" : "Person-centred story and quick care card for hospital teams"} href={`/mylife/?id=${encodeURIComponent(pid)}&lang=${lang}`} onClick={() => setPlus(false)} tone="bg-amber-50 text-amber-900 border border-amber-200/60" />
             </Sheet>
           </>
         )}

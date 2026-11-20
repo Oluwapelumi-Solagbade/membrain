@@ -336,3 +336,16 @@ export function rememberClaim(pid: string, token: string) {
 }
 
 export const homeFor = (u: User) => (u.role === "participant" ? "/checkin/" : "/clinician/");
+
+/** Resolves the correct landing page URL, respecting GitHub Pages / custom subpath deployments. */
+export function getHomeUrl(lang: "en" | "ar" = "en"): string {
+  let base = process.env.NEXT_PUBLIC_BASE_PATH || "";
+  if (typeof window !== "undefined" && !base) {
+    if (window.location.pathname.startsWith("/membrain")) {
+      base = "/membrain";
+    }
+  }
+  const cleanBase = base ? (base.endsWith("/") ? base.slice(0, -1) : base) : "";
+  const sub = lang === "ar" ? "/ar/" : "/";
+  return cleanBase ? `${cleanBase}${sub}` : sub;
+}
