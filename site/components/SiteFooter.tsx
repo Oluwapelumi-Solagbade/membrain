@@ -65,7 +65,6 @@ const COPY: Record<
         title: "Clinicians & Hospitals",
         items: [
           { label: "Clinician workspace", href: "/clinician/" },
-          { label: "Review queue & triage", href: "/clinician/" },
           { label: "Referrals network", href: "/clinician/referrals/" },
           { label: "Enrol a participant", href: "/clinician/enrol/" },
           { label: "Model validation & ROC/AUC", href: "/clinician/validation/" },
@@ -78,15 +77,13 @@ const COPY: Record<
           { label: "Watch interactive demo", href: "#demo" },
           { label: "Clinical evidence", href: "#evidence" },
           { label: "Live pilot metrics", href: "/clinician/live/" },
-          { label: "Cohorts & longitudinal trends", href: "/clinician/cohorts/" },
         ],
       },
       {
         title: "Clinical Governance",
         items: [
           { label: "SEHA & CCAD alignment", href: "#clinicians" },
-          { label: "Clinical safety boundaries", href: "#how" },
-          { label: "Zero data retention policy", href: "/signed-out/" },
+          { label: "Zero-trace privacy policy", href: "#how" },
           { label: "Decision support (No diagnosis)", href: "#how" },
         ],
       },
@@ -124,7 +121,6 @@ const COPY: Record<
         title: "الكادر الطبي والمستشفيات",
         items: [
           { label: "بوابة الطبيب السريرية", href: "/clinician/" },
-          { label: "قائمة المراجعة والفرز", href: "/clinician/" },
           { label: "شبكة الإحالات الطبية", href: "/clinician/referrals/" },
           { label: "تسجيل مشارك جديد", href: "/clinician/enrol/" },
           { label: "التحقق السريري ومؤشرات ROC", href: "/clinician/validation/" },
@@ -137,15 +133,13 @@ const COPY: Record<
           { label: "شاهد العرض التوضيحي", href: "#demo" },
           { label: "الأدلة السريرية والمنهجية", href: "#evidence" },
           { label: "بيانات التشغيل الحيّة", href: "/clinician/live/" },
-          { label: "المجموعات والمتابعة المستمرة", href: "/clinician/cohorts/" },
         ],
       },
       {
         title: "الحوكمة والامتثال",
         items: [
           { label: "التوافق مع صحة (SEHA) وكليفلاند", href: "#clinicians" },
-          { label: "الحدود ومعايير الأمان السريري", href: "#how" },
-          { label: "سياسة مسح البيانات بالكامل", href: "/signed-out/?lang=ar" },
+          { label: "سياسة مسح البيانات بالكامل", href: "#how" },
           { label: "دعم القرار السريري (لا يشخّص)", href: "#how" },
         ],
       },

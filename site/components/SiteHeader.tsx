@@ -226,6 +226,14 @@ export function SiteHeader({ lang = "en" }: { lang?: Lang }) {
                 <Link
                   href="/clinician/"
                   target="_blank"
+                  onClick={(e) => {
+                    if (!user) {
+                      e.preventDefault();
+                      alert(lang === "ar" ? "الرجاء تسجيل الدخول أولاً" : "Please log in first");
+                    } else {
+                      close();
+                    }
+                  }}
                   className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[14px] font-medium text-ink/85 transition-colors hover:bg-mist hover:text-ink"
                 >
                   <Stethoscope size={15} className="text-deep/80" />
@@ -369,7 +377,14 @@ export function SiteHeader({ lang = "en" }: { lang?: Lang }) {
                   {/* Clinician Card */}
                   <Link
                     href="/clinician/"
-                    onClick={close}
+                    onClick={(e) => {
+                      if (!user) {
+                        e.preventDefault();
+                        alert(lang === "ar" ? "الرجاء تسجيل الدخول أولاً" : "Please log in first");
+                      } else {
+                        close();
+                      }
+                    }}
                     className="flex items-center gap-3.5 rounded-2xl bg-[#f4f6f3] px-4 py-3.5 transition-colors hover:bg-mist"
                   >
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-deep shadow-sm">
