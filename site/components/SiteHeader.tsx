@@ -4,7 +4,7 @@
 // screen is highlighted. On phones the menu opens as a full-screen panel with the main actions at hand.
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, ChevronRight, LogOut, Menu, Phone, Smartphone, Stethoscope, UserRound, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, ChevronRight, HeartHandshake, LogOut, Menu, Phone, Smartphone, Stethoscope, UserRound, X } from "lucide-react";
 import type { Lang } from "@/lib/mb";
 import { APK_URL } from "@/lib/app";
 import { useSession, signOut, getHomeUrl } from "@/lib/auth";
@@ -135,6 +135,16 @@ export function SiteHeader({ lang = "en" }: { lang?: Lang }) {
             </>
           ) : (
             <>
+              <Link
+                href={lang === "ar" ? "/mylife/?lang=ar" : "/mylife/"}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[14.5px] font-medium text-ink transition-colors hover:bg-mist"
+              >
+                <HeartHandshake size={16} className="text-amber-700" />
+                <span>{lang === "ar" ? "ملف MyLife" : "MyLife"}</span>
+                <span className="rounded-full bg-amber-100 border border-amber-300 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                  {lang === "ar" ? "قريبًا" : "Coming Soon"}
+                </span>
+              </Link>
               <Link href="/clinician/" target="_blank" className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[15px] font-medium text-ink transition-colors hover:bg-mist">
                 {t.clinicianView} <ArrowUpRight size={15} className="rtl:-scale-x-100" />
                 <span className="sr-only">{t.newTab}</span>
