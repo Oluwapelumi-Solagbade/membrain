@@ -119,6 +119,9 @@ def own(p: Principal, pid: str):
     """A participant may act on their own record only; a clinician on their own hospital's patients (and the ones no
     hospital has taken on yet); the programme coordinator on any."""
     if p.role == "anonymous":
+        rec = DB["participants"].get(pid)
+        if rec and (pid.startswith("MB-C") or not rec.get("enrolled")):
+            return
         raise HTTPException(401, "Please sign in.")
     if not p.may_touch(pid):
         raise HTTPException(403, "This person is under another hospital." if p.role == "clinician" else "This is not your record.")
@@ -352,7 +355,9 @@ def enrol(body: Enrol, who: Principal = Depends(principal)):
     engine, dashboard and analytics use carries a pseudonymous ID. A red flag at the safety screen opens an urgent
     review straight away."""
     r = who.actor   # audited under the signed-in account
-    need(who.role, "coordinator", "clinician")
+    is_self_enrol = bool(body.id and body.id in DB["participants"] and not DB["participants"][body.id].get("enrolled", True))
+    if not is_self_enrol:
+        need(who.role, "coordinator", "clinician")
     hid = who.hospital_id if who.role == "clinician" and who.hospital_id else body.hospital_id
     hosp = _hospital(hid) if hid else None
     if body.id and body.id in DB["participants"] and not DB["participants"][body.id].get("enrolled", True):
@@ -843,15 +848,12 @@ def list_cases(who: Principal = Depends(principal)):
 @app.get("/cases/{pid}")
 def get_case(pid: str, who: Principal = Depends(principal)):
     own(who, pid)
-    if who.role == "participant" and not who.legacy:
-        p = DB["participants"].get(pid)
-        if not p:
-            raise HTTPException(404)
-        return _case(p)
-    r = who.actor
     p = DB["participants"].get(pid)
     if not p:
         raise HTTPException(404)
+    if (who.role == "participant" and not who.legacy) or who.role == "anonymous":
+        return _case(p)
+    r = who.actor
     audit(r, "view_case", pid)
     return _case(p, full=True)
 
@@ -1018,6 +1020,7 @@ def add_follow_up(p: dict, body: ConcernIn, actor: str) -> dict:
 @app.post("/participants/{pid}/concerns")
 def follow_up_concern(pid: str, body: ConcernIn, who: Principal = Depends(principal)):
     """Report a change again about someone already known (the person, their family, or a clinician after a call)."""
+    need(who.role, "participant", "clinician", "coordinator")
     own(who, pid)
     p = DB["participants"].get(pid)
     if not p:
@@ -1065,6 +1068,7 @@ class InformantIn(BaseModel):
 def informant_questionnaire(pid: str, body: InformantIn, who: Principal = Depends(principal)):
     """A family member's answers to the questionnaire, repeated at follow-ups. The family hears a message, never a
     score; the clinician sees the score, its change since last time, and that it is a screening result."""
+    need(who.role, "participant", "clinician", "coordinator")
     own(who, pid)
     p = DB["participants"].get(pid)
     if not p:

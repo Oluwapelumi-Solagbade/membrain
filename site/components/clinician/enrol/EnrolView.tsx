@@ -279,7 +279,7 @@ export function EnrolForm({
   onComplete?: (done: EnrolDone) => void;
 }) {
   const [f, setF] = useState<Form>(() => initialForm(prefilledCase, initialLang));
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(prefilledCase && embedded ? 1 : 0);
   const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -289,6 +289,7 @@ export function EnrolForm({
 
   const flags = Object.keys(f.flags).filter((k) => f.flags[k]);
   const urgent = flags.length > 0;
+  const isUrgentEscalation = urgent && !embedded;
   const key: StepKey = STEPS[step].key;
   const age = num(f.age);
   const years = num(f.years);
@@ -304,12 +305,12 @@ export function EnrolForm({
     if (years == null || years < 0 || years > 25) prof.years = "Enter years of schooling (0 if none).";
     if (Object.keys(prof).length) {
       p.profile = prof;
-      if (urgent) p.identity = { ...(p.identity ?? {}), ...prof };
+      if (isUrgentEscalation) p.identity = { ...(p.identity ?? {}), ...prof };
     }
     const iq = num(f.iqcode);
     if (f.iqcode.trim() && (iq == null || iq < 1 || iq > 5)) p.informant = { iqcode: "IQCODE-16 averages run from 1 to 5." };
     return p;
-  }, [f, age, years, urgent]);
+  }, [f, age, years, isUrgentEscalation]);
   const here = problems[key];
   const err = (k: string) => (tried && here?.[k]) || null;
 
@@ -380,7 +381,7 @@ export function EnrolForm({
     setTried(true);
     if (here) return;
     setTried(false);
-    if (key === "identity" && urgent) return void submit(); // a red flag: record who they are and escalate now
+    if (key === "identity" && isUrgentEscalation) return void submit(); // a red flag: record who they are and escalate now
     if (step < STEPS.length - 1) {
       setStep(step + 1);
       toTop();
@@ -452,7 +453,7 @@ export function EnrolForm({
           ]} />
           <p className="mt-2 text-[13px] text-muted">Each channel keeps its own baseline; scores are not pooled across channels.</p>
         </div>
-        {urgent && (
+        {isUrgentEscalation && (
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Age" error={err("age")} hint="Needed for the record; no testing today."><input value={f.age} onChange={(e) => upd("age", e.target.value)} className={field} inputMode="numeric" /></Field>
             <Field label="Years of schooling" error={err("years")}><input value={f.years} onChange={(e) => upd("years", e.target.value)} className={field} inputMode="numeric" /></Field>
@@ -657,9 +658,9 @@ export function EnrolForm({
   }
 
   const isLast = step === STEPS.length - 1;
-  const primaryLabel = urgent && key === "concern"
+  const primaryLabel = isUrgentEscalation && key === "concern"
     ? (f.language === "ar" ? "تسجيل الهوية وتصعيد الحالة" : "Record identity and escalate")
-    : urgent && key === "identity"
+    : isUrgentEscalation && key === "identity"
     ? (f.language === "ar" ? "إنشاء مراجعة عاجلة الآن" : "Create urgent review now")
     : isLast
     ? (embedded ? (f.language === "ar" ? "تسجيل وبدء التقييم" : "Enrol and begin check-in") : (f.language === "ar" ? "تسجيل وإنشاء معرّف بديل" : "Enrol and create pseudonymous ID"))
@@ -687,7 +688,7 @@ export function EnrolForm({
             {STEPS.map((s, i) => {
               const doneStep = i < step;
               const cur = i === step;
-              const skipped = urgent && i > 1;
+              const skipped = isUrgentEscalation && i > 1;
               const I = s.icon;
               return (
                 <li key={s.key} className="shrink-0">
@@ -702,7 +703,7 @@ export function EnrolForm({
               );
             })}
           </ol>
-          {urgent && <p className="mt-2 hidden px-2 text-[13px] leading-snug text-lv-urgent lg:block">Red flag: the remaining steps can be completed after the urgent review.</p>}
+          {isUrgentEscalation && <p className="mt-2 hidden px-2 text-[13px] leading-snug text-lv-urgent lg:block">Red flag: the remaining steps can be completed after the urgent review.</p>}
         </nav>
 
         {/* The step */}
@@ -717,9 +718,9 @@ export function EnrolForm({
             )}
             <span className="ms-auto hidden text-[13px] text-muted sm:block">Step {step + 1} of {STEPS.length}</span>
             <button type="button" onClick={next} disabled={busy}
-              className={`${urgent && (key === "concern" || key === "identity") ? btnClass.danger : btnClass.primary} min-w-[180px] ${step === 0 ? "ms-auto sm:ms-0" : ""}`}>
+              className={`${isUrgentEscalation && (key === "concern" || key === "identity") ? btnClass.danger : btnClass.primary} min-w-[180px] ${step === 0 ? "ms-auto sm:ms-0" : ""}`}>
               {busy ? <Loader2 size={17} className="animate-spin" /> : null}
-              {primaryLabel} {!busy && !isLast && !(urgent && key === "identity") && <ArrowRight size={16} />}
+              {primaryLabel} {!busy && !isLast && !(isUrgentEscalation && key === "identity") && <ArrowRight size={16} />}
             </button>
           </div>
         </section>

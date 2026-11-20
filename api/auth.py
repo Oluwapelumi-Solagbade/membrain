@@ -49,7 +49,7 @@ def _demo_password() -> str:
 def hospital_of(p: dict | None) -> str | None:
     """The hospital a record belongs to (the service directory id), or None while nobody has taken it on."""
     h = (p or {}).get("assigned_hospital")
-    return (h.get("id") or None) if isinstance(h, dict) else None
+    return (h.get("id") or None) if isinstance(h, dict) else (h if isinstance(h, str) and h else None)
 
 
 @dataclass
@@ -77,11 +77,9 @@ class Principal:
             h = hospital_of(p)
             if not self.hospital_id or h is None or h == self.hospital_id:
                 return True
-            # New intake concerns (MB-C...) or un-enrolled concerns can be viewed by clinicians
-            # during triage so cases are never missed
-            if p.get("id", "").startswith("MB-C") and not p.get("enrolled"):
-                return True
             return False
+        if self.role == "anonymous":
+            return p.get("id", "").startswith("MB-C") or not p.get("enrolled")
         return self.role == "participant" and self.pid == p.get("id")
 
     def may_touch(self, pid: str) -> bool:
@@ -91,7 +89,13 @@ class Principal:
             from api.main import DB   # late: api.main imports this module
             p = DB["participants"].get(pid)
             return p is None or self.sees(p)   # an unknown id falls through to a 404
-        return self.role == "participant" and self.pid == pid
+        if self.role == "participant":
+            return self.pid == pid
+        if self.role == "anonymous":
+            from api.main import DB
+            p = DB["participants"].get(pid)
+            return p is not None and (pid.startswith("MB-C") or not p.get("enrolled"))
+        return False
 
 
 USERS: dict[str, dict] = {}          # clinicians and coordinators, by lower-case email

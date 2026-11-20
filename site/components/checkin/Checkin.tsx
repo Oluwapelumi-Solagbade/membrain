@@ -163,39 +163,64 @@ function writeJson(store: "local" | "session", key: string, v: unknown) {
 export function Checkin() {
   const params = useSearchParams();
   const id = params.get("id");
+  const effectiveId = id || (typeof window !== "undefined" ? window.sessionStorage.getItem("membrain.recent_concern_id") : null);
   const qLang = params.get("lang") === "ar" ? "ar" : params.get("lang") === "en" ? "en" : null;
   const qName = params.get("name");
   const [backend, setBackend] = useState<Backend | null>(null);
   const [cases, setCases] = useState<Case[] | null>(null);
 
   useEffect(() => {
-    if (id && qName && typeof window !== "undefined") {
+    const target = id || effectiveId;
+    if (target && qName && typeof window !== "undefined") {
       try {
         const n = qName.trim();
-        window.sessionStorage.setItem(`membrain.registered_name.${id}`, n);
-        window.localStorage.setItem(`membrain.registered_name.${id}`, n);
+        window.sessionStorage.setItem(`membrain.registered_name.${target}`, n);
+        window.localStorage.setItem(`membrain.registered_name.${target}`, n);
       } catch {
         /* storage disabled */
       }
     }
-  }, [id, qName]);
+  }, [id, effectiveId, qName]);
 
   useEffect(() => {
     let live = true;
     getBackend()
-      .then((b) => {
+      .then(async (b) => {
         if (live) setBackend(b);
+        const target = id || (typeof window !== "undefined" ? window.sessionStorage.getItem("membrain.recent_concern_id") : null);
+        if (target && b.getCase) {
+          try {
+            const single = await b.getCase(target);
+            if (live && single) {
+              setCases((prev) => {
+                const rest = (prev ?? []).filter((x) => x.participant.id !== single.participant.id);
+                return [single, ...rest];
+              });
+            }
+          } catch {
+            /* fall back to listing cases */
+          }
+        }
         return b.cases();
       })
-      .then((c) => live && setCases(c))
-      .catch(() => live && setCases([]));
+      .then((c) => {
+        if (c && live) {
+          setCases((prev) => {
+            if (!prev || prev.length === 0) return c;
+            const existingIds = new Set(c.map((x) => x.participant.id));
+            const extra = prev.filter((x) => !existingIds.has(x.participant.id));
+            return [...extra, ...c];
+          });
+        }
+      })
+      .catch(() => live && setCases((prev) => prev ?? []));
     return () => {
       live = false;
     };
-  }, []);
+  }, [id]);
 
   if (!cases || !backend) return <Splash lang={qLang ?? "en"} />;
-  const c = id ? cases.find((x) => x.participant.id === id) : null;
+  const c = effectiveId ? cases.find((x) => x.participant.id === effectiveId) : null;
   if (!c) return <Picker cases={cases} initialLang={qLang ?? "en"} />;
   return <Run key={c.participant.id} c={c} backend={backend} initialLang={qLang ?? "en"} />;
 }

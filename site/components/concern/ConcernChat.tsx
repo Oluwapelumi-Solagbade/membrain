@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowUp, Building2, Check, Lock, Mail, MapPin, Mic, Navigation, Phone, RotateCcw, Send, ShieldAlert, Square, Stethoscope, Volume2 } from "lucide-react";
+import { ArrowLeft, ArrowUp, Building2, Check, CheckCircle2, Lock, Mail, MapPin, Mic, Navigation, Phone, RotateCcw, Send, ShieldAlert, Square, Stethoscope, Volume2 } from "lucide-react";
 import { LogoMark, Mark } from "../Logo";
 import { Narrative } from "../Narrative";
 import { config, getEngine, getIntake, LEVEL_TONE, REPORTER_LABEL, type Evaluation, type IntakeResult, type Lang, type Reporter, type Span } from "@/lib/mb";
@@ -1256,25 +1256,21 @@ export function ConcernChat() {
     );
   } else if (step === "outcome") {
     const targetPid = caseId || (typeof window !== "undefined" ? window.sessionStorage.getItem("membrain.recent_concern_id") : null);
-    const caseTarget = targetPid
-      ? (appMode ? appCaseHref(targetPid) : `/clinician/case/?id=${encodeURIComponent(targetPid)}`)
-      : (appMode ? APP_HOME : "/clinician/");
-    const isClinician = session && session.user.role !== "participant";
-    const clinicianHref = !isClinician && targetPid && !appMode
-      ? `/signin/clinician/?next=${encodeURIComponent(`/clinician/case/?id=${targetPid}`)}`
-      : caseTarget;
+    const checkinHref = targetPid ? `/checkin/?id=${encodeURIComponent(targetPid)}&lang=${lang}` : `/checkin/?lang=${lang}`;
 
     composer = (
       <div className="flex flex-wrap gap-2">
-        <Link href={clinicianHref} className="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-deep px-5 py-3.5 text-[15px] font-medium text-white hover:bg-deep-hover sm:flex-none">
-          <Stethoscope size={18} /> {t.clinician}
+        <Link
+          href={checkinHref}
+          className="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-deep px-5 py-3.5 text-[15px] font-medium text-white hover:bg-deep-hover sm:flex-none shadow-sm"
+        >
+          <CheckCircle2 size={18} /> {t.checkin}
         </Link>
-        {outcome?.level !== "URGENT" && (
-          <Link href={targetPid ? `/checkin/?id=${encodeURIComponent(targetPid)}&lang=${lang}` : `/checkin/?lang=${lang}`} className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-line bg-white px-4 py-3.5 text-[15px] font-medium hover:bg-mist">
-            {t.checkin}
-          </Link>
-        )}
-        <button type="button" onClick={restart} className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-line bg-white px-4 py-3.5 text-[15px] font-medium hover:bg-mist">
+        <button
+          type="button"
+          onClick={restart}
+          className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-line bg-white px-4 py-3.5 text-[15px] font-medium hover:bg-mist"
+        >
           <RotateCcw size={16} /> {t.restart}
         </button>
       </div>

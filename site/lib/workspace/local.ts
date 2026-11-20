@@ -249,6 +249,7 @@ export const localBackend: Backend = {
       ],
     };
     s.concerns.push(p);
+    if (body.hospital_id) s.hospitals[pid] = body.hospital_id;
     audit(s, "public", "concern_raised", pid, { reporter: body.reporter, red_flags: body.red_flags, activities: acts });
     commit(s);
     return buildCase(p, s);
@@ -336,6 +337,7 @@ export const localBackend: Backend = {
     } as unknown as Participant;
     s.enrolled = s.enrolled.filter((x) => x.id !== id);
     s.enrolled.push(p);
+    if (assignedHospital && typeof assignedHospital === "object" && assignedHospital.id) s.hospitals[id] = assignedHospital.id;
     s.vault[id] = { identity: body.identity, informant: body.informant };
     audit(s, "coordinator", "enrol", id, { consent, entry_route: body.concern.route, red_flags: flags });
     commit(s);
