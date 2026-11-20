@@ -136,7 +136,7 @@ export function SiteHeader({ lang = "en" }: { lang?: Lang }) {
             : "border-b border-transparent bg-white/75 backdrop-blur-md"
         }`}
       >
-        <div className="mx-auto flex h-16 max-w-[1340px] items-center justify-between gap-4 px-4 sm:px-6 lg:h-[74px] lg:px-8">
+        <div className="mx-auto flex h-16 max-w-[1340px] items-center justify-between gap-3 px-4 sm:px-6 lg:h-[74px] lg:px-5 xl:gap-4 xl:px-8">
           {/* Brand Logo */}
           <Link
             href={lang === "ar" ? "/ar/" : "/"}
@@ -150,7 +150,7 @@ export function SiteHeader({ lang = "en" }: { lang?: Lang }) {
           {/* Desktop Center Navigation Pills */}
           <nav
             aria-label="Main"
-            className="hidden items-center gap-1 rounded-full border border-black/[0.06] bg-[#f4f6f3]/80 p-1 shadow-[0_2px_8px_-4px_rgb(0_0_0/0.05)] backdrop-blur-md lg:flex"
+            className="hidden items-center gap-0.5 rounded-full border border-black/[0.06] bg-[#f4f6f3]/80 p-1 shadow-[0_2px_8px_-4px_rgb(0_0_0/0.05)] backdrop-blur-md lg:flex"
           >
             {t.nav.map((n) => {
               const on = active === n.href.slice(1);
@@ -159,7 +159,7 @@ export function SiteHeader({ lang = "en" }: { lang?: Lang }) {
                   key={n.href}
                   href={n.href}
                   aria-current={on ? "true" : undefined}
-                  className={`rounded-full px-4 py-1.5 text-[14px] font-medium transition-all ${
+                  className={`whitespace-nowrap rounded-full px-2.5 py-1.5 text-[13.5px] font-medium transition-all xl:px-4 xl:text-[14px] ${
                     on
                       ? "bg-deep text-white shadow-sm"
                       : "text-ink/80 hover:bg-white hover:text-ink"
@@ -172,79 +172,59 @@ export function SiteHeader({ lang = "en" }: { lang?: Lang }) {
           </nav>
 
           {/* Desktop Right Action Area */}
-          <div className="hidden items-center gap-2 lg:flex">
+          <div className="hidden shrink-0 items-center gap-1.5 whitespace-nowrap lg:flex xl:gap-2">
             {/* Language Switcher Pill */}
             <Link
               href={t.switchHref}
               lang={other}
               hrefLang={other}
               aria-label={lang === "ar" ? "Switch to English" : "التبديل إلى العربية"}
-              className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-3 py-1.5 text-[13.5px] font-medium text-deep shadow-[0_1px_2px_rgb(0_0_0/0.04)] hover:border-leaf/40 hover:bg-mist transition-colors"
+              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-2.5 text-[13.5px] font-medium text-deep shadow-[0_1px_2px_rgb(0_0_0/0.04)] hover:border-leaf/40 hover:bg-mist transition-colors xl:px-3"
             >
-              <Globe size={14} className="text-leaf" />
-              <span>{t.switchLabel}</span>
+              <Globe size={15} className="text-leaf" />
+              <span className="hidden xl:inline">{t.switchLabel}</span>
             </Link>
 
             {user ? (
               <>
                 <Link
                   href={user.role === "participant" ? (lang === "ar" ? "/checkin/?lang=ar" : "/checkin/") : "/clinician/"}
-                  className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white px-3.5 py-1.5 text-[14px] font-medium text-deep shadow-[0_1px_2px_rgb(0_0_0/0.04)] hover:border-leaf/40 hover:bg-mist transition-colors"
+                  className="inline-flex h-9 items-center gap-2 rounded-full border border-black/[0.08] bg-white px-3 text-[14px] font-medium text-deep shadow-[0_1px_2px_rgb(0_0_0/0.04)] hover:border-leaf/40 hover:bg-mist transition-colors"
                 >
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-deep text-white text-[10px] font-bold">
                     {user.role === "participant" ? <UserRound size={12} /> : <Stethoscope size={12} />}
                   </span>
-                  <span className="max-w-[130px] truncate">
+                  <span className="max-w-[96px] truncate xl:max-w-[140px]">
                     {user.name || (user.role === "participant" ? (lang === "ar" ? "فحصي" : "My Check-in") : (lang === "ar" ? "العيادة" : "Clinician View"))}
                   </span>
                 </Link>
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-rose-200/90 bg-rose-50/70 px-3 py-1.5 text-[13px] font-medium text-rose-700 transition-colors hover:bg-rose-100 hover:text-rose-800"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full border border-rose-200/90 bg-rose-50/70 px-2.5 text-[13px] font-medium text-rose-700 transition-colors hover:bg-rose-100 hover:text-rose-800 xl:px-3"
                   title={lang === "ar" ? "تسجيل الخروج ومسح كافة البيانات" : "Sign out and leave no trace"}
+                  aria-label={lang === "ar" ? "تسجيل الخروج" : "Sign out"}
                 >
-                  <LogOut size={14} className="rtl:-scale-x-100" />
-                  <span>{lang === "ar" ? "تسجيل الخروج" : "Sign out"}</span>
+                  <LogOut size={15} className="rtl:-scale-x-100" />
+                  <span className="hidden xl:inline">{lang === "ar" ? "تسجيل الخروج" : "Sign out"}</span>
                 </button>
               </>
             ) : (
               <>
-                {/* MyLife Link Pill */}
+                {/* MyLife: a quiet link on wide screens (it is also in the menu and the footer) */}
                 <Link
                   href={lang === "ar" ? "/mylife/?lang=ar" : "/mylife/"}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/70 bg-amber-50/60 px-3 py-1.5 text-[13px] font-medium text-amber-900 transition-all hover:bg-amber-100/70 hover:border-amber-300"
+                  className="hidden items-center gap-1.5 rounded-full px-3 py-1.5 text-[14px] font-medium text-ink/80 transition-colors hover:bg-amber-50 hover:text-amber-900 2xl:inline-flex"
                 >
                   <HeartHandshake size={15} className="text-amber-700" />
-                  <span>{lang === "ar" ? "ملف MyLife" : "MyLife"}</span>
-                  <span className="rounded-full bg-amber-200/80 px-1.5 py-0.2 text-[9.5px] font-bold text-amber-900 uppercase tracking-wider">
-                    {lang === "ar" ? "قريبًا" : "Coming Soon"}
-                  </span>
+                  <span>MyLife</span>
+                  <span className="rounded-full bg-amber-100 px-1.5 py-px text-[10px] font-bold text-amber-800">{lang === "ar" ? "قريبًا" : "Soon"}</span>
                 </Link>
 
-                {/* Clinician Portal Link */}
-                <Link
-                  href="/clinician/"
-                  target="_blank"
-                  onClick={(e) => {
-                    if (!user) {
-                      e.preventDefault();
-                      alert(lang === "ar" ? "الرجاء تسجيل الدخول أولاً" : "Please log in first");
-                    } else {
-                      close();
-                    }
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[14px] font-medium text-ink/85 transition-colors hover:bg-mist hover:text-ink"
-                >
-                  <Stethoscope size={15} className="text-deep/80" />
-                  <span>{t.clinicianView}</span>
-                  <ArrowUpRight size={13} className="text-muted rtl:-scale-x-100" />
-                </Link>
-
-                {/* Patient Sign In Link */}
+                {/* One sign-in for everyone: the page then asks whether you are a person, a family member or staff */}
                 <Link
                   href={signInHref}
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[14px] font-medium text-ink/85 transition-colors hover:bg-mist hover:text-ink"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-[14px] font-medium text-ink/85 transition-colors hover:bg-mist hover:text-ink"
                 >
                   <UserRound size={15} />
                   <span>{t.signIn}</span>
@@ -255,7 +235,7 @@ export function SiteHeader({ lang = "en" }: { lang?: Lang }) {
             {/* Primary CTA Button */}
             <Link
               href={t.concernHref}
-              className="ms-1 inline-flex items-center gap-2 rounded-full bg-deep px-5 py-2.5 text-[14.5px] font-semibold text-white shadow-[0_8px_20px_-8px_rgb(15_63_44/0.75)] hover:shadow-[0_12px_28px_-8px_rgb(15_63_44/0.9)] hover:bg-deep-hover hover:-translate-y-0.5 transition-all"
+              className="ms-1 inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-deep px-4 py-2.5 text-[14px] font-semibold xl:px-5 xl:text-[14.5px] text-white shadow-[0_8px_20px_-8px_rgb(15_63_44/0.75)] hover:shadow-[0_12px_28px_-8px_rgb(15_63_44/0.9)] hover:bg-deep-hover hover:-translate-y-0.5 transition-all"
             >
               <span>{t.raise}</span>
               <ArrowRight size={16} className="rtl:-scale-x-100" />
@@ -376,15 +356,8 @@ export function SiteHeader({ lang = "en" }: { lang?: Lang }) {
 
                   {/* Clinician Card */}
                   <Link
-                    href="/clinician/"
-                    onClick={(e) => {
-                      if (!user) {
-                        e.preventDefault();
-                        alert(lang === "ar" ? "الرجاء تسجيل الدخول أولاً" : "Please log in first");
-                      } else {
-                        close();
-                      }
-                    }}
+                    href="/signin/clinician/"
+                    onClick={close}
                     className="flex items-center gap-3.5 rounded-2xl bg-[#f4f6f3] px-4 py-3.5 transition-colors hover:bg-mist"
                   >
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-deep shadow-sm">
