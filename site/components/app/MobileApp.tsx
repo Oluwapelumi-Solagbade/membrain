@@ -248,7 +248,7 @@ function Profile({ open, onClose }: { open: boolean; onClose: () => void }) {
         <SheetAction icon={RefreshCw} title="Sync now" sub="Read every case again from the server" onClick={() => void refresh()} />
         <SheetAction icon={ScrollText} title="Audit log" sub="Every action on the server, newest first" onClick={() => void openAudit()} tone="bg-[#f1f2ef] text-ink" />
         <SheetAction icon={ShieldCheck} title="Privacy and safety" sub="Names stay in the identity vault; every action is audited. MemBrain flags risk and change; it never diagnoses." tone="bg-[#eef0f6] text-[#2b3a55]" />
-        <SheetAction icon={LogOut} title="Sign out" onClick={async () => { onClose(); await signOut(); window.location.href = getSignedOutUrl("en"); }} tone="bg-lv-review-soft text-lv-review" danger />
+        <SheetAction icon={LogOut} title="Sign out" onClick={async () => { onClose(); await signOut(); window.location.href = getSignedOutUrl("en", "clinician"); }} tone="bg-lv-review-soft text-lv-review" danger />
       </div>
       <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[11.5px] text-muted"><Server size={12} /> MemBrain v{VERSION} · demo records are synthetic</p>
     </Sheet>
@@ -298,7 +298,7 @@ function PatientShell({ lang, setLang, pid }: { lang: Lang; setLang: (l: Lang) =
             {tab === "home" && <PatientHome c={c} lang={lang} onTab={setTab} onReport={report} />}
             {tab === "checkin" && <PatientCheckin c={c} lang={lang} />}
             {tab === "family" && <PatientFamily c={c} lang={lang} />}
-            {tab === "me" && <PatientMe c={c} lang={lang} setLang={setLang} onSignOut={async () => { await signOut(); window.location.href = getSignedOutUrl(lang); }} />}
+            {tab === "me" && <PatientMe c={c} lang={lang} setLang={setLang} onSignOut={async () => { await signOut(); window.location.href = getSignedOutUrl(lang, "participant"); }} />}
             <TabBar tabs={patientTabs(lang)} current={tab} onTab={setTab} onPlus={() => setPlus(true)} plusLabel={t.plus} />
             <Sheet open={plus} onClose={() => setPlus(false)} title={lang === "ar" ? "ماذا تريد أن تفعل؟" : "What would you like to do?"}>
               <SheetAction icon={HeartPulse} title={t.reportTitle} sub={t.reportBody} tone="bg-lv-review-soft text-lv-review" onClick={() => { setPlus(false); report(); }} />

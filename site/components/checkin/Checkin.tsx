@@ -10,7 +10,7 @@ import engineData from "@/lib/generated/engine-data.json";
 import { DEMO_TODAY, getEngine, type Lang, type Level } from "@/lib/mb";
 import { detectSpeech, LABEL, Recorder, speak, stopSpeaking, type Audio, type Recording, type Speech, type VoiceFeatures } from "@/lib/voice";
 import { appCaseHref, homeHref } from "@/lib/app";
-import { useSession, signOut, getHomeUrl, getSignedOutUrl } from "@/lib/auth";
+import { useSession, currentSession, signOut, getHomeUrl, getSignedOutUrl } from "@/lib/auth";
 import { getBackend } from "@/lib/workspace/backend";
 import { notifyWorkspaceSync } from "@/lib/workspace/sync";
 import type { Backend, Case, CheckinResult, Participant, SessionIn } from "@/lib/workspace/types";
@@ -270,8 +270,9 @@ function TopBar({ t, lang, setLang, subtitle, exitHref, right }: { t: Copy; lang
           type="button"
           onClick={async () => {
             stopSpeaking();
+            const role = currentSession()?.user?.role || "participant";
             await signOut();
-            window.location.href = getSignedOutUrl(lang);
+            window.location.href = getSignedOutUrl(lang, role);
           }}
           title={lang === "ar" ? "تسجيل الخروج ومسح كافة البيانات" : "Sign out and leave no trace"}
           aria-label={lang === "ar" ? "تسجيل الخروج" : "Sign out"}
@@ -1174,8 +1175,9 @@ function Done({ t, lang, name, result, after, form, speechLabel, speaking, onRep
           type="button"
           onClick={async () => {
             stopSpeaking();
+            const role = currentSession()?.user?.role || "participant";
             await signOut();
-            window.location.href = getSignedOutUrl(lang);
+            window.location.href = getSignedOutUrl(lang, role);
           }}
           className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50/70 px-5 py-3.5 text-[15.5px] font-medium text-rose-700 hover:bg-rose-100 transition-colors"
         >

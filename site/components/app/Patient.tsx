@@ -95,7 +95,7 @@ export function PatientHome({ c, lang, onTab, onReport }: { c: Case; lang: Lang;
                 tap();
                 const { signOut } = await import("@/lib/auth");
                 await signOut();
-                window.location.href = getHomeUrl(lang);
+                window.location.href = getSignedOutUrl(lang, "participant");
               }}
               title={t.signOut}
               aria-label={t.signOut}

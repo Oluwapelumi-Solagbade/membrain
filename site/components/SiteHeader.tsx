@@ -32,7 +32,7 @@ export function SiteHeader({ lang = "en" }: { lang?: Lang }) {
   const handleSignOut = async () => {
     close();
     await signOut();
-    window.location.href = getSignedOutUrl(lang);
+    window.location.href = getSignedOutUrl(lang, user?.role);
   };
   const toggle = () => {
     // the menu starts right under the header, wherever the header is (the prototype banner can sit above it)

@@ -351,7 +351,10 @@ export function getHomeUrl(lang: "en" | "ar" = "en"): string {
 }
 
 /** Resolves the goodbye / signed-out confirmation page URL. */
-export function getSignedOutUrl(lang: "en" | "ar" = "en"): string {
+export function getSignedOutUrl(
+  lang: "en" | "ar" = "en",
+  role?: "clinician" | "coordinator" | "participant" | string | null
+): string {
   let base = process.env.NEXT_PUBLIC_BASE_PATH || "";
   if (typeof window !== "undefined" && !base) {
     if (window.location.pathname.startsWith("/membrain")) {
@@ -359,6 +362,12 @@ export function getSignedOutUrl(lang: "en" | "ar" = "en"): string {
     }
   }
   const cleanBase = base ? (base.endsWith("/") ? base.slice(0, -1) : base) : "";
-  const sub = `/signed-out/?lang=${lang}`;
+  const params = new URLSearchParams();
+  if (lang) params.set("lang", lang);
+  if (role) {
+    const normRole = role === "coordinator" ? "clinician" : role;
+    params.set("role", normRole);
+  }
+  const sub = `/signed-out/?${params.toString()}`;
   return cleanBase ? `${cleanBase}${sub}` : sub;
 }

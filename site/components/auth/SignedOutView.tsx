@@ -1,12 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowRight, CheckCircle2, Home, Lock, LogIn, ShieldCheck } from "lucide-react";
-import { Logo, Mark } from "../Logo";
+import {
+  CheckCircle2,
+  HeartHandshake,
+  Home,
+  Lock,
+  LogIn,
+  ShieldCheck,
+  Stethoscope,
+} from "lucide-react";
+import { Logo } from "../Logo";
 import type { Lang } from "@/lib/mb";
-import { getHomeUrl } from "@/lib/auth";
 
 const T = {
   en: {
@@ -15,6 +22,12 @@ const T = {
     desc: "Your session has ended. In accordance with clinical privacy standards, all temporary audio recordings, cached patient identifiers, and credentials were completely erased. This device is safe for another person to use.",
     returnHome: "Return to Homepage",
     signInAgain: "Sign in again",
+    signInClinician: "Sign in as Clinician",
+    signInPatient: "Sign in with Mobile Number",
+    switchPatient: "Looking for patient check-in? Sign in with phone",
+    switchClinician: "Are you clinical staff? Sign in to Clinician Portal",
+    patientOption: "Patient or family sign-in",
+    clinicianOption: "Clinical staff sign-in",
     securityBadge: "Zero Trace Left · Device Cleared",
     footerNote: "MemBrain · Spoken brain health check-in · UAE",
   },
@@ -24,6 +37,12 @@ const T = {
     desc: "انتهت جلستك. وتماشيًا مع معايير الخصوصية السريرية، تم حذف جميع التسجيلات الصوتية المؤقتة والبيانات المحفوظة وبيانات الاعتماد بالكامل من هذا الجهاز. الجهاز آمن تمامًا لاستخدام شخص آخر.",
     returnHome: "العودة إلى الصفحة الرئيسية",
     signInAgain: "تسجيل الدخول مجددًا",
+    signInClinician: "تسجيل الدخول ككادر طبي",
+    signInPatient: "تسجيل الدخول برقم الهاتف",
+    switchPatient: "ترغب في فحص المريض أو الأسرة؟ سجّل الدخول بالهاتف",
+    switchClinician: "من الكادر الطبي؟ سجّل الدخول إلى بوابة العيادة",
+    patientOption: "دخول المرضى والعائلات",
+    clinicianOption: "دخول الكادر الطبي",
     securityBadge: "لا أثر باقٍ · الجهاز آمن تمامًا",
     footerNote: "MemBrain · فحص صحة الدماغ الصوتي · دولة الإمارات",
   },
@@ -34,16 +53,45 @@ export function SignedOutView() {
   const initialLang: Lang = params.get("lang") === "ar" ? "ar" : "en";
   const [lang, setLang] = useState<Lang>(initialLang);
 
+  const roleParam = params.get("role");
+  const role: "clinician" | "participant" | null =
+    roleParam === "clinician" || roleParam === "coordinator"
+      ? "clinician"
+      : roleParam === "participant"
+      ? "participant"
+      : null;
+
   const t = T[lang];
-  const homeHref = getHomeUrl(lang);
-  const base = typeof window !== "undefined" && window.location.pathname.startsWith("/membrain") ? "/membrain" : "";
-  const signInHref = lang === "ar" ? `${base}/signin/patient/?lang=ar` : `${base}/signin/`;
+
+  // Route paths relative to Next.js app root.
+  // Next.js <Link> automatically handles basePath (/membrain on GitHub Pages).
+  const homeRoute = lang === "ar" ? "/ar/" : "/";
+  const patientSignInRoute = lang === "ar" ? "/signin/patient/?lang=ar" : "/signin/patient/";
+  const clinicianSignInRoute = "/signin/clinician/";
+
+  const primarySignInRoute =
+    role === "clinician"
+      ? clinicianSignInRoute
+      : role === "participant"
+      ? patientSignInRoute
+      : lang === "ar"
+      ? patientSignInRoute
+      : "/signin/";
+
+  const primarySignInLabel =
+    role === "clinician"
+      ? t.signInClinician
+      : role === "participant"
+      ? t.signInPatient
+      : t.signInAgain;
+
+  const PrimaryIcon = role === "clinician" ? Stethoscope : role === "participant" ? HeartHandshake : LogIn;
 
   return (
     <div dir={lang === "ar" ? "rtl" : "ltr"} lang={lang} className="flex min-h-dvh flex-col justify-between bg-paper px-4 py-8 sm:px-6">
       {/* Top Bar with Logo & Language Toggle */}
       <header className="mx-auto flex w-full max-w-[580px] items-center justify-between">
-        <Link href={homeHref} aria-label="MemBrain home">
+        <Link href={homeRoute} aria-label="MemBrain home">
           <Logo size="md" />
         </Link>
         <div className="flex rounded-full bg-mist p-1" role="group" aria-label="Language">
@@ -85,7 +133,7 @@ export function SignedOutView() {
           {/* Action Buttons */}
           <div className="mt-8 space-y-3">
             <Link
-              href={homeHref}
+              href={homeRoute}
               className="flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-deep text-[16px] font-semibold text-white shadow-[0_10px_24px_-10px_rgb(15_63_44/0.7)] hover:bg-deep-hover transition-colors"
             >
               <Home size={18} />
@@ -93,12 +141,49 @@ export function SignedOutView() {
             </Link>
 
             <Link
-              href={signInHref}
+              href={primarySignInRoute}
               className="flex h-[48px] w-full items-center justify-center gap-2 rounded-2xl border border-line bg-white text-[14.5px] font-medium text-ink hover:bg-paper transition-colors"
             >
-              <LogIn size={16} />
-              <span>{t.signInAgain}</span>
+              <PrimaryIcon size={16} />
+              <span>{primarySignInLabel}</span>
             </Link>
+
+            {/* Smart Secondary Navigation based on role */}
+            {role === "clinician" ? (
+              <div className="pt-2">
+                <Link
+                  href={patientSignInRoute}
+                  className="text-[13px] font-medium text-muted hover:text-deep transition-colors underline-offset-4 hover:underline"
+                >
+                  {t.switchPatient}
+                </Link>
+              </div>
+            ) : role === "participant" ? (
+              <div className="pt-2">
+                <Link
+                  href={clinicianSignInRoute}
+                  className="text-[13px] font-medium text-muted hover:text-deep transition-colors underline-offset-4 hover:underline"
+                >
+                  {t.switchClinician}
+                </Link>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center justify-center gap-4 pt-2 text-[13px]">
+                <Link
+                  href={patientSignInRoute}
+                  className="font-medium text-muted hover:text-deep transition-colors underline-offset-4 hover:underline"
+                >
+                  {t.patientOption}
+                </Link>
+                <span className="text-line" aria-hidden="true">·</span>
+                <Link
+                  href={clinicianSignInRoute}
+                  className="font-medium text-muted hover:text-deep transition-colors underline-offset-4 hover:underline"
+                >
+                  {t.clinicianOption}
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </main>

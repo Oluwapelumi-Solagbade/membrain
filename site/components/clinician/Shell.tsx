@@ -89,7 +89,7 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
           onClick={async () => {
             onNavigate?.();
             await signOut();
-            window.location.href = getSignedOutUrl("en");
+            window.location.href = getSignedOutUrl("en", "clinician");
           }}
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[13.5px] font-medium text-rose-300 hover:bg-rose-500/20 hover:text-white transition-colors"
         >
@@ -164,7 +164,7 @@ function UserMenu({ align, children }: { align: "top" | "bottom"; children: Reac
             onClick={async () => {
               setOpen(false);
               await signOut();
-              window.location.href = getSignedOutUrl("en");
+              window.location.href = getSignedOutUrl("en", "clinician");
             }}
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-start text-[14.5px] font-medium text-lv-urgent hover:bg-lv-urgent-soft"
           >
@@ -304,7 +304,7 @@ export function Shell({ children }: { children: ReactNode }) {
               type="button"
               onClick={async () => {
                 await signOut();
-                window.location.href = getSignedOutUrl("en");
+                window.location.href = getSignedOutUrl("en", "clinician");
               }}
               title="Sign out and leave no trace"
               aria-label="Sign out"
