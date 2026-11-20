@@ -77,9 +77,9 @@ const T = {
       },
     ],
     note: "MemBrain is an investigational screening navigation tool; it flags risk and change to support physicians and never replaces medical diagnosis.",
-    videoTitle: "Watch the app in two minutes",
-    videoNote: "Recorded on the real Android app with synthetic demo data: a person's spoken check-in in English and Arabic, then a clinician's alerts, cases and map.",
-    videoDownload: "Download the video (MP4, 7 MB)",
+    videoTitle: "See MemBrain work, start to finish",
+    videoNote: "One case on synthetic data: a family raises a concern on the web, the doctor confirms and refers, then a spoken check-in and a referral in the Android app.",
+    videoDownload: "Download the video (MP4, 8 MB)",
   },
   ar: {
     eyebrow: "تطبيق الهاتف الذكي",
@@ -139,9 +139,9 @@ const T = {
       },
     ],
     note: "نظام بحثي لدعم القرار السريري والمساعدة في التوجيه الطبي؛ يرصد مؤشرات التغيّر والمخاطر ولا يشخّص أبدًا.",
-    videoTitle: "شاهد التطبيق في دقيقتين",
-    videoNote: "مسجّل من تطبيق أندرويد الفعلي ببيانات تجريبية: فحص صوتي بالعربية والإنجليزية، ثم تنبيهات الطبيب وحالاته وخريطته. التعليق الصوتي بالإنجليزية.",
-    videoDownload: "حمّل الفيديو (MP4، ٧ ميجابايت)",
+    videoTitle: "شاهد MemBrain يعمل من البداية إلى النهاية",
+    videoNote: "حالة واحدة ببيانات تجريبية: الأسرة تبلّغ عن تغيّر على الموقع، والطبيب يؤكد ويحيل، ثم فحص صوتي وإحالة في تطبيق أندرويد. التعليق الصوتي بالإنجليزية.",
+    videoDownload: "حمّل الفيديو (MP4، ٨ ميجابايت)",
   },
 };
 
